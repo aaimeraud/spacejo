@@ -6,7 +6,7 @@ Référence commune du front (`web/src/api/types.ts`) et du back (`src/`, `crate
 ## Généralités
 
 - Toutes les requêtes et réponses sont en JSON (`Content-Type: application/json`), encodé en UTF-8.
-- Corps de requête limité à 16 Kio (`MAX_BODY_BYTES` dans `src/http.rs`) : au-delà, réponse `413`.
+- Corps de requête limité à 16 Kio (`MAX_BODY_BYTES` dans `src/handlers.rs`) : au-delà, réponse `413`.
 - Un champ inconnu, une valeur d'énumération inconnue ou un type incorrect est refusé (`400`).
 - **Jeton** : `create` et `join` renvoient un `token` (64 caractères hexadécimaux, 256 bits aléatoires).
   Il n'est remis qu'une fois. Les autres routes l'attendent dans l'en-tête `X-Player-Token`. Le serveur

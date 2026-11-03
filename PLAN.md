@@ -12,7 +12,7 @@ importantes dans `docs/decisions/`.
 5. [x] API, persistance, verrou optimiste, migrations, version du format d'état (critères 9, 12, 16, 17, 18).
 6. [x] Interface React (accueil, salon, partie, fin de partie).
 7. [x] CI, release (git-cliff), `vercel.json`, `.env.example`, `docker-compose.yml`, README.
-8. [ ] Relecture critère par critère ; `docs/` décrit le code réel.
+8. [x] Relecture critère par critère ; `docs/` décrit le code réel.
 
 ## Structure des dossiers
 
