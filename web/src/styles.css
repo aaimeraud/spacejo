@@ -113,7 +113,7 @@ summary { cursor: pointer; color: var(--focus); }
 .table-info { color: var(--muted); margin: 0 0 4px; }
 
 .scene {
-  perspective: 1400px;
+  perspective: 1100px;
   perspective-origin: 50% 0%;
   padding: 24px 0 0;
 }
@@ -124,9 +124,9 @@ summary { cursor: pointer; color: var(--focus); }
   width: 100%;
   max-width: 1000px;
   aspect-ratio: 2 / 1;
-  min-height: 400px;
+  min-height: 440px;
   border-radius: 50% / 46%;
-  transform: rotateX(24deg);
+  transform: rotateX(36deg);
   transform-origin: 50% 100%;
   transform-style: preserve-3d;
   background:
@@ -153,7 +153,13 @@ summary { cursor: pointer; color: var(--focus); }
   border-radius: 14px;
   transition: box-shadow 0.3s ease, background 0.3s ease;
 }
-.seat.is-active { background: rgba(255, 209, 102, 0.08); box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.55); }
+.seat { transition: transform 0.35s ease, box-shadow 0.3s ease, background 0.3s ease; }
+.seat.is-active {
+  z-index: 2;
+  transform: translate(-50%, -50%) translateZ(30px) scale(1.4);
+  background: rgba(13, 16, 40, 0.75);
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.55), 0 16px 30px rgba(0, 0, 0, 0.5);
+}
 
 .table-center {
   position: absolute;
@@ -195,11 +201,14 @@ summary { cursor: pointer; color: var(--focus); }
 .held-card { display: block; animation: float 2.4s ease-in-out infinite, lift 0.3s ease-out; }
 .round-over { text-align: center; background: rgba(13, 16, 40, 0.85); padding: 16px 20px; border-radius: 12px; border: 1px solid var(--accent); }
 
+.my-seat-scene { perspective: 1100px; }
 .my-seat {
   position: relative;
   z-index: 1;
   /* Ma place empiète sur le bord de la table, comme si j'étais assis devant. */
-  margin: -110px auto 16px;
+  margin: -130px auto 16px;
+  transform: rotateX(14deg);
+  transform-origin: 50% 100%;
   width: fit-content;
   max-width: 100%;
   display: flex;
@@ -234,31 +243,55 @@ summary { cursor: pointer; color: var(--focus); }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* ===== Grilles ===== */
-.grid { display: flex; gap: var(--grid-gap, 8px); }
-.grid-sm { --grid-gap: 4px; }
-.grid-column { display: flex; flex-direction: column; gap: var(--grid-gap, 8px); }
+.grid { display: flex; gap: var(--grid-gap, 14px); }
+.grid-sm { --grid-gap: 6px; }
+.grid-column { display: flex; flex-direction: column; gap: var(--grid-gap, 14px); }
 .slot { display: block; padding: 0; background: transparent; border: none; border-radius: 10px; }
 .slot-button:disabled { opacity: 1; cursor: default; }
 .slot-button.playable { cursor: pointer; }
 .slot-button.playable .card3d { box-shadow: 0 0 0 2px var(--focus), 0 6px 14px rgba(0, 0, 0, 0.4); }
 .slot-button.playable:hover .card3d, .slot-button.playable:focus-visible .card3d { transform: translateY(-6px) rotateX(8deg); }
 .removed-column {
-  width: var(--card-w); height: calc(3 * var(--card-h) + 2 * var(--grid-gap, 8px));
+  width: var(--card-w); height: calc(3 * var(--card-h) + 2 * var(--grid-gap, 14px));
   display: flex; align-items: center; justify-content: center; text-align: center;
   border: 2px dashed var(--border); border-radius: 10px; color: var(--muted); font-size: 0.7rem; padding: 2px;
   animation: fade-in 0.4s ease-out;
 }
 .grid-sm .removed-column { font-size: 0.55rem; }
+/* Colonne qui vient d'être retirée : les 3 cartes brillent, montent en tournant puis s'effacent. */
+.removed-column { position: relative; }
+.removed-column.is-clearing > span:first-child { opacity: 0; animation: fade-in 0.4s ease-out 1s forwards; }
+.column-ghost { position: absolute; inset: 0; display: flex; flex-direction: column; gap: var(--grid-gap, 14px); pointer-events: none; }
+.column-ghost-card { display: block; animation: column-clear 1.1s ease-in forwards; }
+.column-ghost-card .card3d { width: var(--card-w); height: var(--card-h); box-shadow: 0 0 0 3px var(--accent), 0 0 24px rgba(255, 209, 102, 0.9); }
+.column-ghost-label {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%;
+  white-space: nowrap; font-weight: 800; color: var(--accent); font-size: 0.9rem;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+  animation: label-burst 1.1s ease-out forwards;
+}
+.grid-sm .column-ghost-label { font-size: 0.6rem; }
+@keyframes column-clear {
+  0% { transform: none; opacity: 1; filter: brightness(1); }
+  30% { transform: translateY(-6px) scale(1.08); filter: brightness(1.6); }
+  100% { transform: translateY(-70px) rotate(25deg) scale(0.4); opacity: 0; filter: brightness(2); }
+}
+@keyframes label-burst {
+  0% { opacity: 0; scale: 0.5; }
+  25% { opacity: 1; scale: 1.15; }
+  80% { opacity: 1; scale: 1; }
+  100% { opacity: 0; scale: 1; }
+}
 
 /* ===== Cartes 3D =====
    .card3d       : la carte (taille, ombre, soulèvement au survol)
    .card3d-inner : le support qui pivote ; à 180° on voit le dos, à 0° la face
    .card3d-face  : les deux faces, dos à dos (backface-visibility: hidden) */
-.card3d-sm { --card-w: 30px; --card-h: 42px; --card-font: 0.85rem; }
-.card3d-md { --card-w: 62px; --card-h: 88px; --card-font: 1.7rem; }
-.card3d-lg { --card-w: 70px; --card-h: 98px; --card-font: 1.9rem; }
-.grid-sm { --card-w: 30px; --card-h: 42px; }
-.grid-md { --card-w: 62px; --card-h: 88px; }
+.card3d-sm { --card-w: 36px; --card-h: 50px; --card-font: 1rem; }
+.card3d-md { --card-w: 78px; --card-h: 110px; --card-font: 2.1rem; }
+.card3d-lg { --card-w: 80px; --card-h: 112px; --card-font: 2.2rem; }
+.grid-sm { --card-w: 36px; --card-h: 50px; }
+.grid-md { --card-w: 78px; --card-h: 110px; }
 
 .card3d {
   display: block;
@@ -355,7 +388,9 @@ summary { cursor: pointer; color: var(--focus); }
     gap: 10px;
     padding: 12px 8px;
   }
-  .seat { position: static; transform: none; padding: 4px; }
+  .seat, .seat.is-active { position: static; transform: none; padding: 4px; }
+  .my-seat-scene { perspective: none; }
+  .my-seat { transform: none; }
   /* Adversaires côte à côte : cartes et badges plus compacts. */
   .seat .grid-sm, .seat .card3d-sm { --card-w: 24px; --card-h: 34px; --card-font: 0.75rem; --grid-gap: 3px; }
   .seat .badge { padding: 2px 8px; }
@@ -364,7 +399,7 @@ summary { cursor: pointer; color: var(--focus); }
   .seat .badge-meta { white-space: normal; font-size: 0.7rem; }
   .table-center { position: static; transform: none; width: 100%; justify-content: center; padding: 8px 0; }
   .my-seat { margin-top: 12px; }
-  .card3d-md, .grid-md { --card-w: 52px; --card-h: 74px; --card-font: 1.4rem; }
+  .card3d-md, .grid-md { --card-w: 60px; --card-h: 84px; --card-font: 1.6rem; --grid-gap: 10px; }
 }
 
 /* Respect de la préférence « réduire les animations » du système. */

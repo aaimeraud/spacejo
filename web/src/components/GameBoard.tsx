@@ -92,7 +92,14 @@ export function GameBoard({ view, busy, onAction }: Props) {
             <section
               key={seat.player.id}
               className={`seat${view.current_player === seat.player.id ? " is-active" : ""}`}
-              style={{ "--seat-x": `${seat.x}%`, "--seat-y": `${seat.y}%` } as CSSProperties}
+              style={
+                {
+                  "--seat-x": `${seat.x}%`,
+                  "--seat-y": `${seat.y}%`,
+                  // Un siège agrandi grandit vers le centre de la table (son bord extérieur reste en place).
+                  transformOrigin: `${seat.x}% ${seat.y}%`,
+                } as CSSProperties
+              }
               aria-label={`Place de ${seat.player.name}`}
             >
               <PlayerBadge view={view} player={seat.player} />
@@ -163,32 +170,34 @@ export function GameBoard({ view, busy, onAction }: Props) {
       </div>
 
       {me !== undefined && (
-        <section className={`my-seat${myTurn ? " is-active" : ""}`} aria-labelledby="my-grid-title">
-          <h2 id="my-grid-title" className="visually-hidden">
-            Ma grille
-          </h2>
-          <PlayerBadge view={view} player={me} mine />
-          {heldFromPile && (
-            <fieldset className="mode">
-              <legend>Que faire de la carte piochée ?</legend>
-              <label>
-                <input type="radio" name="mode" checked={mode === "swap"} onChange={() => setMode("swap")} />
-                L'échanger avec une carte de ma grille
-              </label>
-              <label>
-                <input type="radio" name="mode" checked={mode === "reveal"} onChange={() => setMode("reveal")} />
-                La défausser et retourner une carte cachée
-              </label>
-            </fieldset>
-          )}
-          <GridView
-            player={me}
-            size="md"
-            actionFor={(column, row) => slotAction(view, mode, column, row)}
-            onAction={send}
-            disabled={busy}
-          />
-        </section>
+        <div className="my-seat-scene">
+          <section className={`my-seat${myTurn ? " is-active" : ""}`} aria-labelledby="my-grid-title">
+            <h2 id="my-grid-title" className="visually-hidden">
+              Ma grille
+            </h2>
+            <PlayerBadge view={view} player={me} mine />
+            {heldFromPile && (
+              <fieldset className="mode">
+                <legend>Que faire de la carte piochée ?</legend>
+                <label>
+                  <input type="radio" name="mode" checked={mode === "swap"} onChange={() => setMode("swap")} />
+                  L'échanger avec une carte de ma grille
+                </label>
+                <label>
+                  <input type="radio" name="mode" checked={mode === "reveal"} onChange={() => setMode("reveal")} />
+                  La défausser et retourner une carte cachée
+                </label>
+              </fieldset>
+            )}
+            <GridView
+              player={me}
+              size="md"
+              actionFor={(column, row) => slotAction(view, mode, column, row)}
+              onAction={send}
+              disabled={busy}
+            />
+          </section>
+        </div>
       )}
 
       <details className="scores" open={view.phase === "RoundOver"}>

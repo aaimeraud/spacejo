@@ -168,8 +168,12 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 adversaires sont assis autour, à la place calculée par `seats.ts` (un angle sur une ellipse, pour n'importe
 quel nombre de joueurs), avec un badge (nom, total, cartes cachées, hôte, « joue », « a terminé »). Pioche et
 défausse sont au centre, la carte en main flotte au-dessus ; ma grille est devant moi, sur le bord de la table.
-Chaque carte a deux faces dos à dos : la retourner, c'est la faire pivoter de 180° (`rotateY`). Une carte
-posée et la défausse ont une petite animation d'apparition. Sur petit écran (moins de 760 px), la table est à
+La table est fortement inclinée (`rotateX(36deg)`) et ma grille est elle aussi légèrement couchée devant moi.
+La grille de l'adversaire dont c'est le tour est agrandie, vers le centre de la table. Chaque carte a deux
+faces dos à dos : la retourner, c'est la faire pivoter de 180° (`rotateY`). Une carte posée et la défausse ont
+une petite animation d'apparition. Quand une colonne de trois cartes identiques est retirée, ses cartes
+s'illuminent, s'envolent et disparaissent avec le message « Colonne identique ! » : `game/columns.ts` repère ces
+colonnes en comparant la vue précédente et la nouvelle. Sur petit écran (moins de 760 px), la table est à
 plat et les adversaires côte à côte. Avec la préférence système « réduire les animations », il n'y a aucune
 animation. Le choix du CSS 3D plutôt que WebGL est expliqué dans
 [decisions/2026-11-03-vue-table-css-3d.md](decisions/2026-11-03-vue-table-css-3d.md).

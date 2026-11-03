@@ -27,6 +27,8 @@ Demandée après la v1 par le propriétaire du dépôt, qui pourra préférer en
    aucune animation si `prefers-reduced-motion`.
 4. [x] Petit écran : table à plat, adversaires côte à côte, cartes et badges compacts.
 5. [x] Vérification dans le navigateur à 2 et 4 joueurs ; documentation à jour.
+6. [x] Retours du propriétaire : table plus inclinée, grille de l'adversaire actif agrandie, animation propre
+   aux colonnes retirées, cartes plus grandes et plus espacées.
 
 Aucune nouvelle dépendance.
 
