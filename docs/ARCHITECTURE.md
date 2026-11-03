@@ -168,6 +168,8 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 adversaires sont assis autour, à la place calculée par `seats.ts` (un angle sur une ellipse, pour n'importe
 quel nombre de joueurs), avec un badge (nom, total, cartes cachées, hôte, « joue », « a terminé »). Pioche et
 défausse sont au centre, la carte en main flotte au-dessus ; ma grille est devant moi, sur le bord de la table.
+Avec une carte piochée en main, deux tuiles à bascule (« Échanger », « Défausser et retourner », boutons
+`aria-pressed`) choisissent ce que fera le clic sur une carte de ma grille.
 La table est inclinée (`rotateX(30deg)`) et ma grille est très légèrement couchée devant moi. Les grilles des
 adversaires sont tournées vers leur propriétaire, comme des cartes posées devant lui (`Seat.rotation` : 180° en
 face, 90° à gauche, 270° à droite) ; sur petit écran, elles restent droites pour être lisibles.

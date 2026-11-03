@@ -180,17 +180,42 @@ export function GameBoard({ view, busy, onAction }: Props) {
             </h2>
             <PlayerBadge view={view} player={me} mine />
             {heldFromPile && (
-              <fieldset className="mode">
-                <legend>Que faire de la carte piochée ?</legend>
-                <label>
-                  <input type="radio" name="mode" checked={mode === "swap"} onChange={() => setMode("swap")} />
-                  L'échanger avec une carte de ma grille
-                </label>
-                <label>
-                  <input type="radio" name="mode" checked={mode === "reveal"} onChange={() => setMode("reveal")} />
-                  La défausser et retourner une carte cachée
-                </label>
-              </fieldset>
+              // Deux tuiles à bascule (aria-pressed) plutôt que des boutons radio : même style que les préréglages.
+              <div className="held-choice" role="group" aria-labelledby="held-choice-title">
+                <p id="held-choice-title" className="held-choice-title">
+                  Que faire de la carte piochée ?
+                </p>
+                <div className="held-choice-tiles">
+                  <button
+                    type="button"
+                    className={`choice-tile${mode === "swap" ? " is-selected" : ""}`}
+                    aria-pressed={mode === "swap"}
+                    onClick={() => setMode("swap")}
+                  >
+                    <span className="choice-icon" aria-hidden="true">
+                      ⇄
+                    </span>
+                    <span className="choice-text">
+                      <span className="choice-title">Échanger</span>
+                      <span className="choice-description">Elle remplace une carte de ma grille, au choix.</span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className={`choice-tile${mode === "reveal" ? " is-selected" : ""}`}
+                    aria-pressed={mode === "reveal"}
+                    onClick={() => setMode("reveal")}
+                  >
+                    <span className="choice-icon" aria-hidden="true">
+                      ↻
+                    </span>
+                    <span className="choice-text">
+                      <span className="choice-title">Défausser et retourner</span>
+                      <span className="choice-description">Elle va sur la défausse ; je retourne une carte cachée.</span>
+                    </span>
+                  </button>
+                </div>
+              </div>
             )}
             <GridView
               player={me}
