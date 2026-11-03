@@ -157,11 +157,22 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/api/types.ts` | types de l'API, recopiés de [CONTRACT.md](CONTRACT.md) |
 | `src/api/client.ts` | appels HTTP, jeton dans l'en-tête `X-Player-Token`, erreurs → `ApiError` |
 | `src/App.tsx` | session, polling, envoi des actions avec `expected_version`, choix de l'écran |
-| `src/components/` | `Home` (créer avec réglages / rejoindre), `Lobby` (salon), `GameBoard` (partie et fin de partie), `GridView`, `Card`, `Scoreboard`, `RulesPanel` |
+| `src/components/` | `Home` (créer avec réglages / rejoindre), `Lobby` (salon), `GameBoard` (table de jeu et fin de partie), `GridView`, `Card` (carte 3D à deux faces), `Scoreboard`, `RulesPanel` |
+| `src/game/seats.ts` | place de chaque joueur autour de la table (moi en bas, puis l'ordre du tour, dans le sens des aiguilles d'une montre) |
 | `src/rulesInfo.ts` | phrases d'explication et étiquettes « officiel » / « variante » des réglages |
 | `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, classement (simple tri des totaux) |
 | `src/session.ts` | session (code, jeton, identifiant) dans `sessionStorage` |
 | `src/config.ts` | constantes : `POLL_INTERVAL_MS` (2000), bornes, longueurs |
+
+**Table de jeu (CSS 3D)** : la partie se joue sur une table ovale inclinée en perspective (`rotateX`). Les
+adversaires sont assis autour, à la place calculée par `seats.ts` (un angle sur une ellipse, pour n'importe
+quel nombre de joueurs), avec un badge (nom, total, cartes cachées, hôte, « joue », « a terminé »). Pioche et
+défausse sont au centre, la carte en main flotte au-dessus ; ma grille est devant moi, sur le bord de la table.
+Chaque carte a deux faces dos à dos : la retourner, c'est la faire pivoter de 180° (`rotateY`). Une carte
+posée et la défausse ont une petite animation d'apparition. Sur petit écran (moins de 760 px), la table est à
+plat et les adversaires côte à côte. Avec la préférence système « réduire les animations », il n'y a aucune
+animation. Le choix du CSS 3D plutôt que WebGL est expliqué dans
+[decisions/2026-11-03-vue-table-css-3d.md](decisions/2026-11-03-vue-table-css-3d.md).
 
 **Polling** : toutes les 2 secondes, `GET /api/state?code=…&known_version=…`. Si la version n'a pas changé,
 la réponse est minimale (`changed: false`) et rien n'est redessiné.

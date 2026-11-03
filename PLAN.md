@@ -14,6 +14,22 @@ importantes dans `docs/decisions/`.
 7. [x] CI, release (git-cliff), `vercel.json`, `.env.example`, `docker-compose.yml`, README.
 8. [x] Relecture critère par critère ; `docs/` décrit le code réel.
 
+## Évolution en cours : vue « table de jeu » en CSS 3D (prototype)
+
+Demandée après la v1 par le propriétaire du dépôt, qui pourra préférer ensuite React Three Fiber
+(voir `docs/decisions/2026-11-03-vue-table-css-3d.md`). Touche uniquement `web/` (l'API ne change pas).
+
+1. [x] `web/src/game/seats.ts` : place des joueurs autour de la table (moi en bas, les autres dans l'ordre
+   du tour, sens des aiguilles d'une montre), sans nombre de joueurs en dur ; tests.
+2. [x] Table inclinée en perspective, sièges avec badge (nom, total, cartes cachées, hôte, tour, a terminé),
+   pioche et défausse au centre, carte en main au-dessus.
+3. [x] Cartes à deux faces qui se retournent (`rotateY`), apparition d'une carte posée, défausse animée ;
+   aucune animation si `prefers-reduced-motion`.
+4. [x] Petit écran : table à plat, adversaires côte à côte, cartes et badges compacts.
+5. [x] Vérification dans le navigateur à 2 et 4 joueurs ; documentation à jour.
+
+Aucune nouvelle dépendance.
+
 ## Structure des dossiers
 
 La documentation Vercel du runtime Rust (lue le 2026-11-03,

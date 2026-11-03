@@ -13,5 +13,6 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
   - [structure Vercel](decisions/2026-11-03-structure-vercel.md) : un fichier par fonction dans `api/` ;
   - [PostgreSQL et sqlx](decisions/2026-11-03-postgresql-sqlx.md) : driver, verrou optimiste, migrations ;
   - [contrôle des commits](decisions/2026-11-03-controle-des-commits.md) : hook, CI et GitButler ;
-  - [releases avec git-cliff](decisions/2026-11-03-releases-git-cliff.md) : changelog et règle de version en 0.x.
+  - [releases avec git-cliff](decisions/2026-11-03-releases-git-cliff.md) : changelog et règle de version en 0.x ;
+  - [vue table en CSS 3D](decisions/2026-11-03-vue-table-css-3d.md) : table inclinée et cartes qui se retournent, sans WebGL.
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).

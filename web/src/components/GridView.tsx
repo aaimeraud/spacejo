@@ -1,19 +1,20 @@
 // Grille d'un joueur (colonnes de 3 cartes). Pour sa propre grille, chaque carte est un bouton.
 import type { Action, PlayerView } from "../api/types";
 import { slotLabel } from "../game/logic";
-import { CardFace } from "./Card";
+import { Card3D, type CardSize } from "./Card";
 
 interface Props {
   player: PlayerView;
+  size?: CardSize;
   /** Action d'un clic sur une case, ou `null` si la case n'est pas jouable. Absent : grille d'un autre joueur. */
   actionFor?: (column: number, row: number) => Action | null;
   onAction?: (action: Action) => void;
   disabled?: boolean;
 }
 
-export function GridView({ player, actionFor, onAction, disabled = false }: Props) {
+export function GridView({ player, size = "md", actionFor, onAction, disabled = false }: Props) {
   return (
-    <div className="grid" role="group" aria-label={`Grille de ${player.name}`}>
+    <div className={`grid grid-${size}`} role="group" aria-label={`Grille de ${player.name}`}>
       {player.grid.map((column, c) => (
         <div className="grid-column" key={c}>
           {column.kind === "Removed" ? (
@@ -26,7 +27,7 @@ export function GridView({ player, actionFor, onAction, disabled = false }: Prop
               if (actionFor === undefined || onAction === undefined) {
                 return (
                   <span className="slot" key={r} role="img" aria-label={label}>
-                    <CardFace slot={slot} />
+                    <Card3D slot={slot} size={size} />
                   </span>
                 );
               }
@@ -42,7 +43,7 @@ export function GridView({ player, actionFor, onAction, disabled = false }: Prop
                     if (action !== null) onAction(action);
                   }}
                 >
-                  <CardFace slot={slot} />
+                  <Card3D slot={slot} size={size} />
                 </button>
               );
             })
