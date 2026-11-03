@@ -1,10 +1,14 @@
-// Écran d'accueil : créer une partie (en choisissant les réglages) ou en rejoindre une.
+// Accueil, en parcours pas à pas : créer une partie (nom, type de partie, réglages si « Personnalisée »,
+// récapitulatif), rejoindre une partie (code, nom), ou reprendre une partie mémorisée. On peut toujours
+// revenir à l'étape précédente.
+import { History, LogIn, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type { Rules } from "../api/types";
 import { GAME_CODE_LENGTH, MAX_NAME_CHARS } from "../config";
 import { OFFICIAL_RULES } from "../rulesInfo";
 import type { KnownSession } from "../session";
-import { RulesEditor } from "./RulesPanel";
+import { FitStage } from "./FitStage";
+import { RuleStepBody, WizardFrame, ruleStepTitle, useRulesFlow } from "./wizard/RuleSteps";
 
 interface Props {
   busy: boolean;
@@ -15,86 +19,194 @@ interface Props {
   onResume: (session: KnownSession) => void;
 }
 
+type Mode = "menu" | "create" | "join";
+
 export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
-  const [createName, setCreateName] = useState("");
-  const [rules, setRules] = useState<Rules>(OFFICIAL_RULES);
-  const [joinName, setJoinName] = useState("");
+  const [mode, setMode] = useState<Mode>("menu");
+  const [name, setName] = useState("");
   const [code, setCode] = useState("");
+  // Création : étape du nom, puis étapes de réglage (`flow`).
+  const [onNameStep, setOnNameStep] = useState(true);
+  // Jonction : 0 = code, 1 = nom.
+  const [joinStep, setJoinStep] = useState(0);
+  const flow = useRulesFlow(OFFICIAL_RULES);
 
-  const submitCreate = (event: FormEvent) => {
-    event.preventDefault();
-    onCreate(createName, rules);
+  const nameValid = name.trim().length > 0;
+  const codeValid = code.trim().length === GAME_CODE_LENGTH;
+
+  const reset = (next: Mode) => {
+    setMode(next);
+    setOnNameStep(true);
+    setJoinStep(0);
+    flow.setPosition(0);
   };
-  const submitJoin = (event: FormEvent) => {
-    event.preventDefault();
-    onJoin(code, joinName);
-  };
 
-  return (
-    <div className="home">
-      {resumable.length > 0 && (
-        <section aria-labelledby="resume-title" className="panel resume-panel">
-          <h2 id="resume-title">Reprendre une partie</h2>
-          <ul className="resume-list">
-            {resumable.map((known) => (
-              <li key={known.code}>
-                <button type="button" className="preset" onClick={() => onResume(known)}>
-                  <span className="preset-title">Partie {known.code}</span>
-                  <span className="preset-description">En tant que {known.name}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-      <section aria-labelledby="create-title" className="panel">
-        <h2 id="create-title">Créer une partie</h2>
-        <form onSubmit={submitCreate}>
-          <label htmlFor="create-name">Votre nom</label>
-          <input
-            id="create-name"
-            value={createName}
-            maxLength={MAX_NAME_CHARS}
-            required
-            autoComplete="nickname"
-            onChange={(event) => setCreateName(event.target.value)}
-          />
-          <h3 className="subheading">Type de partie</h3>
-          <RulesEditor rules={rules} onChange={setRules} disabled={busy} />
-          <button type="submit" className="primary" disabled={busy}>
-            Créer la partie
-          </button>
-        </form>
-      </section>
+  const nameField = (
+    <>
+      <label htmlFor="player-name" className="field-label">
+        Votre nom
+      </label>
+      <input
+        id="player-name"
+        className="big-input"
+        value={name}
+        maxLength={MAX_NAME_CHARS}
+        autoComplete="nickname"
+        autoFocus
+        onChange={(event) => setName(event.target.value)}
+      />
+      <p className="note">De 1 à {MAX_NAME_CHARS} caractères, visible par les autres joueurs.</p>
+    </>
+  );
 
-      <section aria-labelledby="join-title" className="panel">
-        <h2 id="join-title">Rejoindre une partie</h2>
-        <form onSubmit={submitJoin}>
-          <label htmlFor="join-code">Code de la partie</label>
+  const content = () => {
+    if (mode === "menu") {
+      return (
+        <div className="home-menu">
+          <div className="home-brand">
+            <h2>Bienvenue sur SpaceJo</h2>
+            <p>Un jeu de cartes au tour par tour, de 2 à 10 joueurs.</p>
+          </div>
+          <div className="tile-grid two">
+            <button type="button" className="big-tile" onClick={() => reset("create")}>
+              <Plus className="tile-icon" aria-hidden="true" />
+              <span className="tile-title">Créer une partie</span>
+              <span className="tile-description">Choisissez les règles, puis partagez le code.</span>
+            </button>
+            <button type="button" className="big-tile" onClick={() => reset("join")}>
+              <LogIn className="tile-icon" aria-hidden="true" />
+              <span className="tile-title">Rejoindre une partie</span>
+              <span className="tile-description">Avec le code donné par l'hôte.</span>
+            </button>
+          </div>
+          {resumable.length > 0 && (
+            <section className="resume" aria-labelledby="resume-title">
+              <h3 id="resume-title">
+                <History aria-hidden="true" /> Reprendre une partie
+              </h3>
+              <ul className="resume-list">
+                {resumable.slice(0, 3).map((known) => (
+                  <li key={known.code}>
+                    <button type="button" className="chip-button" onClick={() => onResume(known)}>
+                      <strong>{known.code}</strong> · {known.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          <p className="legal">
+            SpaceJo reprend les règles du jeu de cartes Skyjo. Projet indépendant, non affilié à Magilano.
+          </p>
+        </div>
+      );
+    }
+
+    if (mode === "join") {
+      const total = 2;
+      return joinStep === 0 ? (
+        <WizardFrame
+          index={0}
+          total={total}
+          title="Quel est le code de la partie ?"
+          subtitle="6 caractères, donnés par l'hôte."
+          onBack={() => reset("menu")}
+          onNext={() => setJoinStep(1)}
+          nextDisabled={!codeValid}
+        >
+          <label htmlFor="game-code" className="visually-hidden">
+            Code de la partie
+          </label>
           <input
-            id="join-code"
+            id="game-code"
+            className="big-input code-input"
             value={code}
             maxLength={GAME_CODE_LENGTH}
-            required
             autoCapitalize="characters"
             spellCheck={false}
-            className="code-input"
+            autoFocus
             onChange={(event) => setCode(event.target.value.toUpperCase())}
           />
-          <label htmlFor="join-name">Votre nom</label>
-          <input
-            id="join-name"
-            value={joinName}
-            maxLength={MAX_NAME_CHARS}
-            required
-            autoComplete="nickname"
-            onChange={(event) => setJoinName(event.target.value)}
-          />
-          <button type="submit" className="primary" disabled={busy}>
-            Rejoindre
-          </button>
+        </WizardFrame>
+      ) : (
+        <WizardFrame
+          index={1}
+          total={total}
+          title="Comment vous appelez-vous ?"
+          onBack={() => setJoinStep(0)}
+          onNext={() => onJoin(code, name)}
+          nextLabel="Rejoindre"
+          nextDisabled={!nameValid || busy}
+          finish
+        >
+          {nameField}
+        </WizardFrame>
+      );
+    }
+
+    // Création
+    const total = 1 + flow.steps.length;
+    if (onNameStep) {
+      return (
+        <WizardFrame
+          index={0}
+          total={total}
+          title="Comment vous appelez-vous ?"
+          subtitle="Vous serez l'hôte : vous choisirez les règles et lancerez la partie."
+          onBack={() => reset("menu")}
+          onNext={() => setOnNameStep(false)}
+          nextDisabled={!nameValid}
+        >
+          {nameField}
+        </WizardFrame>
+      );
+    }
+    const isRecap = flow.stepKey === "recap";
+    const goBack = () => {
+      if (flow.position === 0) setOnNameStep(true);
+      else if (isRecap && !flow.custom) flow.setPosition(0);
+      else flow.setPosition(flow.position - 1);
+    };
+    const goNext = () => {
+      if (isRecap) onCreate(name, flow.rules);
+      else if (flow.stepKey === "preset") {
+        if (flow.custom) flow.setPosition(1);
+        else flow.pickPreset(flow.rules);
+      } else flow.setPosition(flow.position + 1);
+    };
+    return (
+      <WizardFrame
+        index={1 + flow.position}
+        total={total}
+        title={ruleStepTitle(flow.stepKey)}
+        onBack={goBack}
+        onNext={goNext}
+        nextLabel={isRecap ? "Créer la partie" : "Suivant"}
+        nextDisabled={busy}
+        finish={isRecap}
+      >
+        <RuleStepBody
+          stepKey={flow.stepKey}
+          rules={flow.rules}
+          custom={flow.custom}
+          onRules={flow.setRules}
+          onPreset={flow.pickPreset}
+          onCustom={flow.pickCustom}
+          onEdit={flow.edit}
+        />
+      </WizardFrame>
+    );
+  };
+
+  // Un formulaire : la touche Entrée valide l'étape (le bouton « Suivant » est de type submit).
+  const submit = (event: FormEvent) => event.preventDefault();
+  return (
+    <FitStage landscape={[960, 680]} portrait={[440, 900]}>
+      {() => (
+        <form className="home-card" onSubmit={submit}>
+          {content()}
         </form>
-      </section>
-    </div>
+      )}
+    </FitStage>
   );
 }

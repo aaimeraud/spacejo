@@ -25,3 +25,6 @@ export const KNOWN_SESSIONS_KEY = "spacejo.sessions";
 /** Nombre maximal de parties mémorisées pour la reprise. */
 export const MAX_KNOWN_SESSIONS = 5;
 
+
+/** Nombre maximal de joueurs (même valeur que `MAX_PLAYERS` du core ; le serveur reste seul juge). */
+export const MAX_PLAYERS = 10;

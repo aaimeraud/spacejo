@@ -1,5 +1,6 @@
 // Application : choisit l'écran selon la session et la phase, et tient l'état reçu du serveur.
 // Le serveur est autoritaire : on n'envoie que des intentions et on affiche la vue renvoyée.
+import { LogOut, Rocket } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, SpaceJoApi } from "./api/client";
 import type { Action, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
@@ -168,32 +169,42 @@ export function App() {
   const onAction = (action: Action) => write((s, version) => api.act(s.code, s.token, version, action));
 
   return (
+    // L'application occupe exactement l'écran : un en-tête fin, puis l'écran courant, mis à l'échelle pour
+    // tenir dans la place restante (aucun défilement de la page).
     <div className="app">
       <header className="app-header">
-        <h1>SpaceJo</h1>
+        <h1>
+          <Rocket aria-hidden="true" /> SpaceJo
+        </h1>
         {session !== null && (
           <div className="session-info">
-            <span>
+            <span className="code-chip">
               Partie <strong>{session.code}</strong>
             </span>
-            <button type="button" onClick={() => leave(true)}>
-              Quitter
+            <button type="button" className="ghost-button" onClick={() => leave(true)}>
+              <LogOut aria-hidden="true" /> Quitter
             </button>
           </div>
         )}
       </header>
 
-      {error !== null && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-
-      <main>
+      <main className="app-main">
+        {error !== null && (
+          <p className="toast" role="alert">
+            {error}
+            <button type="button" className="toast-close" onClick={() => setError(null)} aria-label="Fermer le message">
+              ×
+            </button>
+          </p>
+        )}
         {session === null && (
           <Home busy={busy} resumable={resumable} onCreate={onCreate} onJoin={onJoin} onResume={onResume} />
         )}
-        {session !== null && view === null && <p role="status">Chargement de la partie…</p>}
+        {session !== null && view === null && (
+          <p className="loading" role="status">
+            Chargement de la partie…
+          </p>
+        )}
         {session !== null && view !== null && view.phase === "Lobby" && (
           <Lobby
             view={view}
@@ -205,15 +216,16 @@ export function App() {
           />
         )}
         {session !== null && view !== null && view.phase !== "Lobby" && (
-          <GameBoard view={view} busy={busy} presence={presence} waiting={waiting} onAction={onAction} />
+          <GameBoard
+            view={view}
+            busy={busy}
+            presence={presence}
+            waiting={waiting}
+            onAction={onAction}
+            onLeave={() => leave(true)}
+          />
         )}
       </main>
-
-      <footer className="app-footer">
-        <p>
-          SpaceJo reprend les règles du jeu de cartes Skyjo. Projet indépendant, non affilié à Magilano.
-        </p>
-      </footer>
     </div>
   );
 }

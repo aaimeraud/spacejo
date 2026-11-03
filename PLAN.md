@@ -143,10 +143,10 @@ Demandée par le propriétaire du dépôt. Les durées sont des constantes nomm�
 
 ## Évolution en cours : écran de jeu figé, création pas à pas, icônes (branche `claude/app-layout`)
 
-1. [ ] Aucun défilement : l'application occupe exactement l'écran ; la table est dessinée à une taille de référence
+1. [x] Aucun défilement : l'application occupe exactement l'écran ; la table est dessinée à une taille de référence
    puis mise à l'échelle pour tenir dans la fenêtre (paysage ou portrait), jusqu'à 10 joueurs.
-2. [ ] Création de partie pas à pas (nom, type de partie, puis un réglage par écran si « Personnalisée »,
+2. [x] Création de partie pas à pas (nom, type de partie, puis un réglage par écran si « Personnalisée »,
    récapitulatif), avec retour en arrière ; même parcours pour modifier les règles au salon.
-3. [ ] Icônes `lucide-react` 1.59.0 (licence ISC, aucune dépendance) : seule dépendance ajoutée, pour des icônes
+3. [x] Icônes `lucide-react` 1.59.0 (licence ISC, aucune dépendance) : seule dépendance ajoutée, pour des icônes
    cohérentes et accessibles sans dessiner chaque pictogramme.
 

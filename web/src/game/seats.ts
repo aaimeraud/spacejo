@@ -21,9 +21,13 @@ export interface Seat {
 /** Demi-axes de l'ellipse des sièges, en pourcentage de la table. */
 const SEAT_RADIUS_X = 42;
 const SEAT_RADIUS_Y = 40;
+/** Secteur laissé libre de chaque côté de ma place (en bas), en degrés : ma grille, posée devant moi sur le
+ * bord de la table, occupe ce secteur. */
+const MY_SECTOR_HALF_WIDTH = 45;
 
 /** Répartit les joueurs autour d'une ellipse : moi en bas, puis chacun dans l'ordre du tour, dans le sens
- * des aiguilles d'une montre. Fonctionne pour n'importe quel nombre de joueurs. */
+ * des aiguilles d'une montre. Les adversaires se partagent l'arc qui reste, en parts égales (au centre de
+ * chaque part). Fonctionne pour n'importe quel nombre de joueurs. */
 export function seatPlayers(view: GameView): Seat[] {
   const count = view.players.length;
   if (count === 0) return [];
@@ -31,7 +35,10 @@ export function seatPlayers(view: GameView): Seat[] {
   const first = start < 0 ? 0 : start;
   return view.players.map((_, offset) => {
     const player = view.players[(first + offset) % count] as PlayerView;
-    const angle = (90 + (offset * 360) / count) % 360;
+    const opponents = count - 1;
+    const arc = 360 - 2 * MY_SECTOR_HALF_WIDTH;
+    const angle =
+      offset === 0 ? 90 : (90 + MY_SECTOR_HALF_WIDTH + ((offset - 0.5) * arc) / opponents) % 360;
     const radians = (angle * Math.PI) / 180;
     return {
       player,

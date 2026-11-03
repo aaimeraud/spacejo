@@ -96,16 +96,21 @@ tests/scripts/release.test.sh
 
 1. Lancer l'API et l'interface (ci-dessus), puis ouvrir http://localhost:5173 dans **deux onglets**.
    Chaque onglet garde sa propre session (`sessionStorage`).
-2. Onglet 1 : saisir un nom, laisser les réglages par défaut, « Créer la partie ». Noter le code affiché.
-3. Onglet 2 : saisir le code et un autre nom, « Rejoindre ». Les deux salons affichent les deux joueurs et
-   les règles actives, chacune avec son explication et l'étiquette « officiel » ou « variante ».
+2. Onglet 1 : « Créer une partie », saisir un nom, choisir « Règles officielles », puis « Créer la partie »
+   sur le récapitulatif. Noter le code affiché dans le salon.
+3. Onglet 2 : « Rejoindre une partie », saisir le code puis un autre nom. Les deux salons affichent les deux
+   joueurs et les règles actives (« Explications » les détaille avec l'étiquette « officiel » ou « variante »).
 4. Onglet 1 (hôte) : « Lancer la partie ». Chaque joueur retourne 2 cartes, puis joue à son tour (piocher
    ou prendre la défausse, puis échanger ou défausser et retourner). Si un message « La partie a changé
    entre-temps » s'affiche, l'autre joueur a joué au même moment : refaire le geste.
-5. Jouer jusqu'à « Fin de partie » : le classement et le tableau des scores s'affichent.
+5. Jouer jusqu'à « Fin de partie » : le classement s'affiche (« Tableau des scores » pour le détail). La page
+   ne défile jamais : tout tient à l'écran, en paysage comme en portrait.
 6. Recommencer (« Quitter », puis créer une partie) avec au moins une variante, par exemple le préréglage
    « Détente », ou « Personnalisée » avec un score de fin de 30 points au curseur pour une partie courte. Vérifier
-   que l'onglet 2 voit le changement de réglage dans le salon (résumé et cartes), et qu'il ne peut pas les modifier.
+   que l'onglet 2 voit le changement de réglage dans le salon, et qu'il ne peut pas les modifier.
+7. Absence : pendant une partie, fermer l'onglet 2. Dans l'onglet 1, son badge passe à « absent » après 15 s ; à
+   son tour, un bandeau compte 45 s, puis son tour est passé ; au deuxième tour manqué, il est éliminé. Rouvrir le
+   site : l'accueil propose « Reprendre une partie ».
 
 ## Déployer sur Vercel
 

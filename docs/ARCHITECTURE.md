@@ -157,7 +157,8 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/api/types.ts` | types de l'API, recopiés de [CONTRACT.md](CONTRACT.md) |
 | `src/api/client.ts` | appels HTTP, jeton dans l'en-tête `X-Player-Token`, erreurs → `ApiError` |
 | `src/App.tsx` | session, polling, envoi des actions avec `expected_version`, choix de l'écran |
-| `src/components/` | `Home` (créer avec réglages / rejoindre), `Lobby` (salon), `GameBoard` (table de jeu et fin de partie), `GridView`, `Card` (carte 3D à deux faces), `Scoreboard`, `RulesPanel` |
+| `src/components/` | `Home` (accueil et parcours pas à pas), `Lobby` (salon), `GameBoard` (table de jeu et fin de partie), `GridView`, `Card` (carte 3D à deux faces), `Scoreboard`, `Modal` (fenêtres), `FitStage` (écran figé mis à l'échelle), `icons.tsx` (icônes Lucide des réglages) |
+| `src/components/wizard/RuleSteps.tsx` | étapes du parcours de réglages (type de partie, un réglage par écran, score de fin, récapitulatif), partagées par l'accueil et le salon |
 | `src/game/seats.ts` | place de chaque joueur autour de la table (moi en bas, puis l'ordre du tour, dans le sens des aiguilles d'une montre) |
 | `src/rulesInfo.ts` | explications, exemples, étiquettes « officiel » / « variante », préréglages (raccourcis de l'interface) et résumé des réglages |
 | `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, classement (simple tri des totaux) |
@@ -177,17 +178,28 @@ La grille de l'adversaire dont c'est le tour est agrandie, vers le centre de la 
 faces dos à dos : la retourner, c'est la faire pivoter de 180° (`rotateY`). Une carte posée et la défausse ont
 une petite animation d'apparition. Quand une colonne de trois cartes identiques est retirée, ses cartes
 s'illuminent, s'envolent et disparaissent avec le message « Colonne identique ! » : `game/columns.ts` repère ces
-colonnes en comparant la vue précédente et la nouvelle. Sur petit écran (moins de 760 px), la table est à
-plat et les adversaires côte à côte. Avec la préférence système « réduire les animations », il n'y a aucune
+colonnes en comparant la vue précédente et la nouvelle. En portrait, la table est à
+plat et les adversaires en mosaïque (2, 3 ou 5 par ligne), étiquettes réduites à leur icône. Avec la préférence système « réduire les animations », il n'y a aucune
 animation. Le choix du CSS 3D plutôt que WebGL est expliqué dans
 [decisions/2026-11-03-vue-table-css-3d.md](decisions/2026-11-03-vue-table-css-3d.md).
 
-**Réglages** (`RulesPanel.tsx`) : quatre tuiles de préréglage (« Règles officielles », « Détente », « Partie rapide »,
-« Personnalisée »), puis une carte par réglage, dépliable, avec ses choix en pastilles (de vrais boutons radio), son
-explication, un exemple chiffré et l'étiquette « officiel » ou « variante » ; le score de fin se règle au curseur
-(envoyé au relâchement) ou par raccourcis 50 / 100 / 150. Un préréglage n'est qu'un raccourci : le serveur reçoit
-toujours les 7 réglages. Les joueurs qui ne sont pas l'hôte voient un résumé (« Règles officielles, sauf 2
-réglages ») et les cartes en lecture seule.
+**Écran figé** (`FitStage.tsx`) : l'application occupe exactement la fenêtre ; rien ne défile, comme dans un jeu.
+Chaque écran (accueil, salon, partie, fin de partie) est dessiné à une taille de référence, en paysage
+(par exemple 1280 × 900 pour la partie) ou en portrait (480 × 1000) selon la forme de la fenêtre, puis mis à
+l'échelle pour tenir dans la place disponible. Les classes `.is-landscape` / `.is-portrait` choisissent la
+disposition ; `crowd-few`, `crowd-some`, `crowd-many` réduisent les sièges adverses quand il y a beaucoup de
+joueurs (jusqu'à 10). Seul le contenu des fenêtres (`Modal` : scores, règles) peut défiler.
+
+**Accueil et réglages, pas à pas** : l'accueil propose « Créer une partie », « Rejoindre une partie » et les
+parties à reprendre. Créer : nom, type de partie (« Règles officielles », « Détente », « Partie rapide »,
+« Personnalisée »), puis, pour « Personnalisée », un écran par réglage (grandes tuiles avec explication, exemple
+chiffré et étiquette « officiel » ou « variante » ; curseur et raccourcis pour le score de fin), enfin un
+récapitulatif où chaque ligne se modifie d'un clic. On peut revenir en arrière à chaque étape. L'hôte modifie
+les règles au salon avec le même parcours, dans une fenêtre. Un préréglage n'est qu'un raccourci : le serveur
+reçoit toujours les 7 réglages.
+
+**Icônes** : `lucide-react` (licence ISC). Elles sont décoratives (`aria-hidden`) : un texte, visible ou réservé
+aux lecteurs d'écran, porte toujours l'information.
 
 **Polling** : toutes les 2 secondes, `GET /api/state?code=…&known_version=…`. Si la version n'a pas changé,
 la réponse est minimale (`changed: false`) et rien n'est redessiné.

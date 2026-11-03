@@ -1,12 +1,18 @@
-// Écran de partie, vu comme une table de jeu : les adversaires assis autour (grilles posées sur une table
-// inclinée en perspective), pioche et défausse au centre, ma grille devant moi en bas ; puis le classement
-// en fin de partie. La disposition vient de `game/seats.ts`, le relief du CSS (styles.css, « Table »).
-import { useState, type CSSProperties } from "react";
+// Écran de partie, figé comme un jeu : une scène de taille fixe mise à l'échelle de l'écran (FitStage).
+// - Paysage : table ovale inclinée, adversaires assis autour (grilles tournées vers eux), pioche et défausse
+//   au centre, ma grille devant moi sur le bord de la table.
+// - Portrait : table à plat, adversaires en mosaïque, ma grille en bas.
+// La disposition vient de `game/seats.ts`, le relief du CSS (styles.css, « Table »). Le tableau des scores
+// s'ouvre dans une fenêtre (il s'ouvre tout seul en fin de manche).
+import { CircleCheck, Crown, Hourglass, ListOrdered, LogOut, Play, Repeat, RotateCcw, Trophy, UserX, Users, WifiOff } from "lucide-react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { Action, GameView, PlayerView, PresenceEntry, Waiting } from "../api/types";
 import { hint, isMyTurn, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
 import { hiddenCount, seatPlayers } from "../game/seats";
 import { ValueCard } from "./Card";
+import { FitStage, type Orientation } from "./FitStage";
 import { GridView } from "./GridView";
+import { Modal } from "./Modal";
 import { Scoreboard } from "./Scoreboard";
 
 interface Props {
@@ -15,6 +21,14 @@ interface Props {
   presence: PresenceEntry[];
   waiting: Waiting | null;
   onAction: (action: Action) => void;
+  onLeave: () => void;
+}
+
+/** Taille des sièges adverses selon le nombre de joueurs (plus il y en a, plus ils sont petits). */
+function crowdClass(players: number): string {
+  if (players <= 4) return "crowd-few";
+  if (players <= 7) return "crowd-some";
+  return "crowd-many";
 }
 
 /** Badge d'un joueur : nom, rôle, total, cartes cachées, tour. Tout est écrit (jamais la couleur seule). */
@@ -30,6 +44,7 @@ function PlayerBadge({
   mine?: boolean;
 }) {
   const playing = view.current_player === player.id;
+  const hidden = hiddenCount(player.grid);
   return (
     <div className={`badge${playing ? " is-playing" : ""}${player.eliminated ? " is-eliminated" : ""}`}>
       <span className="badge-avatar" aria-hidden="true">
@@ -37,20 +52,39 @@ function PlayerBadge({
       </span>
       <span className="badge-text">
         <strong className="badge-name">
+          {player.id === view.host && (
+            <>
+              <Crown className="inline-icon" aria-hidden="true" />
+              <span className="visually-hidden">(hôte) </span>
+            </>
+          )}
           {player.name}
           {mine && " (vous)"}
         </strong>
         <span className="badge-meta">
-          {player.total_score} pts · {hiddenCount(player.grid)} cachée{hiddenCount(player.grid) > 1 ? "s" : ""}
-          {player.id === view.host && " · hôte"}
+          {player.total_score} pts · {hidden} cachée{hidden > 1 ? "s" : ""}
         </span>
       </span>
-      {playing && <span className="pill pill-turn">joue</span>}
-      {view.finisher === player.id && <span className="pill pill-finisher">a terminé</span>}
+      {playing && (
+        <span className="pill pill-turn">
+          <Play aria-hidden="true" /> joue
+        </span>
+      )}
+      {view.finisher === player.id && (
+        <span className="pill pill-finisher">
+          <CircleCheck aria-hidden="true" /> a terminé
+        </span>
+      )}
       {player.eliminated ? (
-        <span className="pill pill-eliminated">éliminé</span>
+        <span className="pill pill-eliminated">
+          <UserX aria-hidden="true" /> éliminé
+        </span>
       ) : (
-        !connected && <span className="pill pill-absent">absent</span>
+        !connected && (
+          <span className="pill pill-absent">
+            <WifiOff aria-hidden="true" /> absent
+          </span>
+        )
       )}
     </div>
   );
@@ -62,17 +96,21 @@ function WaitingBanner({ view, waiting }: { view: GameView; waiting: Waiting }) 
   const last = waiting.missed_turns + 1 >= waiting.max_missed_turns;
   return (
     <p className="waiting-banner" role="status">
-      <strong>{name} est parti·e</strong> : on l'attend encore {waiting.seconds_left} s.{" "}
-      {last
-        ? "S'il ne revient pas, ce sera son dernier tour manqué : il sera éliminé."
-        : `Ensuite, son tour sera passé (tour manqué ${waiting.missed_turns + 1} sur ${waiting.max_missed_turns}).`}
+      <Hourglass aria-hidden="true" />
+      <span>
+        <strong>{name} est parti·e</strong> : on l'attend encore {waiting.seconds_left} s.{" "}
+        {last
+          ? "Sinon, ce sera son dernier tour manqué : il sera éliminé."
+          : `Sinon, son tour sera passé (tour manqué ${waiting.missed_turns + 1} sur ${waiting.max_missed_turns}).`}
+      </span>
     </p>
   );
 }
 
-export function GameBoard({ view, busy, presence, waiting, onAction }: Props) {
+export function GameBoard({ view, busy, presence, waiting, onAction, onLeave }: Props) {
   const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const [mode, setMode] = useState<HeldMode>("swap");
+  const [scoresOpen, setScoresOpen] = useState(false);
   const seats = seatPlayers(view);
   const me = view.players[view.me];
   const opponents = seats.filter((seat) => seat.index !== 0);
@@ -80,193 +118,250 @@ export function GameBoard({ view, busy, presence, waiting, onAction }: Props) {
   const canTake = myTurn && view.held === null && !busy;
   const heldFromPile = myTurn && view.held?.source === "Pile";
 
+  // En fin de manche, le tableau des scores s'ouvre tout seul.
+  useEffect(() => {
+    if (view.phase === "RoundOver") setScoresOpen(true);
+  }, [view.phase, view.round]);
+
   const send = (action: Action) => {
     onAction(action);
     // Après un coup, on revient au mode par défaut pour le tour suivant.
     if (action.type === "SwapHeld" || action.type === "DiscardHeldAndReveal") setMode("swap");
+    if (action.type === "NextRound") setScoresOpen(false);
   };
+
+  const scoresModal = scoresOpen && (
+    <Modal
+      title={view.phase === "RoundOver" ? `Fin de la manche ${view.round}` : "Tableau des scores"}
+      onClose={() => setScoresOpen(false)}
+      wide
+      footer={
+        view.phase === "RoundOver" ? (
+          <button type="button" className="primary" onClick={() => send({ type: "NextRound" })} disabled={busy}>
+            <Play aria-hidden="true" /> Manche suivante
+          </button>
+        ) : undefined
+      }
+    >
+      <Scoreboard view={view} />
+    </Modal>
+  );
 
   if (view.phase === "GameOver") {
     const winners = view.winners.map((id) => playerName(view, id));
     return (
-      <div className="game-over">
-        <section className="panel" aria-labelledby="ranking-title">
-          <h2 id="ranking-title">Fin de partie</h2>
-          <p className="winner" role="status">
-            {winners.length > 1 ? `Victoire partagée : ${winners.join(", ")}` : `Victoire de ${winners[0] ?? ""}`}
-          </p>
-          <ol className="ranking">
-            {ranking(view).map((player) => (
-              <li key={player.id}>
-                {player.name} : {player.total_score} points
-                {view.winners.includes(player.id) && " (gagnant)"}
-              </li>
-            ))}
-          </ol>
-        </section>
-        <Scoreboard view={view} />
-      </div>
+      <>
+        <FitStage landscape={[900, 640]} portrait={[440, 900]}>
+          {() => (
+            <section className="panel game-over" aria-labelledby="ranking-title">
+              <Trophy className="trophy" aria-hidden="true" />
+              <h2 id="ranking-title">Fin de partie</h2>
+              <p className="winner" role="status">
+                {winners.length > 1 ? `Victoire partagée : ${winners.join(", ")}` : `Victoire de ${winners[0] ?? ""}`}
+              </p>
+              <ol className="ranking">
+                {ranking(view).map((player) => (
+                  <li key={player.id} className={view.winners.includes(player.id) ? "is-winner" : ""}>
+                    <span>{player.name}</span>
+                    <strong>{player.total_score} pts</strong>
+                    {view.winners.includes(player.id) && <span className="pill pill-turn">gagnant</span>}
+                    {player.eliminated && <span className="pill pill-eliminated">éliminé</span>}
+                  </li>
+                ))}
+              </ol>
+              <div className="game-over-actions">
+                <button type="button" className="ghost-button" onClick={() => setScoresOpen(true)}>
+                  <ListOrdered aria-hidden="true" /> Tableau des scores
+                </button>
+                <button type="button" className="primary" onClick={onLeave}>
+                  <LogOut aria-hidden="true" /> Retour à l'accueil
+                </button>
+              </div>
+            </section>
+          )}
+        </FitStage>
+        {scoresModal}
+      </>
     );
   }
 
-  return (
-    <div className="game">
-      <p className="table-info">
-        {view.players.length} joueurs · Manche {view.round} · fin à {view.rules.end_score} points
-      </p>
-      <p className="hint" role="status" aria-live="polite">
-        {me?.eliminated === true
-          ? "Vous avez été éliminé·e après plusieurs tours manqués : vous pouvez regarder la suite de la partie."
-          : hint(view, mode)}
-      </p>
-      {waiting !== null && <WaitingBanner view={view} waiting={waiting} />}
-
-      <div className="scene">
-        <div className="table" aria-label="Table de jeu" role="region">
-          {opponents.map((seat) => (
-            <section
-              key={seat.player.id}
-              className={`seat${view.current_player === seat.player.id ? " is-active" : ""}${seat.player.eliminated ? " is-eliminated" : ""}`}
-              style={
-                {
-                  "--seat-x": `${seat.x}%`,
-                  "--seat-y": `${seat.y}%`,
-                  // Un siège agrandi grandit vers le centre de la table (son bord extérieur reste en place).
-                  transformOrigin: `${seat.x}% ${seat.y}%`,
-                } as CSSProperties
-              }
-              aria-label={`Place de ${seat.player.name}`}
-            >
-              <PlayerBadge view={view} player={seat.player} connected={connected(seat.player.id)} />
-              {/* Les cartes sont tournées vers leur propriétaire, comme posées devant lui. */}
-                <div className="seat-grid" style={{ "--seat-rotation": `${seat.rotation}deg` } as CSSProperties}>
-                  <GridView player={seat.player} size="sm" />
-                </div>
-            </section>
-          ))}
-
-          <div className="table-center">
-            {view.phase === "RoundOver" ? (
-              <section className="round-over" aria-labelledby="round-over-title">
-                <h2 id="round-over-title">Fin de la manche {view.round}</h2>
-                <p>Toutes les cartes sont retournées. Scores dans le tableau ci-dessous.</p>
-                <button type="button" className="primary" onClick={() => send({ type: "NextRound" })} disabled={busy}>
-                  Manche suivante
-                </button>
-              </section>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  className="pile"
-                  onClick={() => send({ type: "DrawFromPile" })}
-                  disabled={!canTake}
-                  aria-label={`Piocher (${view.draw_pile_count} cartes)`}
-                >
-                  <span className="pile-stack" aria-hidden="true">
-                    <ValueCard value={null} />
-                  </span>
-                  <span className="pile-label">Pioche · {view.draw_pile_count}</span>
-                </button>
-                <button
-                  type="button"
-                  className="pile"
-                  onClick={() => send({ type: "TakeDiscard" })}
-                  disabled={!canTake || view.discard_top === null}
-                  aria-label={
-                    view.discard_top === null
-                      ? "Défausse vide"
-                      : `Prendre la carte ${view.discard_top} de la défausse`
-                  }
-                >
-                  {view.discard_top === null ? (
-                    <span className="card3d card3d-lg card-empty" aria-hidden="true" />
-                  ) : (
-                    // `key` sur le nombre de cartes : chaque carte posée sur la défausse rejoue l'animation.
-                    <span key={view.discard_count} className="discard-top" aria-hidden="true">
-                      <ValueCard value={view.discard_top} />
-                    </span>
-                  )}
-                  <span className="pile-label">Défausse · {view.discard_count}</span>
-                </button>
-                {view.held !== null && (
-                  <div className="held" role="status">
-                    <span className="held-card">
-                      <ValueCard value={view.held.value} />
-                    </span>
-                    <span className="pile-label">
-                      {myTurn ? "Votre carte" : `Carte de ${playerName(view, view.current_player)}`}
-                      {view.held.value !== null && ` : ${view.held.value}`}
-                      {view.held.source === "Discard" ? " (défausse)" : " (pioche)"}
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
+  const center = (
+    <div className="table-center">
+      {view.phase === "RoundOver" ? (
+        <div className="round-over">
+          <p>Manche {view.round} terminée</p>
+          <button type="button" className="primary" onClick={() => setScoresOpen(true)}>
+            <ListOrdered aria-hidden="true" /> Voir les scores
+          </button>
         </div>
-      </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            className="pile"
+            onClick={() => send({ type: "DrawFromPile" })}
+            disabled={!canTake}
+            aria-label={`Piocher (${view.draw_pile_count} cartes)`}
+          >
+            <span className="pile-stack" aria-hidden="true">
+              <ValueCard value={null} />
+            </span>
+            <span className="pile-label">Pioche · {view.draw_pile_count}</span>
+          </button>
+          <button
+            type="button"
+            className="pile"
+            onClick={() => send({ type: "TakeDiscard" })}
+            disabled={!canTake || view.discard_top === null}
+            aria-label={
+              view.discard_top === null ? "Défausse vide" : `Prendre la carte ${view.discard_top} de la défausse`
+            }
+          >
+            {view.discard_top === null ? (
+              <span className="card3d card3d-lg card-empty" aria-hidden="true" />
+            ) : (
+              // `key` sur le nombre de cartes : chaque carte posée sur la défausse rejoue l'animation.
+              <span key={view.discard_count} className="discard-top" aria-hidden="true">
+                <ValueCard value={view.discard_top} />
+              </span>
+            )}
+            <span className="pile-label">Défausse · {view.discard_count}</span>
+          </button>
+          {view.held !== null && (
+            <div className="held" role="status">
+              <span className="held-card">
+                <ValueCard value={view.held.value} />
+              </span>
+              <span className="pile-label">
+                {myTurn ? "Votre carte" : `Carte de ${playerName(view, view.current_player)}`}
+                {view.held.value !== null && ` : ${view.held.value}`}
+              </span>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
 
-      {me !== undefined && (
-        <div className="my-seat-scene">
-          <section className={`my-seat${myTurn ? " is-active" : ""}`} aria-labelledby="my-grid-title">
-            <h2 id="my-grid-title" className="visually-hidden">
-              Ma grille
-            </h2>
-            <PlayerBadge view={view} player={me} connected mine />
-            {heldFromPile && (
-              // Deux tuiles à bascule (aria-pressed) plutôt que des boutons radio : même style que les préréglages.
-              <div className="held-choice" role="group" aria-labelledby="held-choice-title">
-                <p id="held-choice-title" className="held-choice-title">
-                  Que faire de la carte piochée ?
-                </p>
-                <div className="held-choice-tiles">
-                  <button
-                    type="button"
-                    className={`choice-tile${mode === "swap" ? " is-selected" : ""}`}
-                    aria-pressed={mode === "swap"}
-                    onClick={() => setMode("swap")}
-                  >
-                    <span className="choice-icon" aria-hidden="true">
-                      ⇄
-                    </span>
-                    <span className="choice-text">
-                      <span className="choice-title">Échanger</span>
-                      <span className="choice-description">Elle remplace une carte de ma grille, au choix.</span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    className={`choice-tile${mode === "reveal" ? " is-selected" : ""}`}
-                    aria-pressed={mode === "reveal"}
-                    onClick={() => setMode("reveal")}
-                  >
-                    <span className="choice-icon" aria-hidden="true">
-                      ↻
-                    </span>
-                    <span className="choice-text">
-                      <span className="choice-title">Défausser et retourner</span>
-                      <span className="choice-description">Elle va sur la défausse ; je retourne une carte cachée.</span>
-                    </span>
-                  </button>
+  const opponentSeats = (orientation: Orientation) =>
+    opponents.map((seat) => (
+      <section
+        key={seat.player.id}
+        className={`seat${view.current_player === seat.player.id ? " is-active" : ""}${seat.player.eliminated ? " is-eliminated" : ""}`}
+        style={
+          orientation === "landscape"
+            ? ({
+                "--seat-x": `${seat.x}%`,
+                "--seat-y": `${seat.y}%`,
+                // Un siège agrandi grandit vers le centre de la table (son bord extérieur reste en place).
+                transformOrigin: `${seat.x}% ${seat.y}%`,
+              } as CSSProperties)
+            : undefined
+        }
+        aria-label={`Place de ${seat.player.name}`}
+      >
+        <PlayerBadge view={view} player={seat.player} connected={connected(seat.player.id)} />
+        {/* Les cartes sont tournées vers leur propriétaire, comme posées devant lui (paysage seulement). */}
+        <div
+          className="seat-grid"
+          style={{ "--seat-rotation": orientation === "landscape" ? `${seat.rotation}deg` : "0deg" } as CSSProperties}
+        >
+          <GridView player={seat.player} size="sm" />
+        </div>
+      </section>
+    ));
+
+  const mySeat = me !== undefined && (
+    <section className={`my-seat${myTurn ? " is-active" : ""}`} aria-labelledby="my-grid-title">
+      <h2 id="my-grid-title" className="visually-hidden">
+        Ma grille
+      </h2>
+      <div className="my-side">
+        <PlayerBadge view={view} player={me} connected mine />
+        {heldFromPile && (
+          // Deux tuiles à bascule (aria-pressed) plutôt que des boutons radio : même style que les préréglages.
+          <div className="held-choice" role="group" aria-labelledby="held-choice-title">
+            <p id="held-choice-title" className="held-choice-title">
+              Que faire de la carte piochée ?
+            </p>
+            <div className="held-choice-tiles">
+              <button
+                type="button"
+                className={`choice-tile${mode === "swap" ? " is-selected" : ""}`}
+                aria-pressed={mode === "swap"}
+                onClick={() => setMode("swap")}
+              >
+                <Repeat className="choice-icon" aria-hidden="true" />
+                <span className="choice-text">
+                  <span className="choice-title">Échanger</span>
+                  <span className="choice-description">Elle remplace une carte de ma grille.</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`choice-tile${mode === "reveal" ? " is-selected" : ""}`}
+                aria-pressed={mode === "reveal"}
+                onClick={() => setMode("reveal")}
+              >
+                <RotateCcw className="choice-icon" aria-hidden="true" />
+                <span className="choice-text">
+                  <span className="choice-title">Défausser et retourner</span>
+                  <span className="choice-description">Elle part ; je retourne une carte cachée.</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <GridView
+        player={me}
+        size="md"
+        actionFor={(column, row) => slotAction(view, mode, column, row)}
+        onAction={send}
+        disabled={busy}
+      />
+    </section>
+  );
+
+  return (
+    <>
+      <FitStage landscape={[1280, 900]} portrait={[480, 1000]}>
+        {(orientation) => (
+          <div className={`game-stage ${crowdClass(view.players.length)}${waiting !== null ? " has-waiting" : ""}`}>
+            <header className="stage-bar">
+              <p className="stage-info">
+                <Users aria-hidden="true" /> {view.players.length} joueurs · Manche {view.round} · fin à{" "}
+                {view.rules.end_score} pts
+              </p>
+              <p className="hint" role="status" aria-live="polite">
+                {me?.eliminated === true
+                  ? "Vous avez été éliminé·e : vous pouvez regarder la suite de la partie."
+                  : hint(view, mode)}
+              </p>
+              <button type="button" className="ghost-button" onClick={() => setScoresOpen(true)}>
+                <ListOrdered aria-hidden="true" /> Scores
+              </button>
+            </header>
+            {waiting !== null && <WaitingBanner view={view} waiting={waiting} />}
+
+            {orientation === "landscape" ? (
+              <div className="scene">
+                <div className="table" aria-label="Table de jeu" role="region">
+                  {opponentSeats(orientation)}
+                  {center}
                 </div>
               </div>
+            ) : (
+              <div className="flat-table" aria-label="Table de jeu" role="region">
+                <div className="flat-seats">{opponentSeats(orientation)}</div>
+                {center}
+              </div>
             )}
-            <GridView
-              player={me}
-              size="md"
-              actionFor={(column, row) => slotAction(view, mode, column, row)}
-              onAction={send}
-              disabled={busy}
-            />
-          </section>
-        </div>
-      )}
-
-      <details className="scores" open={view.phase === "RoundOver"}>
-        <summary>Tableau des scores</summary>
-        <Scoreboard view={view} />
-      </details>
-    </div>
+            {mySeat}
+          </div>
+        )}
+      </FitStage>
+      {scoresModal}
+    </>
   );
 }
