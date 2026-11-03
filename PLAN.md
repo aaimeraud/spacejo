@@ -124,3 +124,29 @@ Outils (hors dépendances du code) : `git-cliff` pour le changelog et les versio
 Aucun fichier `LICENSE` n'est ajouté. Options possibles : MIT (permissive, courte), Apache-2.0
 (permissive, avec clause de brevets), AGPL-3.0 (oblige à publier les modifications d'un service en ligne),
 ou rien (tous droits réservés, ce qui est le cas actuel).
+
+## Évolution en cours : jusqu'à 10 joueurs, absence et reprise (branche `claude/players-presence`)
+
+Demandée par le propriétaire du dépôt. Les durées sont des constantes nommées (voir `ASSUMPTIONS.md`, n° 18 à 22).
+
+1. [x] Core (tests d'abord) : `MAX_PLAYERS` = 10 ; tour d'un joueur absent passé par le serveur (`skip_absent`) ;
+   après `MAX_MISSED_TURNS` (2) tours manqués d'affilée, élimination ; un joueur éliminé ne joue plus, ne reçoit
+   plus de cartes, ne compte plus pour la pénalité, la fin de partie ni le classement ; s'il ne reste qu'un joueur,
+   il gagne.
+2. [x] Format enregistré v2 (`eliminated`, `missed_turns`) avec migration depuis la v1 et exemple figé v2.
+3. [x] API : table `presence` (migration 0002) mise à jour à chaque requête d'un joueur, sans changer la version de
+   la partie ; un joueur est absent s'il n'a rien demandé depuis `PRESENCE_TIMEOUT_SECS` ; si c'est son tour et que
+   la partie n'a pas bougé depuis `ABSENT_TURN_WAIT_SECS`, la prochaine requête d'un autre joueur passe son tour ;
+   les réponses donnent la présence de chacun et le compte à rebours.
+4. [ ] Interface : reprise d'une partie après fermeture de l'onglet (sessions gardées dans `localStorage`),
+   indicateurs « absent », « on l'attend encore N s », « éliminé ».
+
+## Évolution en cours : écran de jeu figé, création pas à pas, icônes (branche `claude/app-layout`)
+
+1. [ ] Aucun défilement : l'application occupe exactement l'écran ; la table est dessinée à une taille de référence
+   puis mise à l'échelle pour tenir dans la fenêtre (paysage ou portrait), jusqu'à 10 joueurs.
+2. [ ] Création de partie pas à pas (nom, type de partie, puis un réglage par écran si « Personnalisée »,
+   récapitulatif), avec retour en arrière ; même parcours pour modifier les règles au salon.
+3. [ ] Icônes `lucide-react` 1.59.0 (licence ISC, aucune dépendance) : seule dépendance ajoutée, pour des icônes
+   cohérentes et accessibles sans dessiner chaque pictogramme.
+

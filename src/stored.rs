@@ -10,7 +10,9 @@ use serde_json::Value;
 use spacejo_core::Game;
 
 /// Version actuelle du format enregistré.
-pub const STATE_VERSION: u64 = 1;
+/// - 1 : format initial ;
+/// - 2 : ajout de `missed_turns` et `eliminated` à chaque joueur (absences et élimination).
+pub const STATE_VERSION: u64 = 2;
 
 /// Ce qui est stocké pour une partie : le jeu complet et les hachages des jetons
 /// (indice = identifiant du joueur). Jamais envoyé tel quel au navigateur.
@@ -75,12 +77,30 @@ impl StoredGame {
             .get("state_version")
             .and_then(Value::as_u64)
             .ok_or(StateError::MissingVersion)?;
-        // Pour une future version 2 : ajouter ici `1 => migrate_v1_to_v2(value)` puis relire,
-        // et garder un exemple figé de la version 1 dans `tests/fixtures/`.
-        match version {
-            STATE_VERSION => serde_json::from_value(value).map_err(|_| StateError::Corrupt),
-            found if found > STATE_VERSION => Err(StateError::TooNew { found }),
-            found => Err(StateError::Unsupported { found }),
-        }
+        // Chaque migration fait passer le JSON d'une version à la suivante ; un exemple figé de chaque
+        // ancienne version est relu par `tests/state_version.rs`.
+        let value = match version {
+            1 => migrate_v1_to_v2(value)?,
+            STATE_VERSION => value,
+            found if found > STATE_VERSION => return Err(StateError::TooNew { found }),
+            found => return Err(StateError::Unsupported { found }),
+        };
+        serde_json::from_value(value).map_err(|_| StateError::Corrupt)
     }
+}
+
+/// v1 → v2 : chaque joueur reçoit `missed_turns: 0` et `eliminated: false` (personne n'était absent).
+fn migrate_v1_to_v2(mut value: Value) -> Result<Value, StateError> {
+    let players = value
+        .get_mut("game")
+        .and_then(|game| game.get_mut("players"))
+        .and_then(Value::as_array_mut)
+        .ok_or(StateError::Corrupt)?;
+    for player in players {
+        let object = player.as_object_mut().ok_or(StateError::Corrupt)?;
+        object.insert("missed_turns".to_string(), Value::from(0));
+        object.insert("eliminated".to_string(), Value::from(false));
+    }
+    value["state_version"] = Value::from(2);
+    Ok(value)
 }

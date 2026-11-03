@@ -212,3 +212,27 @@ fn database_name_is_replaced_in_urls() {
         "postgres://u@h/x?sslmode=require"
     );
 }
+
+#[tokio::test]
+async fn presence_is_recorded_without_touching_the_game() {
+    let Some(db) = TestDb::create().await else {
+        return;
+    };
+    run_migrations(db.store.pool()).await.unwrap();
+    let store = Store::Postgres(db.store.clone());
+    let record = store.insert("K7MPQX", &json!({ "n": 0 })).await.unwrap();
+    assert!(store.presence(record.id).await.unwrap().is_empty());
+
+    store.touch(record.id, 0).await.unwrap();
+    store.touch(record.id, 3).await.unwrap();
+    store.touch(record.id, 0).await.unwrap(); // deuxième passage : mise à jour, pas de doublon
+    let presence = store.presence(record.id).await.unwrap();
+    assert_eq!(presence.len(), 2);
+    assert!(presence.values().all(|&idle| (0.0..5.0).contains(&idle)));
+
+    // La partie n'a pas bougé : même version, et son temps d'inactivité est mesuré par PostgreSQL.
+    let loaded = store.load("K7MPQX").await.unwrap().unwrap();
+    assert_eq!(loaded.version, 1);
+    assert!(loaded.idle_seconds >= 0.0);
+    db.drop().await;
+}

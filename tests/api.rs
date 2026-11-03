@@ -69,7 +69,15 @@ async fn create_join_and_read_the_state() {
         Some(&host.token),
     )
     .await;
-    assert_eq!(minimal.body, json!({ "changed": false, "version": 2 }));
+    // Réponse minimale : pas de vue, seulement la version et la présence des joueurs.
+    assert_eq!(minimal.body["changed"], false);
+    assert_eq!(minimal.body["version"], 2);
+    assert!(minimal.body.get("view").is_none());
+    assert_eq!(
+        minimal.body["presence"],
+        json!([{ "player": 0, "connected": true }, { "player": 1, "connected": true }])
+    );
+    assert_eq!(minimal.body["waiting"], json!(null));
     let stale = get_state(
         &store,
         &format!("{query}&known_version=1"),
@@ -157,16 +165,16 @@ async fn bad_requests_are_refused_with_clear_errors() {
 }
 
 #[tokio::test]
-async fn joining_is_limited_to_four_players_and_to_the_lobby() {
+async fn joining_is_limited_to_ten_players_and_to_the_lobby() {
     let (store, _) = memory();
     let (host, _) = create(&store, "P0", None).await;
-    for name in ["P1", "P2", "P3"] {
-        join(&store, &host.code, name).await;
+    for i in 1..spacejo_core::MAX_PLAYERS {
+        join(&store, &host.code, &format!("P{i}")).await;
     }
     let full = call(
         &store,
         Endpoint::Join,
-        json!({ "code": host.code, "name": "P4" }),
+        json!({ "code": host.code, "name": "En trop" }),
         None,
     )
     .await;
@@ -199,7 +207,7 @@ async fn creating_without_rules_uses_the_official_rules_and_stores_them_all() {
     let raw = memory.raw_state(&host.code).unwrap();
     assert_eq!(raw["game"]["rules"], defaults);
     assert_eq!(raw["game"]["rules"].as_object().unwrap().len(), 7);
-    assert_eq!(raw["state_version"], 1);
+    assert_eq!(raw["state_version"], spacejo_api::STATE_VERSION);
 }
 
 #[tokio::test]

@@ -8,10 +8,14 @@
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
-use spacejo_core::{Action, Game, PlayerId, Rules, view_for};
+use spacejo_core::{
+    Action, Game, INITIAL_REVEALS, MAX_MISSED_TURNS, Phase, PlayerId, Rules, view_for,
+};
 
 use crate::auth;
 use crate::error::ApiError;
+use std::collections::HashMap;
+
 use crate::store::{Record, Store, StoreError};
 use crate::stored::StoredGame;
 
@@ -21,6 +25,12 @@ pub const MAX_BODY_BYTES: usize = 16 * 1024;
 pub const MAX_WRITE_ATTEMPTS: usize = 5;
 /// Nom de l'en-tête qui porte le jeton.
 pub const TOKEN_HEADER: &str = "X-Player-Token";
+/// Un joueur est absent s'il n'a fait aucune requête depuis ce délai (secondes). L'interface interroge
+/// le serveur toutes les 2 s : 15 s laissent une marge pour une connexion lente (ASSUMPTIONS.md, n° 18).
+pub const PRESENCE_TIMEOUT_SECS: f64 = 15.0;
+/// Attente d'« un tour » pour un joueur absent, depuis la dernière modification de la partie
+/// (secondes). Passé ce délai, son tour est passé (ASSUMPTIONS.md, n° 19).
+pub const ABSENT_TURN_WAIT_SECS: f64 = 45.0;
 
 /// Les routes de l'API.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -163,13 +173,11 @@ async fn create(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiE
         let code = auth::generate_code()?;
         match store.insert(&code, &state).await {
             Ok(record) => {
-                let body = json!({
-                    "code": code,
-                    "token": token,
-                    "player_id": 0,
-                    "version": record.version,
-                    "view": view_for(&stored.game, 0),
-                });
+                store.touch(record.id, 0).await.map_err(storage_error)?;
+                let mut body = game_payload(store, &record, &stored, 0).await?;
+                body["code"] = json!(code);
+                body["token"] = json!(token);
+                body["player_id"] = json!(0);
                 return Ok(ApiResponse { status: 201, body });
             }
             Err(StoreError::CodeTaken) => continue,
@@ -194,13 +202,20 @@ async fn join(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiErr
             .await
         {
             Ok(version) => {
-                return Ok(ApiResponse::ok(json!({
-                    "code": code,
-                    "token": token,
-                    "player_id": player,
-                    "version": version,
-                    "view": view_for(&stored.game, player),
-                })));
+                store
+                    .touch(record.id, player)
+                    .await
+                    .map_err(storage_error)?;
+                let saved = Record {
+                    version,
+                    idle_seconds: 0.0,
+                    ..record
+                };
+                let mut body = game_payload(store, &saved, &stored, player).await?;
+                body["code"] = json!(code);
+                body["token"] = json!(token);
+                body["player_id"] = json!(player);
+                return Ok(ApiResponse::ok(body));
             }
             Err(StoreError::Conflict) => continue,
             Err(error) => return Err(storage_error(error)),
@@ -269,17 +284,21 @@ async fn state(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiEr
     let token = require_token(request)?;
     let (record, stored) = load(store, &code).await?;
     let player = identify(&stored, token)?;
-    // Rien n'a changé depuis la dernière lecture du client : réponse minimale.
-    if known_version == Some(record.version) {
-        return Ok(ApiResponse::ok(
-            json!({ "changed": false, "version": record.version }),
-        ));
+    store
+        .touch(record.id, player)
+        .await
+        .map_err(storage_error)?;
+    // Le polling des joueurs présents fait avancer la partie quand un absent bloque son tour.
+    let (record, stored) = skip_absent_player(store, &code, record, stored).await?;
+    let mut body = game_payload(store, &record, &stored, player).await?;
+    // Rien n'a changé depuis la dernière lecture du client : réponse minimale (sans la vue), mais
+    // avec la présence, qui change sans modifier la partie.
+    let changed = known_version != Some(record.version);
+    body["changed"] = json!(changed);
+    if !changed && let Some(object) = body.as_object_mut() {
+        object.remove("view");
     }
-    Ok(ApiResponse::ok(json!({
-        "changed": true,
-        "version": record.version,
-        "view": view_for(&stored.game, player),
-    })))
+    Ok(ApiResponse::ok(body))
 }
 
 // ----- Briques communes -----
@@ -316,10 +335,105 @@ where
         Err(StoreError::Conflict) => return Err(ApiError::version_conflict()),
         Err(error) => return Err(storage_error(error)),
     };
-    Ok(ApiResponse::ok(json!({
-        "version": version,
+    store
+        .touch(record.id, player)
+        .await
+        .map_err(storage_error)?;
+    let saved = Record {
+        version,
+        idle_seconds: 0.0,
+        ..record
+    };
+    Ok(ApiResponse::ok(
+        game_payload(store, &saved, &stored, player).await?,
+    ))
+}
+
+// ----- Présence et joueurs absents -----
+
+/// Le joueur est-il absent ? (Jamais vu, ou aucune requête depuis `PRESENCE_TIMEOUT_SECS`.)
+fn is_absent(presence: &HashMap<usize, f64>, player: PlayerId) -> bool {
+    presence
+        .get(&player)
+        .is_none_or(|&idle| idle > PRESENCE_TIMEOUT_SECS)
+}
+
+/// Joueur absent qui bloque la partie : celui dont c'est le tour, ou, pendant la mise en place, le
+/// premier qui n'a pas encore retourné ses cartes.
+fn blocking_absent_player(game: &Game, presence: &HashMap<usize, f64>) -> Option<PlayerId> {
+    match &game.phase {
+        Phase::Playing(turn) => Some(turn.current).filter(|&p| is_absent(presence, p)),
+        Phase::InitialReveal => (0..game.players.len()).find(|&p| {
+            let player = &game.players[p];
+            !player.eliminated && player.initial_reveals < INITIAL_REVEALS && is_absent(presence, p)
+        }),
+        _ => None,
+    }
+}
+
+/// Si un joueur absent bloque la partie depuis plus de `ABSENT_TURN_WAIT_SECS`, passe son tour
+/// (et l'élimine au tour manqué de trop). Une seule fois par requête ; en cas d'écriture concurrente,
+/// on relit simplement la partie.
+async fn skip_absent_player(
+    store: &Store,
+    code: &str,
+    record: Record,
+    stored: StoredGame,
+) -> Result<(Record, StoredGame), ApiError> {
+    if record.idle_seconds < ABSENT_TURN_WAIT_SECS {
+        return Ok((record, stored));
+    }
+    let presence = store.presence(record.id).await.map_err(storage_error)?;
+    let Some(absent) = blocking_absent_player(&stored.game, &presence) else {
+        return Ok((record, stored));
+    };
+    let mut next = stored.clone();
+    if next.game.skip_absent(absent).is_err() {
+        return Ok((record, stored));
+    }
+    match store.save(record.id, &encode(&next)?, record.version).await {
+        Ok(version) => Ok((
+            Record {
+                version,
+                idle_seconds: 0.0,
+                ..record
+            },
+            next,
+        )),
+        Err(StoreError::Conflict) => load(store, code).await,
+        Err(error) => Err(storage_error(error)),
+    }
+}
+
+/// Corps commun des réponses qui donnent l'état : version, vue filtrée, présence de chaque joueur et
+/// compte à rebours si l'on attend un joueur absent (format : docs/CONTRACT.md).
+async fn game_payload(
+    store: &Store,
+    record: &Record,
+    stored: &StoredGame,
+    player: PlayerId,
+) -> Result<Value, ApiError> {
+    let presence = store.presence(record.id).await.map_err(storage_error)?;
+    let connected: Vec<Value> = (0..stored.game.players.len())
+        .map(|p| json!({ "player": p, "connected": !is_absent(&presence, p) }))
+        .collect();
+    let waiting = blocking_absent_player(&stored.game, &presence).map(|absent| {
+        let left = (ABSENT_TURN_WAIT_SECS - record.idle_seconds)
+            .max(0.0)
+            .ceil();
+        json!({
+            "player": absent,
+            "seconds_left": left as u64,
+            "missed_turns": stored.game.players[absent].missed_turns,
+            "max_missed_turns": MAX_MISSED_TURNS,
+        })
+    });
+    Ok(json!({
+        "version": record.version,
         "view": view_for(&stored.game, player),
-    })))
+        "presence": connected,
+        "waiting": waiting,
+    }))
 }
 
 /// Lit un corps JSON dans le type attendu ; toute erreur (JSON invalide, champ inconnu ou

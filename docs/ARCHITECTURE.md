@@ -5,7 +5,7 @@ sont dans [decisions/](decisions/).
 
 ## Vue d'ensemble
 
-SpaceJo est un jeu de cartes au tour par tour (2 à 4 joueurs) qui reprend les règles de Skyjo
+SpaceJo est un jeu de cartes au tour par tour (2 à 10 joueurs) qui reprend les règles de Skyjo
 ([RULES.md](RULES.md)). Trois composants :
 
 ```
@@ -206,6 +206,25 @@ annoncées (`role="status"`, `role="alert"`).
 
 En développement, Vite (port 5173) renvoie `/api` vers `cargo run --bin dev_server` (port 3000).
 
+## Présence, absence et élimination
+
+Le serveur ne garde rien en mémoire et ne lance aucune tâche de fond : tout se décide pendant les requêtes.
+
+1. Chaque requête d'un joueur identifié met à jour `presence.last_seen` (`Store::touch`). Cette table est séparée
+   de `games` : la présence ne change ni l'état ni la version, donc aucun conflit de verrou optimiste.
+2. Un joueur est **absent** s'il n'a rien demandé depuis `PRESENCE_TIMEOUT_SECS` (15 s ; l'interface interroge
+   le serveur toutes les 2 s, et un onglet fermé n'interroge plus).
+3. Si un absent bloque la partie (c'est son tour, ou il doit retourner ses cartes de mise en place) et que la partie
+   n'a pas été modifiée depuis `ABSENT_TURN_WAIT_SECS` (45 s, `games.updated_at`), la prochaine lecture de l'état
+   par un joueur présent appelle `Game::skip_absent` puis sauvegarde avec le verrou optimiste.
+4. `skip_absent` (dans le core, sans horloge) défausse la carte en main ou retourne les cartes de mise en place,
+   compte un tour manqué, et élimine le joueur au deuxième tour manqué d'affilée (`MAX_MISSED_TURNS`). Jouer une
+   action remet le compteur à zéro. S'il ne reste qu'un joueur, il gagne.
+5. Les réponses donnent `presence` (qui est connecté) et `waiting` (le compte à rebours), que l'interface affiche.
+
+Le core ne connaît que les tours manqués ; l'heure est mesurée par PostgreSQL (`now()`), ou par le stockage en
+mémoire, dont l'horloge peut être avancée dans les tests (`MemoryStore::advance`).
+
 ## Modèle de données
 
 Une seule table, créée par `migrations/0001_create_games.sql` :
@@ -218,10 +237,13 @@ Une seule table, créée par `migrations/0001_create_games.sql` :
 | `version` | `INTEGER` | numéro de version pour le verrou optimiste (1 à la création, +1 par écriture) |
 | `updated_at` | `TIMESTAMPTZ` | date de la dernière écriture |
 
+Table `presence`, créée par `migrations/0002_create_presence.sql` : `game_id` (référence `games.id`, supprimée
+avec la partie), `player_id`, `last_seen` ; clé primaire (`game_id`, `player_id`).
+
 Le schéma n'évolue que par de nouveaux fichiers dans `migrations/` (jamais à la main) ; `cargo run --bin migrate`
 les applique, et `sqlx` note celles déjà appliquées dans `_sqlx_migrations`.
 
-Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 1). Si le format de `Game`
+Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 2 ; la v1 est migrée à la lecture). Si le format de `Game`
 change, il faut incrémenter `STATE_VERSION` et écrire la migration dans `StoredGame::decode` ; un état
 illisible est refusé avec l'erreur `unsupported_state_version`. Le test `tests/state_version.rs` relit un
 exemple figé (`tests/fixtures/state_v1.json`) pour détecter tout changement de format oublié.
@@ -243,4 +265,4 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
   part) n'a pas été testé par un vrai déploiement.
 - **Limitation de débit** : aucune limite sur la création et la jonction de parties.
 - **Comptes utilisateurs** : aucun ; l'identité est un jeton secret par partie.
-- **Nombre de joueurs** : plafonné à 4 en v1 (`MAX_PLAYERS`) ; le core n'en dépend pas ailleurs.
+- **Nombre de joueurs** : de 2 à 10 (`MAX_PLAYERS`) ; le core n'en dépend pas ailleurs.

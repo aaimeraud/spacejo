@@ -1,6 +1,6 @@
 # SpaceJo
 
-Jeu de cartes en ligne, au tour par tour, de 2 à 4 joueurs. Il reprend les règles du jeu de cartes
+Jeu de cartes en ligne, au tour par tour, de 2 à 10 joueurs. Il reprend les règles du jeu de cartes
 **Skyjo** (voir [docs/RULES.md](docs/RULES.md)), avec des réglages de partie choisis par l'hôte.
 
 > SpaceJo est un projet de cours indépendant. Il n'est **pas affilié à Magilano**, éditeur de Skyjo, ni

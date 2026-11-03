@@ -1,16 +1,19 @@
-//! Stockage des parties, avec verrou optimiste.
+//! Stockage des parties, avec verrou optimiste, et présence des joueurs.
 //!
 //! Deux implémentations derrière un même `enum` :
-//! - `Postgres` : la vraie base (table `games`, voir `migrations/`) ;
-//! - `Memory` : une table en mémoire, pour les tests et le serveur local sans base.
+//! - `Postgres` : la vraie base (tables `games` et `presence`, voir `migrations/`) ;
+//! - `Memory` : des tables en mémoire, pour les tests et le serveur local sans base.
 //!
 //! Verrou optimiste : on lit la partie avec son `version`, on applique l'action en mémoire, puis on
 //! écrit SEULEMENT si `version` n'a pas changé (`UPDATE ... WHERE id = $1 AND version = $2`). Si
 //! quelqu'un a écrit entre-temps, aucune ligne n'est modifiée : c'est un conflit, rien n'est écrit.
+//!
+//! Présence : chaque requête d'un joueur note l'heure de son passage (`touch`). C'est le seul endroit
+//! de l'API qui dépend de l'horloge ; le core, lui, n'en sait rien.
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use sqlx::PgPool;
@@ -27,6 +30,8 @@ pub struct Record {
     pub id: i64,
     pub state: Value,
     pub version: i32,
+    /// Secondes écoulées depuis la dernière écriture de la partie.
+    pub idle_seconds: f64,
 }
 
 /// Erreurs de stockage.
@@ -80,17 +85,56 @@ impl Store {
             Store::Postgres(store) => store.save(id, state, expected_version).await,
         }
     }
+
+    /// Note qu'un joueur vient de faire une requête. Ne touche ni l'état ni la version de la partie.
+    pub async fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {
+        match self {
+            Store::Memory(store) => store.touch(id, player),
+            Store::Postgres(store) => store.touch(id, player).await,
+        }
+    }
+
+    /// Secondes écoulées depuis la dernière requête de chaque joueur vu (les autres sont absents).
+    pub async fn presence(&self, id: i64) -> Result<HashMap<usize, f64>, StoreError> {
+        match self {
+            Store::Memory(store) => store.presence(id),
+            Store::Postgres(store) => store.presence(id).await,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------------------------
 // Stockage en mémoire
 // ---------------------------------------------------------------------------------------------
 
-/// Table en mémoire, partagée entre les clones (`Arc`) et protégée par un verrou (`Mutex`).
+/// Une partie en mémoire : la ligne de `games`, avec l'instant de la dernière écriture.
+#[derive(Clone, Debug)]
+struct MemoryRow {
+    id: i64,
+    state: Value,
+    version: i32,
+    updated_at: Instant,
+}
+
+#[derive(Debug, Default)]
+struct MemoryTables {
+    games: HashMap<String, MemoryRow>,
+    presence: HashMap<(i64, usize), Instant>,
+    /// Décalage d'horloge, pour simuler le temps qui passe dans les tests (`advance`).
+    skew: Duration,
+}
+
+/// Tables en mémoire, partagées entre les clones (`Arc`) et protégées par un verrou (`Mutex`).
 /// https://doc.rust-lang.org/stable/book/ch16-03-shared-state.html
 #[derive(Clone, Debug, Default)]
 pub struct MemoryStore {
-    rows: Arc<Mutex<HashMap<String, Record>>>,
+    tables: Arc<Mutex<MemoryTables>>,
+}
+
+impl MemoryTables {
+    fn now(&self) -> Instant {
+        Instant::now() + self.skew
+    }
 }
 
 impl MemoryStore {
@@ -99,55 +143,102 @@ impl MemoryStore {
     }
 
     fn insert(&self, code: &str, state: &Value) -> Result<Record, StoreError> {
-        let mut rows = self.rows.lock().map_err(|_| StoreError::Poisoned)?;
-        if rows.contains_key(code) {
+        let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        if tables.games.contains_key(code) {
             return Err(StoreError::CodeTaken);
         }
-        let record = Record {
-            id: rows.len() as i64 + 1,
+        let row = MemoryRow {
+            id: tables.games.len() as i64 + 1,
             state: state.clone(),
             version: 1,
+            updated_at: tables.now(),
         };
-        rows.insert(code.to_string(), record.clone());
-        Ok(record)
+        tables.games.insert(code.to_string(), row.clone());
+        Ok(Record {
+            id: row.id,
+            state: row.state,
+            version: row.version,
+            idle_seconds: 0.0,
+        })
     }
 
     fn load(&self, code: &str) -> Result<Option<Record>, StoreError> {
-        let rows = self.rows.lock().map_err(|_| StoreError::Poisoned)?;
-        Ok(rows.get(code).cloned())
+        let tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let now = tables.now();
+        Ok(tables.games.get(code).map(|row| Record {
+            id: row.id,
+            state: row.state.clone(),
+            version: row.version,
+            idle_seconds: now.duration_since(row.updated_at).as_secs_f64(),
+        }))
     }
 
     fn save(&self, id: i64, state: &Value, expected_version: i32) -> Result<i32, StoreError> {
-        let mut rows = self.rows.lock().map_err(|_| StoreError::Poisoned)?;
+        let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let now = tables.now();
         // Même règle que le `WHERE id = $1 AND version = $2` de PostgreSQL.
-        match rows
+        match tables
+            .games
             .values_mut()
             .find(|r| r.id == id && r.version == expected_version)
         {
-            Some(record) => {
-                record.state = state.clone();
-                record.version += 1;
-                Ok(record.version)
+            Some(row) => {
+                row.state = state.clone();
+                row.version += 1;
+                row.updated_at = now;
+                Ok(row.version)
             }
             None => Err(StoreError::Conflict),
         }
     }
 
+    fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {
+        let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let now = tables.now();
+        tables.presence.insert((id, player), now);
+        Ok(())
+    }
+
+    fn presence(&self, id: i64) -> Result<HashMap<usize, f64>, StoreError> {
+        let tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let now = tables.now();
+        Ok(tables
+            .presence
+            .iter()
+            .filter(|((game, _), _)| *game == id)
+            .map(|((_, player), seen)| (*player, now.duration_since(*seen).as_secs_f64()))
+            .collect())
+    }
+
+    /// Fait avancer l'horloge de ce stockage (tests uniquement : simuler une absence).
+    pub fn advance(&self, duration: Duration) {
+        if let Ok(mut tables) = self.tables.lock() {
+            tables.skew += duration;
+        }
+    }
+
     /// État brut stocké (tests uniquement : vérifier ce qui est réellement enregistré).
     pub fn raw_state(&self, code: &str) -> Option<Value> {
-        self.rows.lock().ok()?.get(code).map(|r| r.state.clone())
+        self.tables
+            .lock()
+            .ok()?
+            .games
+            .get(code)
+            .map(|r| r.state.clone())
     }
 
     /// Remplace l'état brut d'une partie (tests uniquement : préparer une situation précise).
     pub fn put_raw(&self, code: &str, state: Value) -> Option<()> {
-        let mut rows = self.rows.lock().ok()?;
-        let id = rows.len() as i64 + 1;
-        let record = rows.entry(code.to_string()).or_insert(Record {
+        let mut tables = self.tables.lock().ok()?;
+        let id = tables.games.len() as i64 + 1;
+        let now = tables.now();
+        let row = tables.games.entry(code.to_string()).or_insert(MemoryRow {
             id,
             state: Value::Null,
             version: 1,
+            updated_at: now,
         });
-        record.state = state;
+        row.state = state;
         Some(())
     }
 }
@@ -191,6 +282,7 @@ impl PgStore {
                 id,
                 state: state.clone(),
                 version,
+                idle_seconds: 0.0,
             }),
             // Violation de la contrainte UNIQUE sur `code`.
             Err(sqlx::Error::Database(db)) if db.is_unique_violation() => {
@@ -201,14 +293,21 @@ impl PgStore {
     }
 
     async fn load(&self, code: &str) -> Result<Option<Record>, StoreError> {
-        let row = sqlx::query_as::<_, (i64, Value, i32)>(
-            "SELECT id, state, version FROM games WHERE code = $1",
+        // L'heure vient de PostgreSQL (`now()`), la même pour toutes les fonctions.
+        let row = sqlx::query_as::<_, (i64, Value, i32, f64)>(
+            "SELECT id, state, version, EXTRACT(EPOCH FROM now() - updated_at)::float8 \
+             FROM games WHERE code = $1",
         )
         .bind(code)
         .fetch_optional(&self.pool)
         .await
         .map_err(StoreError::Database)?;
-        Ok(row.map(|(id, state, version)| Record { id, state, version }))
+        Ok(row.map(|(id, state, version, idle_seconds)| Record {
+            id,
+            state,
+            version,
+            idle_seconds,
+        }))
     }
 
     async fn save(&self, id: i64, state: &Value, expected_version: i32) -> Result<i32, StoreError> {
@@ -227,6 +326,34 @@ impl PgStore {
             Some((version,)) => Ok(version),
             None => Err(StoreError::Conflict),
         }
+    }
+
+    async fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {
+        sqlx::query(
+            "INSERT INTO presence (game_id, player_id, last_seen) VALUES ($1, $2, now()) \
+             ON CONFLICT (game_id, player_id) DO UPDATE SET last_seen = now()",
+        )
+        .bind(id)
+        .bind(player as i32)
+        .execute(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        Ok(())
+    }
+
+    async fn presence(&self, id: i64) -> Result<HashMap<usize, f64>, StoreError> {
+        let rows = sqlx::query_as::<_, (i32, f64)>(
+            "SELECT player_id, EXTRACT(EPOCH FROM now() - last_seen)::float8 \
+             FROM presence WHERE game_id = $1",
+        )
+        .bind(id)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|(player, idle)| usize::try_from(player).ok().map(|p| (p, idle)))
+            .collect())
     }
 }
 

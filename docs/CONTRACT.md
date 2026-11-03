@@ -41,7 +41,7 @@ Réponse `201` :
 
 ### `POST /api/join`
 
-Rejoint une partie au salon (pas encore lancée, moins de 4 joueurs).
+Rejoint une partie au salon (pas encore lancée, moins de 10 joueurs).
 
 Requête : `{ "code": "K7MPQX", "name": "Bob" }`
 
@@ -72,8 +72,13 @@ Réponse `200` : `{ "version": 6, "view": { ... } }`.
 ### `GET /api/state?code=K7MPQX&known_version=6`
 
 En-tête `X-Player-Token`. `known_version` est facultatif.
-- Si `known_version` est égal à la version en base : `200 { "changed": false, "version": 6 }`.
-- Sinon : `200 { "changed": true, "version": 7, "view": { ... } }`.
+- Si `known_version` est égal à la version en base : `200 { "changed": false, "version": 6, "presence": [...], "waiting": ... }`
+  (sans `view`).
+- Sinon : `200 { "changed": true, "version": 7, "view": { ... }, "presence": [...], "waiting": ... }`.
+
+Lire l'état note aussi que le joueur est présent (sans modifier la partie ni sa version). Si un joueur absent
+bloque la partie depuis plus de 45 s, cette lecture passe son tour (voir « Présence » ci-dessous) : la version
+augmente alors de 1.
 
 ## Types
 
@@ -130,6 +135,8 @@ Exemples : `{ "type": "DrawFromPile" }`, `{ "type": "SwapHeld", "column": 2, "ro
       "name": "Alice",
       "total_score": 0,
       "initial_reveals": 2,
+      "missed_turns": 0,
+      "eliminated": false,
       "grid": [
         { "kind": "Present", "slots": [ { "kind": "Hidden" }, { "kind": "Visible", "value": 7 }, { "kind": "Hidden" } ] },
         { "kind": "Removed" }
@@ -165,6 +172,27 @@ Exemples : `{ "type": "DrawFromPile" }`, `{ "type": "SwapHeld", "column": 2, "ro
   pénalité, `penalized` = la pénalité a été appliquée. C'est le serveur qui calcule : l'interface n'additionne rien.
 - `winners` : identifiants des gagnants (rempli seulement en phase `GameOver`).
 
+### Présence (`presence`, `waiting`)
+
+Toutes les réponses qui donnent l'état (`create`, `join`, `rules`, `start`, `action`, `state`) contiennent aussi :
+
+```json
+{
+  "presence": [ { "player": 0, "connected": true }, { "player": 1, "connected": false } ],
+  "waiting": { "player": 1, "seconds_left": 30, "missed_turns": 0, "max_missed_turns": 2 }
+}
+```
+
+- `presence` : pour chaque joueur, `connected` vaut `false` s'il n'a fait aucune requête depuis 15 s
+  (`PRESENCE_TIMEOUT_SECS`, dans `src/handlers.rs`).
+- `waiting` : `null`, ou le joueur absent qui bloque la partie (c'est son tour, ou il n'a pas retourné ses cartes
+  de mise en place). `seconds_left` : secondes avant que son tour soit passé (45 s après la dernière modification
+  de la partie, `ABSENT_TURN_WAIT_SECS`). `missed_turns` : tours déjà manqués d'affilée ; au `max_missed_turns`-ième,
+  il est éliminé.
+- Dans `GameView.players`, `missed_turns` et `eliminated` décrivent la situation de chaque joueur. Un joueur
+  éliminé ne joue plus, ne reçoit plus de cartes, et n'apparaît plus dans les scores des manches suivantes ni dans
+  le classement.
+
 ## Erreurs
 
 Toute erreur a la forme :
@@ -188,7 +216,8 @@ Toute erreur a la forme :
 | 413 | `payload_too_large` | corps de requête trop gros |
 | 422 | `wrong_phase` | action impossible dans la phase actuelle (dont réglages après lancement) |
 | 422 | `not_your_turn` | action hors de son tour |
-| 422 | `game_full` | déjà 4 joueurs |
+| 422 | `game_full` | déjà 10 joueurs |
+| 422 | `eliminated` | le joueur a été éliminé (trop de tours manqués) |
 | 422 | `not_enough_players` | lancement à moins de 2 joueurs |
 | 422 | `invalid_position` | colonne ou ligne hors de la grille, ou colonne retirée |
 | 422 | `already_revealed` | carte déjà visible (retournement) |
