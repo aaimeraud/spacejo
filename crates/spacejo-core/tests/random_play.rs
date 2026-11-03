@@ -11,6 +11,17 @@ const MAX_ACTIONS: usize = 200_000;
 /// Joue une partie entière avec des coups tirés au hasard parmi les coups légaux.
 /// Renvoie le nombre d'actions jouées.
 fn play_random_game(players: usize, rules: Rules, seed: u64) -> usize {
+    play_random_game_with_absences(players, rules, seed, 0)
+}
+
+/// Variante : avec une probabilité de `skip_percent` %, le joueur dont c'est le tour (ou qui doit encore
+/// retourner ses cartes) est considéré comme absent et son tour est passé par le serveur.
+fn play_random_game_with_absences(
+    players: usize,
+    rules: Rules,
+    seed: u64,
+    skip_percent: usize,
+) -> usize {
     let mut game = Game::new("P0", rules, seed).unwrap();
     for i in 1..players {
         game.join(&format!("P{i}")).unwrap();
@@ -31,6 +42,20 @@ fn play_random_game(players: usize, rules: Rules, seed: u64) -> usize {
             }
         }
         assert!(!legal.is_empty(), "aucun coup légal (graine {seed})");
+        if skip_percent > 0 && chooser.below(100) < skip_percent {
+            let absent = match &game.phase {
+                Phase::Playing(turn) => Some(turn.current),
+                Phase::InitialReveal => (0..players)
+                    .find(|&p| !game.players[p].eliminated && game.players[p].initial_reveals < 2),
+                _ => None,
+            };
+            if let Some(p) = absent {
+                game.skip_absent(p)
+                    .unwrap_or_else(|e| panic!("tour non passé : {e:?}"));
+                actions += 1;
+                continue;
+            }
+        }
         let (p, action) = legal[chooser.below(legal.len())];
         game.apply(p, action)
             .unwrap_or_else(|e| panic!("coup légal refusé : {action:?} → {e:?}"));
@@ -39,7 +64,13 @@ fn play_random_game(players: usize, rules: Rules, seed: u64) -> usize {
     assert_eq!(game.card_count(), 150);
     assert!(!game.winners.is_empty());
     // Les gagnants ont bien le total le plus bas.
-    let lowest = game.players.iter().map(|p| p.total_score).min().unwrap();
+    let lowest = game
+        .players
+        .iter()
+        .filter(|p| !p.eliminated)
+        .map(|p| p.total_score)
+        .min()
+        .unwrap();
     for &w in &game.winners {
         assert_eq!(game.players[w].total_score, lowest);
     }
@@ -49,7 +80,7 @@ fn play_random_game(players: usize, rules: Rules, seed: u64) -> usize {
 #[test]
 fn random_games_with_default_rules_always_finish() {
     for seed in 0..30 {
-        for players in 2..=4 {
+        for players in [2, 3, 4, 7, 10] {
             play_random_game(players, Rules::default(), seed);
         }
     }
@@ -77,7 +108,7 @@ fn random_games_with_variants_always_finish() {
     ];
     for rules in variants {
         for seed in 0..20 {
-            for players in 2..=4 {
+            for players in [2, 3, 4, 7, 10] {
                 play_random_game(players, rules, seed);
             }
         }
@@ -89,4 +120,13 @@ fn the_same_seed_replays_the_same_game() {
     let a = play_random_game(3, Rules::default(), 1234);
     let b = play_random_game(3, Rules::default(), 1234);
     assert_eq!(a, b);
+}
+
+#[test]
+fn random_games_with_absent_players_always_finish() {
+    for seed in 0..20 {
+        for players in [2, 3, 5, 10] {
+            play_random_game_with_absences(players, Rules::default(), seed, 15);
+        }
+    }
 }

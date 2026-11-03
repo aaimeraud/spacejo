@@ -15,8 +15,10 @@ use crate::scoring::finisher_round_score;
 
 /// Nombre minimum de joueurs pour lancer une partie.
 pub const MIN_PLAYERS: usize = 2;
-/// Nombre maximum de joueurs en v1. Le reste du code ne suppose jamais 4 joueurs.
-pub const MAX_PLAYERS: usize = 4;
+/// Nombre maximum de joueurs. Le reste du code ne suppose aucun nombre de joueurs.
+pub const MAX_PLAYERS: usize = 10;
+/// Nombre de tours manqués d'affilée (joueur absent) qui entraîne l'élimination.
+pub const MAX_MISSED_TURNS: u32 = 2;
 /// Longueur maximale d'un nom de joueur (en caractères, après suppression des espaces autour).
 pub const MAX_NAME_CHARS: usize = 20;
 /// Nombre de cartes que chaque joueur retourne en début de manche.
@@ -35,6 +37,19 @@ pub struct Player {
     pub total_score: i32,
     /// Cartes retournées pendant la mise en place de la manche en cours (0 à 2).
     pub initial_reveals: usize,
+    /// Tours passés d'affilée parce que le joueur était absent (remis à zéro dès qu'il joue).
+    pub missed_turns: u32,
+    /// Éliminé après `MAX_MISSED_TURNS` tours manqués : il ne joue plus et ne compte plus.
+    pub eliminated: bool,
+}
+
+/// Résultat d'un tour passé pour cause d'absence.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SkipOutcome {
+    /// Le tour est passé ; le joueur reste dans la partie.
+    Skipped,
+    /// C'était un tour manqué de trop : le joueur est éliminé.
+    Eliminated,
 }
 
 /// D'où vient la carte en main ?
@@ -155,6 +170,8 @@ impl Game {
             grid: Grid::default(),
             total_score: 0,
             initial_reveals: 0,
+            missed_turns: 0,
+            eliminated: false,
         };
         Ok(Game {
             rules,
@@ -185,6 +202,8 @@ impl Game {
             grid: Grid::default(),
             total_score: 0,
             initial_reveals: 0,
+            missed_turns: 0,
+            eliminated: false,
         });
         Ok(self.players.len() - 1)
     }
@@ -221,6 +240,69 @@ impl Game {
     /// Applique une action de jeu.
     pub fn apply(&mut self, player: PlayerId, action: Action) -> Result<(), GameError> {
         self.check_player(player)?;
+        if self.players[player].eliminated {
+            return Err(GameError::Eliminated);
+        }
+        self.apply_action(player, action)?;
+        // Le joueur est là et vient de jouer : ses tours manqués ne comptent plus.
+        self.players[player].missed_turns = 0;
+        Ok(())
+    }
+
+    /// Passe le tour d'un joueur absent (décidé par l'API, qui seule connaît l'heure).
+    /// - Pendant la mise en place : ses cartes restantes à retourner le sont à sa place.
+    /// - Pendant la manche : une carte qu'il tenait va sur la défausse, puis le tour passe.
+    ///
+    /// Au `MAX_MISSED_TURNS`-ième tour manqué d'affilée, il est éliminé (ASSUMPTIONS.md, n° 18 à 21).
+    pub fn skip_absent(&mut self, player: PlayerId) -> Result<SkipOutcome, GameError> {
+        self.check_player(player)?;
+        if self.players[player].eliminated {
+            return Err(GameError::Eliminated);
+        }
+        match &self.phase {
+            Phase::InitialReveal => {
+                if self.players[player].initial_reveals >= INITIAL_REVEALS {
+                    return Err(GameError::InitialRevealsDone);
+                }
+                // Tour manqué de trop : il est éliminé AVANT de retourner quoi que ce soit, pour ne
+                // jamais être désigné pour commencer la manche.
+                if self.players[player].missed_turns + 1 >= MAX_MISSED_TURNS {
+                    return Ok(self.count_missed_turn(player));
+                }
+                while self.players[player].initial_reveals < INITIAL_REVEALS {
+                    let Some((column, row)) = self.players[player].grid.first_hidden() else {
+                        break;
+                    };
+                    self.reveal_initial(player, column, row)?;
+                }
+                // Une grille sans carte cachée (cas extrême) : on considère la mise en place faite.
+                self.players[player].initial_reveals = INITIAL_REVEALS;
+                Ok(self.count_missed_turn(player))
+            }
+            Phase::Playing(turn) if turn.current == player => {
+                let mut turn = *turn;
+                if let Some(held) = turn.held.take() {
+                    self.discard.push(held.value);
+                }
+                let outcome = self.count_missed_turn(player);
+                if self.phase != Phase::GameOver {
+                    self.pass_turn(turn);
+                }
+                Ok(outcome)
+            }
+            Phase::Playing(_) => Err(GameError::NotYourTurn),
+            _ => Err(GameError::WrongPhase),
+        }
+    }
+
+    /// Joueurs encore en jeu (non éliminés), dans l'ordre d'arrivée.
+    pub fn active_players(&self) -> Vec<PlayerId> {
+        (0..self.players.len())
+            .filter(|&p| !self.players[p].eliminated)
+            .collect()
+    }
+
+    fn apply_action(&mut self, player: PlayerId, action: Action) -> Result<(), GameError> {
         match action {
             Action::RevealInitial { column, row } => self.reveal_initial(player, column, row),
             Action::NextRound => {
@@ -306,7 +388,7 @@ impl Game {
     /// Toutes les actions légales d'un joueur dans l'état actuel (utile aux tests et pour
     /// guider l'interface).
     pub fn legal_actions(&self, player: PlayerId) -> Vec<Action> {
-        if player >= self.players.len() {
+        if player >= self.players.len() || self.players[player].eliminated {
             return Vec::new();
         }
         let grid = &self.players[player].grid;
@@ -376,17 +458,22 @@ impl Game {
     /// Distribue une nouvelle manche : paquet complet mélangé, 12 cartes par joueur,
     /// une carte sur la défausse, le reste en pioche.
     fn start_round(&mut self) -> Result<(), GameError> {
-        let needed = self.players.len() * CARDS_PER_PLAYER + 1;
+        let needed = self.active_players().len() * CARDS_PER_PLAYER + 1;
         if needed > DECK_SIZE {
             return Err(GameError::NotEnoughCards);
         }
         let mut deck = full_deck();
         self.rng.shuffle(&mut deck);
         for player in &mut self.players {
+            player.initial_reveals = 0;
+            if player.eliminated {
+                // Un joueur éliminé ne reçoit plus de cartes.
+                player.grid = Grid::default();
+                continue;
+            }
             // `split_off` coupe le paquet : les 12 dernières cartes partent dans la grille.
             let hand = deck.split_off(deck.len() - CARDS_PER_PLAYER);
             player.grid = Grid::from_cards(hand);
-            player.initial_reveals = 0;
         }
         self.discard = deck.pop().into_iter().collect();
         self.draw_pile = deck;
@@ -417,14 +504,22 @@ impl Game {
         let removed = self.players[player].grid.remove_identical_columns();
         self.discard.extend(removed);
 
+        self.finish_initial_reveal_if_done();
+        Ok(())
+    }
+
+    /// Quand tous les joueurs en jeu ont retourné leurs 2 cartes, la manche commence.
+    fn finish_initial_reveal_if_done(&mut self) {
         let everyone_done = self
             .players
             .iter()
+            .filter(|p| !p.eliminated)
             .all(|p| p.initial_reveals >= INITIAL_REVEALS);
         if everyone_done {
             let starter = match self.next_starter {
-                Some(p) => p,
-                None => self.highest_visible_sum_player(),
+                // Un joueur désigné entre-temps éliminé ne commence pas.
+                Some(p) if !self.players[p].eliminated => p,
+                _ => self.highest_visible_sum_player(),
             };
             self.round_starter = Some(starter);
             self.phase = Phase::Playing(Turn {
@@ -433,16 +528,16 @@ impl Game {
                 finisher: None,
             });
         }
-        Ok(())
     }
 
     /// Règle de la première manche : la plus grande somme de cartes visibles commence ;
     /// égalité départagée par `first_player_tie`.
     fn highest_visible_sum_player(&mut self) -> PlayerId {
-        let sums: Vec<i32> = self.players.iter().map(|p| p.grid.visible_sum()).collect();
-        let best = sums.iter().copied().max().unwrap_or(0);
+        let active = self.active_players();
+        let sum = |p: PlayerId| self.players[p].grid.visible_sum();
+        let best = active.iter().map(|&p| sum(p)).max().unwrap_or(0);
         // Les ex æquo, dans l'ordre d'arrivée.
-        let tied: Vec<PlayerId> = (0..sums.len()).filter(|&p| sums[p] == best).collect();
+        let tied: Vec<PlayerId> = active.into_iter().filter(|&p| sum(p) == best).collect();
         match self.rules.first_player_tie {
             FirstPlayerTie::JoinOrder => tied.first().copied().unwrap_or(HOST),
             FirstPlayerTie::Random => {
@@ -482,15 +577,61 @@ impl Game {
             }
         }
 
-        let next = (player + 1) % self.players.len();
-        if turn.finisher == Some(next) {
-            // Tout le monde a joué son dernier tour.
+        self.pass_turn(turn);
+        Ok(())
+    }
+
+    /// Joueur suivant encore en jeu, après `player` dans l'ordre du tour.
+    fn next_active(&self, player: PlayerId) -> PlayerId {
+        let n = self.players.len();
+        (1..=n)
+            .map(|step| (player + step) % n)
+            .find(|&p| !self.players[p].eliminated)
+            .unwrap_or(player)
+    }
+
+    /// Donne le tour au joueur suivant, ou termine la manche si le tour revient au finisseur
+    /// (tous les autres joueurs en jeu ont alors joué leur dernier tour).
+    fn pass_turn(&mut self, mut turn: Turn) {
+        let player = turn.current;
+        let next = self.next_active(player);
+        // Le finisseur est-il atteint (ou dépassé) en allant de `player` à `next` ?
+        let n = self.players.len();
+        let reaches_finisher = turn.finisher.is_some_and(|f| {
+            (1..=n)
+                .map(|step| (player + step) % n)
+                .take_while(|&p| p != next)
+                .chain(std::iter::once(next))
+                .any(|p| p == f)
+        });
+        if reaches_finisher {
             self.end_round(turn.finisher);
         } else {
+            turn.held = None;
             turn.current = next;
             self.phase = Phase::Playing(turn);
         }
-        Ok(())
+    }
+
+    /// Compte un tour manqué ; élimine le joueur au-delà de la limite.
+    fn count_missed_turn(&mut self, player: PlayerId) -> SkipOutcome {
+        self.players[player].missed_turns += 1;
+        if self.players[player].missed_turns < MAX_MISSED_TURNS {
+            if self.phase == Phase::InitialReveal {
+                self.finish_initial_reveal_if_done();
+            }
+            return SkipOutcome::Skipped;
+        }
+        self.players[player].eliminated = true;
+        let active = self.active_players();
+        if active.len() <= 1 {
+            // Dernier joueur en jeu : il gagne.
+            self.winners = active;
+            self.phase = Phase::GameOver;
+        } else if self.phase == Phase::InitialReveal {
+            self.finish_initial_reveal_if_done();
+        }
+        SkipOutcome::Eliminated
     }
 
     /// Remélange la défausse, sauf sa carte du dessus qui reste visible, pour former la pioche.
@@ -513,19 +654,19 @@ impl Game {
             self.discard.extend(removed);
         }
 
-        let raws: Vec<i32> = self
-            .players
+        // Les joueurs éliminés ne sont plus comptés (ni pour eux, ni pour la pénalité des autres).
+        let active = self.active_players();
+        let raws: Vec<(PlayerId, i32)> = active
             .iter()
-            .map(|p| p.grid.values().iter().sum())
+            .map(|&p| (p, self.players[p].grid.values().iter().sum()))
             .collect();
-        let mut scores = Vec::with_capacity(self.players.len());
-        for (p, &raw) in raws.iter().enumerate() {
+        let mut scores = Vec::with_capacity(raws.len());
+        for &(p, raw) in &raws {
             let score = if finisher == Some(p) {
                 let others: Vec<i32> = raws
                     .iter()
-                    .enumerate()
-                    .filter(|&(q, _)| q != p)
-                    .map(|(_, &r)| r)
+                    .filter(|&&(q, _)| q != p)
+                    .map(|&(_, r)| r)
                     .collect();
                 finisher_round_score(&self.players[p].grid.values(), &others, &self.rules)
             } else {
@@ -548,19 +689,14 @@ impl Game {
         });
 
         // Fin de partie : un joueur atteint ou dépasse `end_score`.
-        let reached = self
-            .players
-            .iter()
-            .any(|p| p.total_score >= self.rules.end_score);
+        let total = |p: PlayerId| self.players[p].total_score;
+        let reached = active.iter().any(|&p| total(p) >= self.rules.end_score);
         if reached {
-            let lowest = self
-                .players
+            let lowest = active.iter().map(|&p| total(p)).min().unwrap_or(0);
+            let tied: Vec<PlayerId> = active
                 .iter()
-                .map(|p| p.total_score)
-                .min()
-                .unwrap_or(0);
-            let tied: Vec<PlayerId> = (0..self.players.len())
-                .filter(|&p| self.players[p].total_score == lowest)
+                .copied()
+                .filter(|&p| total(p) == lowest)
                 .collect();
             if tied.len() == 1 || self.rules.end_tie == EndTie::SharedVictory {
                 self.winners = tied;
@@ -580,14 +716,12 @@ impl Game {
     ) -> Option<PlayerId> {
         match self.rules.next_round_starter {
             // Sans finisseur (pioche épuisée), on revient à la règle de la première manche.
-            NextRoundStarter::Finisher => finisher,
+            NextRoundStarter::Finisher => finisher.filter(|&f| !self.players[f].eliminated),
             // `min_by_key` garde le PREMIER minimum : en cas d'égalité, l'ordre d'arrivée.
             NextRoundStarter::RoundWinner => {
                 scores.iter().min_by_key(|s| s.score).map(|s| s.player)
             }
-            NextRoundStarter::Rotate => self
-                .round_starter
-                .map(|starter| (starter + 1) % self.players.len()),
+            NextRoundStarter::Rotate => self.round_starter.map(|starter| self.next_active(starter)),
         }
     }
 }

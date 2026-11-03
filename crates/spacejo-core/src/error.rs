@@ -23,6 +23,8 @@ pub enum GameError {
     MustSwapDiscard,
     EmptyDiscard,
     EmptyPile,
+    /// Le joueur a été éliminé (trop de tours manqués) : il ne peut plus jouer.
+    Eliminated,
     /// Plus de joueurs que le paquet ne peut en servir (impossible avec 4 joueurs maximum).
     NotEnoughCards,
 }
@@ -47,6 +49,7 @@ impl GameError {
             GameError::MustSwapDiscard => "must_swap_discard",
             GameError::EmptyDiscard => "empty_discard",
             GameError::EmptyPile => "empty_pile",
+            GameError::Eliminated => "eliminated",
             GameError::NotEnoughCards => "not_enough_cards",
         }
     }
@@ -74,6 +77,7 @@ impl GameError {
             }
             GameError::EmptyDiscard => "La défausse est vide.",
             GameError::EmptyPile => "La pioche est vide.",
+            GameError::Eliminated => "Vous avez été éliminé·e après plusieurs tours manqués.",
             GameError::NotEnoughCards => "Pas assez de cartes pour autant de joueurs.",
         }
     }

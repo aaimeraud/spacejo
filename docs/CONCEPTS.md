@@ -21,3 +21,6 @@ Chaque ligne : la notion, le fichier où elle apparaît, et le chapitre du livre
 | Trait `From` et conversion d'erreurs par `?` | `src/error.rs` | [ch09-02](https://doc.rust-lang.org/stable/book/ch09-02-recoverable-errors-with-result.html#a-shortcut-for-propagating-errors-the--operator) |
 | Généricité avec contraintes de trait (`T: DeserializeOwned`, `F: FnOnce(...)`) | `src/handlers.rs` | [ch10-01](https://doc.rust-lang.org/stable/book/ch10-01-syntax.html) |
 | Tests unitaires `#[cfg(test)]` dans le même fichier | `src/auth.rs` | [ch11-03](https://doc.rust-lang.org/stable/book/ch11-03-test-organization.html) |
+| `let … else` (sortir tôt quand un motif ne correspond pas) | `src/handlers.rs`, `crates/spacejo-core/src/game.rs` | [ch19-01](https://doc.rust-lang.org/stable/book/ch19-01-all-the-places-for-patterns.html) |
+| Méthodes d'`Option` (`is_none_or`, `is_some_and`, `filter`) | `src/handlers.rs`, `crates/spacejo-core/src/game.rs` | [doc de `Option`](https://doc.rust-lang.org/std/option/enum.Option.html) |
+

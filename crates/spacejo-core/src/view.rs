@@ -36,6 +36,8 @@ pub struct PlayerView {
     pub name: String,
     pub total_score: i32,
     pub initial_reveals: usize,
+    pub missed_turns: u32,
+    pub eliminated: bool,
     pub grid: Vec<ColumnView>,
 }
 
@@ -88,6 +90,8 @@ pub fn view_for(game: &Game, me: PlayerId) -> GameView {
             name: player.name.clone(),
             total_score: player.total_score,
             initial_reveals: player.initial_reveals,
+            missed_turns: player.missed_turns,
+            eliminated: player.eliminated,
             grid: player
                 .grid
                 .columns

@@ -54,3 +54,22 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
 17. **Préréglages** : « Détente » (pénalité désactivée) et « Partie rapide » (fin à 50 points) sont des raccourcis de
     l'interface, composés uniquement de valeurs existantes de `Rules` ; ils n'ajoutent aucune règle. Une combinaison
     qui ne correspond à aucun préréglage est affichée comme « Personnalisée ».
+
+## Absence et élimination (demandées par le propriétaire du dépôt)
+
+18. **Absent** : un joueur est absent quand le serveur n'a reçu aucune requête de sa part depuis
+    `PRESENCE_TIMEOUT_SECS` (15 s ; l'interface interroge le serveur toutes les 2 s).
+19. **Attente d'un tour** : quand c'est au tour d'un joueur absent, on l'attend `ABSENT_TURN_WAIT_SECS` (45 s, la
+    durée retenue pour « un tour ») depuis la dernière modification de la partie. Passé ce délai, la requête suivante
+    d'un autre joueur passe son tour : une carte qu'il tenait en main va sur la défausse. Pendant la mise en place,
+    passer son tour retourne à sa place les cartes qu'il lui restait à retourner (les premières cartes cachées).
+20. **Élimination** : au deuxième tour manqué d'affilée (`MAX_MISSED_TURNS` = 2), le joueur est éliminé. Jouer une
+    action remet son compteur à zéro. Un joueur éliminé garde ses cartes de la manche en cours sur la table, mais il
+    ne joue plus, ne reçoit plus de cartes, et n'est plus compté pour la pénalité, la fin de partie, le choix du
+    premier joueur ni le classement. S'il ne reste qu'un joueur, la partie s'arrête et il gagne.
+21. **Derniers tours** : un joueur absent pendant les derniers tours d'une manche perd son dernier tour comme
+    n'importe quel autre tour ; la manche se termine quand le tour revient au joueur qui l'a terminée. (Un
+    finisseur ne peut pas être éliminé dans la même manche : on n'élimine un joueur que pendant son tour.)
+22. **Nombre de joueurs** : de 2 à 10 (`MAX_PLAYERS`). À 10 joueurs, 121 cartes sont distribuées et la pioche n'en
+    compte que 29 : le réglage `empty_pile` intervient donc plus souvent.
+

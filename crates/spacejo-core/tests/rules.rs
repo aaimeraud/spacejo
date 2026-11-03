@@ -135,5 +135,8 @@ fn players_and_names_are_validated() {
     assert_eq!(game.join("Bob"), Ok(1));
     assert_eq!(game.join("Chloé"), Ok(2));
     assert_eq!(game.join("Dan"), Ok(3));
-    assert_eq!(game.join("Eve"), Err(GameError::GameFull));
+    for i in 4..spacejo_core::MAX_PLAYERS {
+        assert_eq!(game.join(&format!("Joueur {i}")), Ok(i));
+    }
+    assert_eq!(game.join("En trop"), Err(GameError::GameFull));
 }

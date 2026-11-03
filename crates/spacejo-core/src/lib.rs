@@ -25,8 +25,9 @@ mod view;
 pub use cards::{CardValue, DECK_COMPOSITION, DECK_SIZE, full_deck};
 pub use error::GameError;
 pub use game::{
-    Action, Game, HOST, Held, HeldSource, INITIAL_REVEALS, MAX_NAME_CHARS, MAX_PLAYERS,
-    MIN_PLAYERS, Phase, Player, PlayerId, PlayerRoundScore, RoundResult, Turn, apply,
+    Action, Game, HOST, Held, HeldSource, INITIAL_REVEALS, MAX_MISSED_TURNS, MAX_NAME_CHARS,
+    MAX_PLAYERS, MIN_PLAYERS, Phase, Player, PlayerId, PlayerRoundScore, RoundResult, SkipOutcome,
+    Turn, apply,
 };
 pub use grid::{CARDS_PER_PLAYER, Cell, Column, GRID_COLUMNS, GRID_ROWS, Grid};
 pub use rng::SplitMix64;
