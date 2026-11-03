@@ -7,3 +7,4 @@ web/dist/
 .DS_Store
 # Configuration locale de prévisualisation (outil de développement personnel).
 .claude/launch.json
+.taste-skill/
