@@ -1,0 +1,125 @@
+# Intégration continue : à chaque push et pull request.
+# Les mêmes commandes doivent passer en local avant chaque commit (voir README, « Vérifications »).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  rust:
+    name: Rust (fmt, clippy, tests)
+    runs-on: ubuntu-latest
+    services:
+      # PostgreSQL pour tests/postgres.rs (migrations, verrou optimiste).
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: spacejo
+          POSTGRES_PASSWORD: spacejo
+          POSTGRES_DB: spacejo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U spacejo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgres://spacejo:spacejo@localhost:5432/spacejo
+      # Dans la CI, les tests PostgreSQL sont obligatoires.
+      SPACEJO_REQUIRE_DB: "1"
+    steps:
+      - uses: actions/checkout@v7.0.1
+      # dtolnay/rust-toolchain n'a pas de tags de version : épinglé sur un commit de la branche `stable`.
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable, 2026-10-16
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2.9.3
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  web:
+    name: Interface (typecheck, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  scripts:
+    name: Scripts (contrôle des commits, release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: taiki-e/install-action@v2.90.0
+        with:
+          tool: git-cliff
+      - run: tests/scripts/check-commit.test.sh
+      - run: tests/scripts/release.test.sh
+
+  audit:
+    name: Audit des dépendances (non bloquant)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: taiki-e/install-action@v2.90.0
+        with:
+          tool: cargo-audit
+      - run: cargo audit
+      - run: npm audit --audit-level=moderate
+        working-directory: web
+
+  commit-checks:
+    name: Messages de commit et règle de documentation
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Chaque commit de la pull request
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          status=0
+          msg=$(mktemp)
+          for commit in $(git rev-list --no-merges "$BASE_SHA..$HEAD_SHA"); do
+            git log -1 --format=%B "$commit" > "$msg"
+            if git diff-tree --no-commit-id --name-only -r --root "$commit" | scripts/check-commit.sh "$msg"; then
+              echo "ok   $(git log -1 --format='%h %s' "$commit")"
+            else
+              echo "FAIL $(git log -1 --format='%h %s' "$commit")"
+              status=1
+            fi
+          done
+          exit $status
+      - name: Titre de la pull request (message du commit en cas de fusion par squash)
+        env:
+          # Passé par une variable d'environnement, jamais interpolé dans le script (injection).
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          msg=$(mktemp)
+          printf '%s\n' "$PR_TITLE" > "$msg"
+          git diff --name-only "$BASE_SHA...$HEAD_SHA" | scripts/check-commit.sh "$msg"

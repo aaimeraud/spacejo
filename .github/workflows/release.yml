@@ -1,0 +1,33 @@
+# Publication d'une release GitHub quand le propriétaire du dépôt pousse un tag vX.Y.Z
+# (créé par scripts/release.sh). Les notes viennent de git-cliff, pour cette version seule.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Permission minimale : « contents: write allows the action to create a release »
+    # (documentation GitHub, syntaxe des workflows, clé `permissions`). Toutes les autres sont à `none`.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          # Tout l'historique : git-cliff a besoin des tags précédents.
+          fetch-depth: 0
+      - name: Notes de cette version
+        uses: orhun/git-cliff-action@v4.9.1
+        with:
+          config: cliff.toml
+          args: --latest --strip header
+        env:
+          OUTPUT: RELEASE_NOTES.md
+      - name: Création de la release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --title "$TAG" --notes-file RELEASE_NOTES.md --verify-tag
