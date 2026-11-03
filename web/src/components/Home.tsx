@@ -3,15 +3,19 @@ import { useState, type FormEvent } from "react";
 import type { Rules } from "../api/types";
 import { GAME_CODE_LENGTH, MAX_NAME_CHARS } from "../config";
 import { OFFICIAL_RULES } from "../rulesInfo";
+import type { KnownSession } from "../session";
 import { RulesEditor } from "./RulesPanel";
 
 interface Props {
   busy: boolean;
+  /** Parties rejointes sur cet appareil, qu'on peut reprendre. */
+  resumable: KnownSession[];
   onCreate: (name: string, rules: Rules) => void;
   onJoin: (code: string, name: string) => void;
+  onResume: (session: KnownSession) => void;
 }
 
-export function Home({ busy, onCreate, onJoin }: Props) {
+export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
   const [createName, setCreateName] = useState("");
   const [rules, setRules] = useState<Rules>(OFFICIAL_RULES);
   const [joinName, setJoinName] = useState("");
@@ -28,6 +32,21 @@ export function Home({ busy, onCreate, onJoin }: Props) {
 
   return (
     <div className="home">
+      {resumable.length > 0 && (
+        <section aria-labelledby="resume-title" className="panel resume-panel">
+          <h2 id="resume-title">Reprendre une partie</h2>
+          <ul className="resume-list">
+            {resumable.map((known) => (
+              <li key={known.code}>
+                <button type="button" className="preset" onClick={() => onResume(known)}>
+                  <span className="preset-title">Partie {known.code}</span>
+                  <span className="preset-description">En tant que {known.name}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       <section aria-labelledby="create-title" className="panel">
         <h2 id="create-title">Créer une partie</h2>
         <form onSubmit={submitCreate}>

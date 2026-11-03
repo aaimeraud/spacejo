@@ -1,11 +1,17 @@
 // Session du joueur : code de partie, jeton secret et identifiant, gardés dans le navigateur pour
 // survivre à un rechargement de page. Le jeton n'est jamais affiché.
-import { SESSION_STORAGE_KEY } from "./config";
+import { KNOWN_SESSIONS_KEY, MAX_KNOWN_SESSIONS, SESSION_STORAGE_KEY } from "./config";
 
 export interface Session {
   code: string;
   token: string;
   playerId: number;
+}
+
+/** Partie mémorisée sur cet appareil (pour la reprendre après avoir fermé l'onglet). */
+export interface KnownSession extends Session {
+  name: string;
+  savedAt: number;
 }
 
 function isSession(value: unknown): value is Session {
@@ -47,3 +53,43 @@ export function clearSession(storage: KeyValueStorage): void {
     // Rien à faire.
   }
 }
+
+function isKnownSession(value: unknown): value is KnownSession {
+  if (!isSession(value)) return false;
+  const v = value as unknown as Record<string, unknown>;
+  return typeof v.name === "string" && typeof v.savedAt === "number";
+}
+
+/** Parties mémorisées, de la plus récente à la plus ancienne. */
+export function knownSessions(storage: KeyValueStorage): KnownSession[] {
+  try {
+    const raw = storage.getItem(KNOWN_SESSIONS_KEY);
+    if (raw === null) return [];
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter(isKnownSession).sort((a, b) => b.savedAt - a.savedAt) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Mémorise (ou rafraîchit) une partie. `now` est passé en paramètre pour des tests déterministes. */
+export function rememberSession(storage: KeyValueStorage, session: Session, name: string, now: number): void {
+  const others = knownSessions(storage).filter((s) => s.code !== session.code);
+  const list = [{ ...session, name, savedAt: now }, ...others].slice(0, MAX_KNOWN_SESSIONS);
+  try {
+    storage.setItem(KNOWN_SESSIONS_KEY, JSON.stringify(list));
+  } catch {
+    // Pas de mémorisation possible : on ne pourra simplement pas reprendre cette partie.
+  }
+}
+
+/** Oublie une partie (quittée, terminée, ou refusée par le serveur). */
+export function forgetSession(storage: KeyValueStorage, code: string): void {
+  const list = knownSessions(storage).filter((s) => s.code !== code);
+  try {
+    storage.setItem(KNOWN_SESSIONS_KEY, JSON.stringify(list));
+  } catch {
+    // Rien à faire.
+  }
+}
+

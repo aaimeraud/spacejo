@@ -499,3 +499,16 @@ button.rule-card-head:hover { background: rgba(124, 243, 255, 0.06); }
 .chip[aria-pressed="true"] { background: var(--accent); color: #1a1a2e; border-color: var(--accent); font-weight: 700; }
 
 .rules-summary-line { margin: 0 0 10px; }
+
+/* ===== Présence et élimination ===== */
+.pill-absent { border: 1px dashed var(--danger); color: var(--danger); }
+.pill-eliminated { background: #3a1f2b; color: #ffb3b3; }
+.badge.is-eliminated .badge-name { text-decoration: line-through; }
+.seat.is-eliminated .seat-grid { opacity: 0.35; filter: grayscale(1); }
+.waiting-banner {
+  background: #3b2a12; border: 1px solid var(--mid); border-left: 4px solid var(--mid);
+  padding: 8px 12px; border-radius: 6px; margin: 6px 0;
+}
+.resume-panel { grid-column: 1 / -1; }
+.resume-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; }
+

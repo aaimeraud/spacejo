@@ -3,7 +3,11 @@ import type { GameView, PlayerView } from "../api/types";
 import { OFFICIAL_RULES } from "../rulesInfo";
 import { hiddenCount, seatPlayers } from "./seats";
 
-const player = (id: number): PlayerView => ({ id, name: `P${id}`, total_score: 0, initial_reveals: 0, grid: [] });
+const player = (id: number): PlayerView => ({ id, name: `P${id}`, total_score: 0, initial_reveals: 0,
+  missed_turns: 0,
+  eliminated: false,
+  grid: [],
+});
 
 const view = (count: number, me: number): GameView => ({
   me,

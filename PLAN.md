@@ -138,7 +138,7 @@ Demandée par le propriétaire du dépôt. Les durées sont des constantes nomm�
    la partie ; un joueur est absent s'il n'a rien demandé depuis `PRESENCE_TIMEOUT_SECS` ; si c'est son tour et que
    la partie n'a pas bougé depuis `ABSENT_TURN_WAIT_SECS`, la prochaine requête d'un autre joueur passe son tour ;
    les réponses donnent la présence de chacun et le compte à rebours.
-4. [ ] Interface : reprise d'une partie après fermeture de l'onglet (sessions gardées dans `localStorage`),
+4. [x] Interface : reprise d'une partie après fermeture de l'onglet (sessions gardées dans `localStorage`),
    indicateurs « absent », « on l'attend encore N s », « éliminé ».
 
 ## Évolution en cours : écran de jeu figé, création pas à pas, icônes (branche `claude/app-layout`)

@@ -161,7 +161,7 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/game/seats.ts` | place de chaque joueur autour de la table (moi en bas, puis l'ordre du tour, dans le sens des aiguilles d'une montre) |
 | `src/rulesInfo.ts` | explications, exemples, étiquettes « officiel » / « variante », préréglages (raccourcis de l'interface) et résumé des réglages |
 | `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, classement (simple tri des totaux) |
-| `src/session.ts` | session (code, jeton, identifiant) dans `sessionStorage` |
+| `src/session.ts` | session de l'onglet (code, jeton, identifiant) dans `sessionStorage`, et parties mémorisées dans `localStorage` pour la reprise |
 | `src/config.ts` | constantes : `POLL_INTERVAL_MS` (2000), bornes, longueurs |
 
 **Table de jeu (CSS 3D)** : la partie se joue sur une table ovale inclinée en perspective (`rotateX`). Les
@@ -196,8 +196,14 @@ la réponse est minimale (`changed: false`) et rien n'est redessiné.
 fréquent pendant la mise en place où tous retournent leurs cartes en même temps), l'interface affiche le
 message, relit l'état complet, et le joueur refait son geste.
 
-**Session** : `sessionStorage` est propre à chaque onglet et survit au rechargement de la page ; on peut
-donc jouer à deux dans deux onglets du même navigateur. Fermer l'onglet fait perdre la session.
+**Session et reprise** : la session de l'onglet vit dans `sessionStorage` (propre à chaque onglet, conservée au
+rechargement : on peut jouer à deux dans deux onglets du même navigateur). Chaque partie rejointe est aussi
+mémorisée dans `localStorage` (5 au plus) : après avoir fermé l'onglet, l'accueil propose « Reprendre une partie ».
+Une partie quittée avec « Quitter », terminée, ou refusée par le serveur (jeton invalide, partie disparue) est oubliée.
+
+**Absents et éliminés** : les badges affichent « absent » (d'après `presence`) et « éliminé » ; la grille d'un
+joueur éliminé est grisée. Quand on attend un absent, un bandeau donne le compte à rebours reçu du serveur
+(`waiting`) et dit si ce sera son dernier tour manqué.
 
 **Accessibilité** : cartes et commandes sont des `button` (clavier, focus visible) avec un libellé
 (« Carte cachée, colonne 2, ligne 1 », « Carte 7, … ») ; la valeur d'une carte est toujours écrite (la

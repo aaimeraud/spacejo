@@ -17,3 +17,11 @@ export const GAME_CODE_LENGTH = 6;
 /** Clé de `sessionStorage` où l'on garde la session (code, jeton, identifiant). `sessionStorage`
  * est propre à chaque onglet : on peut jouer à deux dans deux onglets du même navigateur. */
 export const SESSION_STORAGE_KEY = "spacejo.session";
+
+/** Clé de `localStorage` des parties rejointes sur cet appareil, pour pouvoir les reprendre après avoir
+ * fermé l'onglet. */
+export const KNOWN_SESSIONS_KEY = "spacejo.sessions";
+
+/** Nombre maximal de parties mémorisées pour la reprise. */
+export const MAX_KNOWN_SESSIONS = 5;
+

@@ -13,6 +13,8 @@ const player = (id: number, overrides: Partial<PlayerView> = {}): PlayerView => 
   name: `P${id}`,
   total_score: 0,
   initial_reveals: 2,
+  missed_turns: 0,
+  eliminated: false,
   grid: [column(5, null, null), column(null, null, null), { kind: "Removed" }, column(1, 2, 3)],
   ...overrides,
 });

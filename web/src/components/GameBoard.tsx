@@ -2,7 +2,7 @@
 // inclinée en perspective), pioche et défausse au centre, ma grille devant moi en bas ; puis le classement
 // en fin de partie. La disposition vient de `game/seats.ts`, le relief du CSS (styles.css, « Table »).
 import { useState, type CSSProperties } from "react";
-import type { Action, GameView, PlayerView } from "../api/types";
+import type { Action, GameView, PlayerView, PresenceEntry, Waiting } from "../api/types";
 import { hint, isMyTurn, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
 import { hiddenCount, seatPlayers } from "../game/seats";
 import { ValueCard } from "./Card";
@@ -12,14 +12,26 @@ import { Scoreboard } from "./Scoreboard";
 interface Props {
   view: GameView;
   busy: boolean;
+  presence: PresenceEntry[];
+  waiting: Waiting | null;
   onAction: (action: Action) => void;
 }
 
 /** Badge d'un joueur : nom, rôle, total, cartes cachées, tour. Tout est écrit (jamais la couleur seule). */
-function PlayerBadge({ view, player, mine = false }: { view: GameView; player: PlayerView; mine?: boolean }) {
+function PlayerBadge({
+  view,
+  player,
+  connected,
+  mine = false,
+}: {
+  view: GameView;
+  player: PlayerView;
+  connected: boolean;
+  mine?: boolean;
+}) {
   const playing = view.current_player === player.id;
   return (
-    <div className={`badge${playing ? " is-playing" : ""}`}>
+    <div className={`badge${playing ? " is-playing" : ""}${player.eliminated ? " is-eliminated" : ""}`}>
       <span className="badge-avatar" aria-hidden="true">
         {player.name.slice(0, 1).toUpperCase()}
       </span>
@@ -35,11 +47,31 @@ function PlayerBadge({ view, player, mine = false }: { view: GameView; player: P
       </span>
       {playing && <span className="pill pill-turn">joue</span>}
       {view.finisher === player.id && <span className="pill pill-finisher">a terminé</span>}
+      {player.eliminated ? (
+        <span className="pill pill-eliminated">éliminé</span>
+      ) : (
+        !connected && <span className="pill pill-absent">absent</span>
+      )}
     </div>
   );
 }
 
-export function GameBoard({ view, busy, onAction }: Props) {
+/** Bandeau « on attend un joueur absent », avec le compte à rebours donné par le serveur. */
+function WaitingBanner({ view, waiting }: { view: GameView; waiting: Waiting }) {
+  const name = playerName(view, waiting.player);
+  const last = waiting.missed_turns + 1 >= waiting.max_missed_turns;
+  return (
+    <p className="waiting-banner" role="status">
+      <strong>{name} est parti·e</strong> : on l'attend encore {waiting.seconds_left} s.{" "}
+      {last
+        ? "S'il ne revient pas, ce sera son dernier tour manqué : il sera éliminé."
+        : `Ensuite, son tour sera passé (tour manqué ${waiting.missed_turns + 1} sur ${waiting.max_missed_turns}).`}
+    </p>
+  );
+}
+
+export function GameBoard({ view, busy, presence, waiting, onAction }: Props) {
+  const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const [mode, setMode] = useState<HeldMode>("swap");
   const seats = seatPlayers(view);
   const me = view.players[view.me];
@@ -83,15 +115,18 @@ export function GameBoard({ view, busy, onAction }: Props) {
         {view.players.length} joueurs · Manche {view.round} · fin à {view.rules.end_score} points
       </p>
       <p className="hint" role="status" aria-live="polite">
-        {hint(view, mode)}
+        {me?.eliminated === true
+          ? "Vous avez été éliminé·e après plusieurs tours manqués : vous pouvez regarder la suite de la partie."
+          : hint(view, mode)}
       </p>
+      {waiting !== null && <WaitingBanner view={view} waiting={waiting} />}
 
       <div className="scene">
         <div className="table" aria-label="Table de jeu" role="region">
           {opponents.map((seat) => (
             <section
               key={seat.player.id}
-              className={`seat${view.current_player === seat.player.id ? " is-active" : ""}`}
+              className={`seat${view.current_player === seat.player.id ? " is-active" : ""}${seat.player.eliminated ? " is-eliminated" : ""}`}
               style={
                 {
                   "--seat-x": `${seat.x}%`,
@@ -102,7 +137,7 @@ export function GameBoard({ view, busy, onAction }: Props) {
               }
               aria-label={`Place de ${seat.player.name}`}
             >
-              <PlayerBadge view={view} player={seat.player} />
+              <PlayerBadge view={view} player={seat.player} connected={connected(seat.player.id)} />
               {/* Les cartes sont tournées vers leur propriétaire, comme posées devant lui. */}
                 <div className="seat-grid" style={{ "--seat-rotation": `${seat.rotation}deg` } as CSSProperties}>
                   <GridView player={seat.player} size="sm" />
@@ -178,7 +213,7 @@ export function GameBoard({ view, busy, onAction }: Props) {
             <h2 id="my-grid-title" className="visually-hidden">
               Ma grille
             </h2>
-            <PlayerBadge view={view} player={me} mine />
+            <PlayerBadge view={view} player={me} connected mine />
             {heldFromPile && (
               // Deux tuiles à bascule (aria-pressed) plutôt que des boutons radio : même style que les préréglages.
               <div className="held-choice" role="group" aria-labelledby="held-choice-title">

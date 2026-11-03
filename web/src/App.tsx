@@ -2,12 +2,21 @@
 // Le serveur est autoritaire : on n'envoie que des intentions et on affiche la vue renvoyée.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, SpaceJoApi } from "./api/client";
-import type { Action, GameView, Rules } from "./api/types";
+import type { Action, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
 import { GameBoard } from "./components/GameBoard";
 import { Home } from "./components/Home";
 import { Lobby } from "./components/Lobby";
 import { POLL_INTERVAL_MS } from "./config";
-import { clearSession, loadSession, saveSession, type Session } from "./session";
+import {
+  clearSession,
+  forgetSession,
+  knownSessions,
+  loadSession,
+  rememberSession,
+  saveSession,
+  type KnownSession,
+  type Session,
+} from "./session";
 
 const api = new SpaceJoApi();
 
@@ -16,31 +25,51 @@ export function App() {
   const [view, setView] = useState<GameView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [presence, setPresence] = useState<PresenceEntry[]>([]);
+  const [waiting, setWaiting] = useState<Waiting | null>(null);
+  // Parties mémorisées sur cet appareil, proposées à la reprise sur l'accueil.
+  const [resumable, setResumable] = useState<KnownSession[]>(() => knownSessions(window.localStorage));
   // La version connue est lue par le polling et par les actions : une référence évite de
   // relancer le polling à chaque changement.
   const versionRef = useRef<number | null>(null);
 
-  const leave = useCallback(() => {
+  /** Revient à l'accueil. `forget` : la partie n'est plus proposée à la reprise. */
+  const leave = useCallback((forget: boolean) => {
+    const current = loadSession(window.sessionStorage);
+    if (forget && current !== null) forgetSession(window.localStorage, current.code);
     clearSession(window.sessionStorage);
     versionRef.current = null;
     setSession(null);
     setView(null);
     setError(null);
+    setPresence([]);
+    setWaiting(null);
+    setResumable(knownSessions(window.localStorage));
   }, []);
 
-  const applyResponse = useCallback((version: number, next: GameView) => {
-    versionRef.current = version;
-    setView(next);
+  const applyPresence = useCallback((info: PresenceInfo) => {
+    setPresence(info.presence);
+    setWaiting(info.waiting);
   }, []);
+
+  const applyResponse = useCallback(
+    (version: number, next: GameView, info: PresenceInfo) => {
+      versionRef.current = version;
+      setView(next);
+      applyPresence(info);
+    },
+    [applyPresence],
+  );
 
   /** Relit l'état ; avec `force`, on redemande la vue complète. */
   const refresh = useCallback(
     async (current: Session, force = false) => {
       const known = force ? undefined : (versionRef.current ?? undefined);
       const response = await api.state(current.code, current.token, known);
-      if (response.changed) applyResponse(response.version, response.view);
+      if (response.changed) applyResponse(response.version, response.view, response);
+      else applyPresence(response);
     },
-    [applyResponse],
+    [applyResponse, applyPresence],
   );
 
   // Polling toutes les POLL_INTERVAL_MS tant qu'une session est ouverte.
@@ -54,8 +83,8 @@ export function App() {
       } catch (caught) {
         if (stopped) return;
         if (caught instanceof ApiError && (caught.status === 401 || caught.status === 404)) {
-          // Jeton refusé ou partie disparue : on revient à l'accueil.
-          leave();
+          // Jeton refusé ou partie disparue : on revient à l'accueil et on l'oublie.
+          leave(true);
           setError(caught.message);
         } else if (caught instanceof ApiError) {
           setError(`Connexion : ${caught.message}`);
@@ -92,30 +121,45 @@ export function App() {
     [refresh, session],
   );
 
-  const startSession = (code: string, token: string, playerId: number, version: number, next: GameView) => {
-    const created = { code, token, playerId };
+  // Une partie terminée n'est plus proposée à la reprise.
+  useEffect(() => {
+    if (view?.phase === "GameOver" && session !== null) forgetSession(window.localStorage, session.code);
+  }, [view?.phase, session]);
+
+  const startSession = (name: string, r: { code: string; token: string; player_id: number; version: number; view: GameView } & PresenceInfo) => {
+    const created = { code: r.code, token: r.token, playerId: r.player_id };
     saveSession(window.sessionStorage, created);
-    applyResponse(version, next);
+    // Mémorisée sur l'appareil : on pourra revenir dans la partie après avoir fermé l'onglet.
+    rememberSession(window.localStorage, created, name, Date.now());
+    applyResponse(r.version, r.view, r);
     setSession(created);
   };
 
   const onCreate = (name: string, rules: Rules) =>
     void run(async () => {
-      const r = await api.create(name, rules);
-      startSession(r.code, r.token, r.player_id, r.version, r.view);
+      startSession(name.trim(), await api.create(name, rules));
     });
 
   const onJoin = (code: string, name: string) =>
     void run(async () => {
-      const r = await api.join(code, name);
-      startSession(r.code, r.token, r.player_id, r.version, r.view);
+      startSession(name.trim(), await api.join(code, name));
     });
 
-  const write = (send: (s: Session, version: number) => Promise<{ version: number; view: GameView }>) =>
+  /** Reprend une partie mémorisée : le polling recharge aussitôt la vue complète. */
+  const onResume = (known: KnownSession) => {
+    const resumed = { code: known.code, token: known.token, playerId: known.playerId };
+    saveSession(window.sessionStorage, resumed);
+    versionRef.current = null;
+    setSession(resumed);
+  };
+
+  const write = (
+    send: (s: Session, version: number) => Promise<{ version: number; view: GameView } & PresenceInfo>,
+  ) =>
     void run(async () => {
       if (session === null || versionRef.current === null) return;
       const r = await send(session, versionRef.current);
-      applyResponse(r.version, r.view);
+      applyResponse(r.version, r.view, r);
     });
 
   const onRulesChange = (rules: Rules) =>
@@ -132,7 +176,7 @@ export function App() {
             <span>
               Partie <strong>{session.code}</strong>
             </span>
-            <button type="button" onClick={leave}>
+            <button type="button" onClick={() => leave(true)}>
               Quitter
             </button>
           </div>
@@ -146,13 +190,22 @@ export function App() {
       )}
 
       <main>
-        {session === null && <Home busy={busy} onCreate={onCreate} onJoin={onJoin} />}
+        {session === null && (
+          <Home busy={busy} resumable={resumable} onCreate={onCreate} onJoin={onJoin} onResume={onResume} />
+        )}
         {session !== null && view === null && <p role="status">Chargement de la partie…</p>}
         {session !== null && view !== null && view.phase === "Lobby" && (
-          <Lobby view={view} code={session.code} busy={busy} onRulesChange={onRulesChange} onStart={onStart} />
+          <Lobby
+            view={view}
+            code={session.code}
+            busy={busy}
+            presence={presence}
+            onRulesChange={onRulesChange}
+            onStart={onStart}
+          />
         )}
         {session !== null && view !== null && view.phase !== "Lobby" && (
-          <GameBoard view={view} busy={busy} onAction={onAction} />
+          <GameBoard view={view} busy={busy} presence={presence} waiting={waiting} onAction={onAction} />
         )}
       </main>
 

@@ -34,7 +34,31 @@ export interface PlayerView {
   name: string;
   total_score: number;
   initial_reveals: number;
+  /** Tours passés d'affilée pour cause d'absence. */
+  missed_turns: number;
+  /** Éliminé après trop de tours manqués : ne joue plus. */
+  eliminated: boolean;
   grid: ColumnView[];
+}
+
+/** Présence d'un joueur (aucune requête depuis 15 s = absent). */
+export interface PresenceEntry {
+  player: number;
+  connected: boolean;
+}
+
+/** Joueur absent qui bloque la partie, et compte à rebours avant que son tour soit passé. */
+export interface Waiting {
+  player: number;
+  seconds_left: number;
+  missed_turns: number;
+  max_missed_turns: number;
+}
+
+/** Champs communs à toutes les réponses qui donnent l'état. */
+export interface PresenceInfo {
+  presence: PresenceEntry[];
+  waiting: Waiting | null;
 }
 
 export type Phase = "Lobby" | "InitialReveal" | "Playing" | "RoundOver" | "GameOver";
@@ -75,7 +99,7 @@ export interface GameView {
 }
 
 /** Réponse de `create` et `join`. */
-export interface JoinedResponse {
+export interface JoinedResponse extends PresenceInfo {
   code: string;
   token: string;
   player_id: number;
@@ -84,15 +108,15 @@ export interface JoinedResponse {
 }
 
 /** Réponse de `rules`, `start` et `action`. */
-export interface WriteResponse {
+export interface WriteResponse extends PresenceInfo {
   version: number;
   view: GameView;
 }
 
 /** Réponse de `state`. */
 export type StateResponse =
-  | { changed: false; version: number }
-  | { changed: true; version: number; view: GameView };
+  | ({ changed: false; version: number } & PresenceInfo)
+  | ({ changed: true; version: number; view: GameView } & PresenceInfo);
 
 export interface ErrorBody {
   error: { code: string; message: string };

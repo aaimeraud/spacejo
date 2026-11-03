@@ -158,7 +158,6 @@ release GitHub avec les notes de cette version.
 Voir aussi « Limites connues » dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 - Jamais déployé sur Vercel : la structure suit la documentation, sans vérification réelle.
-- Pas de reprise de partie après fermeture de l'onglet (la session vit dans `sessionStorage`).
 - Pendant la mise en place, les retournements simultanés provoquent souvent un conflit de version (409) :
   le joueur doit refaire son geste.
 - Pas d'expiration des anciennes parties, ni de limitation de débit sur la création et la jonction.

@@ -1,16 +1,18 @@
 // Salon : code à partager, joueurs, règles actives ; l'hôte peut modifier les réglages et lancer.
-import type { GameView, Rules } from "../api/types";
+import type { GameView, PresenceEntry, Rules } from "../api/types";
 import { RulesEditor, RulesSummary } from "./RulesPanel";
 
 interface Props {
   view: GameView;
   code: string;
   busy: boolean;
+  presence: PresenceEntry[];
   onRulesChange: (rules: Rules) => void;
   onStart: () => void;
 }
 
-export function Lobby({ view, code, busy, onRulesChange, onStart }: Props) {
+export function Lobby({ view, code, busy, presence, onRulesChange, onStart }: Props) {
+  const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const isHost = view.me === view.host;
   const enoughPlayers = view.players.length >= 2;
   return (
@@ -20,7 +22,7 @@ export function Lobby({ view, code, busy, onRulesChange, onStart }: Props) {
         <p className="game-code" aria-label={`Code : ${code.split("").join(" ")}`}>
           {code}
         </p>
-        <p>Partagez ce code avec les autres joueurs (2 à 4 joueurs).</p>
+        <p>Partagez ce code avec les autres joueurs (2 à 10 joueurs).</p>
         <button
           type="button"
           onClick={() => {
@@ -39,6 +41,7 @@ export function Lobby({ view, code, busy, onRulesChange, onStart }: Props) {
               {player.name}
               {player.id === view.host && " (hôte)"}
               {player.id === view.me && " (vous)"}
+              {!connected(player.id) && <span className="pill pill-absent">absent</span>}
             </li>
           ))}
         </ul>

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { SESSION_STORAGE_KEY } from "./config";
-import { clearSession, loadSession, saveSession, type KeyValueStorage } from "./session";
+import {
+  clearSession,
+  forgetSession,
+  knownSessions,
+  loadSession,
+  rememberSession,
+  saveSession,
+  type KeyValueStorage,
+} from "./session";
 
 function memoryStorage(): KeyValueStorage & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -47,3 +55,25 @@ describe("session", () => {
     expect(() => clearSession(broken)).not.toThrow();
   });
 });
+
+describe("parties mémorisées", () => {
+  it("garde les parties rejointes, la plus récente d'abord, sans doublon", () => {
+    const storage = memoryStorage();
+    rememberSession(storage, { code: "AAAAAA", token: "a", playerId: 0 }, "Alice", 1);
+    rememberSession(storage, { code: "BBBBBB", token: "b", playerId: 2 }, "Alice", 2);
+    rememberSession(storage, { code: "AAAAAA", token: "a", playerId: 0 }, "Alice", 3);
+    expect(knownSessions(storage).map((s) => s.code)).toEqual(["AAAAAA", "BBBBBB"]);
+    forgetSession(storage, "AAAAAA");
+    expect(knownSessions(storage).map((s) => s.code)).toEqual(["BBBBBB"]);
+  });
+
+  it("limite le nombre de parties mémorisées", () => {
+    const storage = memoryStorage();
+    for (let i = 0; i < 8; i++) {
+      rememberSession(storage, { code: `CODE0${i}`, token: "t", playerId: 0 }, "Bob", i);
+    }
+    expect(knownSessions(storage)).toHaveLength(5);
+    expect(knownSessions(storage)[0]?.code).toBe("CODE07");
+  });
+});
+

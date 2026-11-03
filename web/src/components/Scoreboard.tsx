@@ -19,18 +19,23 @@ export function Scoreboard({ view }: { view: GameView }) {
         {view.rounds.map((round) => (
           <tr key={round.round}>
             <th scope="row">{round.round}</th>
-            {round.scores.map((score) => (
-              <td key={score.player}>
-                {score.score}
-                {score.penalized && (
-                  <span className="penalty">
-                    {" "}
-                    (doublé, {score.raw} avant pénalité)
-                  </span>
-                )}
-                {round.finisher === score.player && <span className="note"> · a terminé</span>}
-              </td>
-            ))}
+            {view.players.map((player) => {
+              // Un joueur éliminé n'a plus de score dans les manches suivantes.
+              const score = round.scores.find((s) => s.player === player.id);
+              if (score === undefined) return <td key={player.id}>—</td>;
+              return (
+                <td key={player.id}>
+                  {score.score}
+                  {score.penalized && (
+                    <span className="penalty">
+                      {" "}
+                      (doublé, {score.raw} avant pénalité)
+                    </span>
+                  )}
+                  {round.finisher === score.player && <span className="note"> · a terminé</span>}
+                </td>
+              );
+            })}
           </tr>
         ))}
       </tbody>
@@ -40,6 +45,7 @@ export function Scoreboard({ view }: { view: GameView }) {
           {view.players.map((player) => (
             <td key={player.id}>
               <strong>{player.total_score}</strong>
+              {player.eliminated && <span className="note"> · éliminé</span>}
             </td>
           ))}
         </tr>
