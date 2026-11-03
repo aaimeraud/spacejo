@@ -13,6 +13,11 @@ Il veut d'abord essayer en CSS 3D, et pourra demander React Three Fiber (WebGL) 
 - La **logique de placement** (`web/src/game/seats.ts`) est séparée du rendu : elle donne, pour chaque
   joueur, sa place dans l'ordre du tour et un angle autour de la table. Un rendu Three Fiber pourrait la
   réutiliser telle quelle (l'angle devient une position dans la scène 3D).
+- Les **grilles des adversaires** sont posées à plat sur la table et tournées vers leur propriétaire (celles d'en
+  face apparaissent à l'envers, comme sur une vraie table) ; leurs **étiquettes** (nom, score) sont redressées
+  par la rotation inverse de la table et restent lisibles. Écartées à la demande du propriétaire du dépôt : des
+  grilles toutes droites face à moi (lisibles mais sans effet de table) et une légère inclinaison vers le
+  centre.
 - Les cartes restent des `button` HTML : clavier, focus et libellés pour lecteur d'écran ne changent pas.
 - `prefers-reduced-motion: reduce` supprime transitions et animations.
 - Aucune nouvelle dépendance.

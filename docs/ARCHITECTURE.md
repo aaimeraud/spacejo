@@ -171,9 +171,12 @@ quel nombre de joueurs), avec un badge (nom, total, cartes cachées, hôte, « j
 défausse sont au centre, la carte en main flotte au-dessus ; ma grille est devant moi, sur le bord de la table.
 Avec une carte piochée en main, deux tuiles à bascule (« Échanger », « Défausser et retourner », boutons
 `aria-pressed`) choisissent ce que fera le clic sur une carte de ma grille.
-La table est inclinée (`rotateX(30deg)`) et ma grille est très légèrement couchée devant moi. Les grilles des
-adversaires sont tournées vers leur propriétaire, comme des cartes posées devant lui (`Seat.rotation` : 180° en
-face, 90° à gauche, 270° à droite) ; sur petit écran, elles restent droites pour être lisibles.
+La table est inclinée (`rotateX(40deg)`, variable CSS `--table-tilt`) et ma grille est très légèrement couchée
+devant moi. Les grilles des adversaires sont posées à plat sur la table, tournées vers leur propriétaire comme de
+vraies cartes posées devant lui (`Seat.rotation` : 180° en face, donc à l'envers pour moi, 90° à gauche, 270° à
+droite) : la perspective de la table les déforme. Le badge de chaque adversaire est placé juste au-dessus de ses
+cartes puis redressé (rotation inverse de la table, `rotateX(-40deg)`) : il se tient debout, face à moi et
+lisible, quelle que soit l'orientation des cartes. En portrait, les grilles restent droites pour être lisibles.
 La grille de l'adversaire dont c'est le tour est agrandie, vers le centre de la table. Chaque carte a deux
 faces dos à dos : la retourner, c'est la faire pivoter de 180° (`rotateY`). Une carte posée et la défausse ont
 une petite animation d'apparition. Quand une colonne de trois cartes identiques est retirée, ses cartes

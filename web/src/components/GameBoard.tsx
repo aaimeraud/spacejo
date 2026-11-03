@@ -1,6 +1,6 @@
 // Écran de partie, figé comme un jeu : une scène de taille fixe mise à l'échelle de l'écran (FitStage).
-// - Paysage : table ovale inclinée, adversaires assis autour (grilles tournées vers eux), pioche et défausse
-//   au centre, ma grille devant moi sur le bord de la table.
+// - Paysage : table ovale inclinée, adversaires assis autour (grilles posées à plat et tournées vers eux,
+//   étiquettes redressées face à moi), pioche et défausse au centre, ma grille devant moi sur le bord de la table.
 // - Portrait : table à plat, adversaires en mosaïque, ma grille en bas.
 // La disposition vient de `game/seats.ts`, le relief du CSS (styles.css, « Table »). Le tableau des scores
 // s'ouvre dans une fenêtre (il s'ouvre tout seul en fin de manche).
@@ -260,13 +260,16 @@ export function GameBoard({ view, busy, presence, waiting, onAction, onLeave }: 
         }
         aria-label={`Place de ${seat.player.name}`}
       >
-        <PlayerBadge view={view} player={seat.player} connected={connected(seat.player.id)} />
-        {/* Les cartes sont tournées vers leur propriétaire, comme posées devant lui (paysage seulement). */}
+        {/* Paysage : les cartes sont posées à plat devant leur propriétaire et tournées vers lui, comme sur
+            une vraie table ; l'étiquette, elle, se redresse face à moi pour rester lisible. */}
         <div
           className="seat-grid"
           style={{ "--seat-rotation": orientation === "landscape" ? `${seat.rotation}deg` : "0deg" } as CSSProperties}
         >
           <GridView player={seat.player} size="sm" />
+        </div>
+        <div className="seat-label">
+          <PlayerBadge view={view} player={seat.player} connected={connected(seat.player.id)} />
         </div>
       </section>
     ));
