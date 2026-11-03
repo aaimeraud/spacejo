@@ -1,0 +1,13 @@
+[package]
+name = "spacejo-core"
+description = "Logique du jeu SpaceJo : sans réseau, sans base de données, sans horloge."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0.154"

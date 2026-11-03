@@ -1,0 +1,10 @@
+# Espace de travail Cargo : un seul Cargo.lock et une seule version pour tous les paquets.
+# https://doc.rust-lang.org/stable/book/ch14-03-cargo-workspaces.html
+[workspace]
+members = ["crates/spacejo-core"]
+resolver = "3"
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.88"
