@@ -78,6 +78,15 @@ impl ApiError {
         )
     }
 
+    /// L'hôte veut passer le tour d'un joueur qui est présent, ou qui ne bloque pas la partie.
+    pub fn player_not_absent() -> Self {
+        Self::new(
+            422,
+            "player_not_absent",
+            "Ce joueur n'est pas absent, ou ce n'est pas lui que l'on attend.",
+        )
+    }
+
     pub fn payload_too_large() -> Self {
         Self::new(413, "payload_too_large", "Requête trop volumineuse.")
     }

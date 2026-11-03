@@ -66,8 +66,8 @@ scripts/              check-commit.sh, release.sh, changelog.sh
 ```
 
 Routes (une par fichier de `api/`, donc sans route dynamique, que la documentation ne décrit pas) :
-`/api/create`, `/api/join`, `/api/rules`, `/api/start`, `/api/action`, `/api/state`.
-Six fonctions, sous la limite de 12 fonctions par déploiement du plan gratuit.
+`/api/create`, `/api/join`, `/api/rules`, `/api/start`, `/api/action`, `/api/skip`, `/api/state`.
+Sept fonctions, sous la limite de 12 fonctions par déploiement du plan gratuit.
 
 ## Base de données et driver
 

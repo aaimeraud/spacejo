@@ -59,6 +59,10 @@ name = "action"
 path = "api/action.rs"
 
 [[bin]]
+name = "skip"
+path = "api/skip.rs"
+
+[[bin]]
 name = "state"
 path = "api/state.rs"
 

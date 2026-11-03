@@ -103,6 +103,17 @@ pub async fn act(store: &Store, client: &Client, version: i64, action: Value) ->
     .await
 }
 
+/// L'hôte passe le tour d'un joueur absent (`POST /api/skip`).
+pub async fn skip(store: &Store, client: &Client, version: i64, player: usize) -> ApiResponse {
+    call(
+        store,
+        Endpoint::Skip,
+        json!({ "code": client.code, "expected_version": version, "player": player }),
+        Some(&client.token),
+    )
+    .await
+}
+
 /// Vérifie récursivement qu'aucune case cachée ne porte de valeur dans un JSON de réponse.
 pub fn assert_no_hidden_values(value: &Value) {
     match value {

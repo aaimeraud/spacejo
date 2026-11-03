@@ -69,6 +69,17 @@ En-tête `X-Player-Token`. Requête :
 ```
 Réponse `200` : `{ "version": 6, "view": { ... } }`.
 
+### `POST /api/skip` (hôte)
+
+En-tête `X-Player-Token`. Requête :
+```json
+{ "code": "K7MPQX", "expected_version": 6, "player": 2 }
+```
+Passe tout de suite le tour du joueur absent qui bloque la partie (celui de `waiting.player`), sans attendre la
+fin de `waiting.seconds_left`. Les conséquences sont celles d'un passage automatique : tour manqué compté,
+élimination au `max_missed_turns`-ième. Refus : `not_host` si l'appelant n'est pas l'hôte, `player_not_absent` si
+`player` est présent ou n'est pas celui que l'on attend. Réponse `200` : `{ "version": 7, "view": { ... } }`.
+
 ### `GET /api/state?code=K7MPQX&known_version=6`
 
 En-tête `X-Player-Token`. `known_version` est facultatif.
@@ -174,7 +185,7 @@ Exemples : `{ "type": "DrawFromPile" }`, `{ "type": "SwapHeld", "column": 2, "ro
 
 ### Présence (`presence`, `waiting`)
 
-Toutes les réponses qui donnent l'état (`create`, `join`, `rules`, `start`, `action`, `state`) contiennent aussi :
+Toutes les réponses qui donnent l'état (`create`, `join`, `rules`, `start`, `action`, `skip`, `state`) contiennent aussi :
 
 ```json
 {
@@ -187,7 +198,7 @@ Toutes les réponses qui donnent l'état (`create`, `join`, `rules`, `start`, `a
   (`PRESENCE_TIMEOUT_SECS`, dans `src/handlers.rs`).
 - `waiting` : `null`, ou le joueur absent qui bloque la partie (c'est son tour, ou il n'a pas retourné ses cartes
   de mise en place). `seconds_left` : secondes avant que son tour soit passé (45 s après la dernière modification
-  de la partie, `ABSENT_TURN_WAIT_SECS`). `missed_turns` : tours déjà manqués d'affilée ; au `max_missed_turns`-ième,
+  de la partie, `ABSENT_TURN_WAIT_SECS`), sauf si l'hôte le passe avant (`POST /api/skip`). `missed_turns` : tours déjà manqués d'affilée ; au `max_missed_turns`-ième,
   il est éliminé.
 - Dans `GameView.players`, `missed_turns` et `eliminated` décrivent la situation de chaque joueur. Un joueur
   éliminé ne joue plus, ne reçoit plus de cartes, et n'apparaît plus dans les scores des manches suivantes ni dans
@@ -208,7 +219,7 @@ Toute erreur a la forme :
 | 400 | `invalid_rules` | réglage hors bornes (`end_score` hors de 10 à 500) |
 | 401 | `missing_token` | en-tête `X-Player-Token` absent |
 | 401 | `invalid_token` | jeton qui ne correspond à aucun joueur de cette partie |
-| 403 | `not_host` | réglages ou lancement demandés par un joueur qui n'est pas l'hôte |
+| 403 | `not_host` | réglages, lancement ou passage d'un tour demandés par un joueur qui n'est pas l'hôte |
 | 404 | `game_not_found` | aucune partie avec ce code |
 | 404 | `not_found` | route inconnue (serveur local) |
 | 405 | `method_not_allowed` | mauvaise méthode HTTP |
@@ -217,6 +228,7 @@ Toute erreur a la forme :
 | 422 | `wrong_phase` | action impossible dans la phase actuelle (dont réglages après lancement) |
 | 422 | `not_your_turn` | action hors de son tour |
 | 422 | `game_full` | déjà 10 joueurs |
+| 422 | `player_not_absent` | passage du tour d'un joueur présent, ou qui ne bloque pas la partie |
 | 422 | `eliminated` | le joueur a été éliminé (trop de tours manqués) |
 | 422 | `not_enough_players` | lancement à moins de 2 joueurs |
 | 422 | `invalid_position` | colonne ou ligne hors de la grille, ou colonne retirée |

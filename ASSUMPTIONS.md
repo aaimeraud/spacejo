@@ -63,6 +63,7 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
     durée retenue pour « un tour ») depuis la dernière modification de la partie. Passé ce délai, la requête suivante
     d'un autre joueur passe son tour : une carte qu'il tenait en main va sur la défausse. Pendant la mise en place,
     passer son tour retourne à sa place les cartes qu'il lui restait à retourner (les premières cartes cachées).
+    L'hôte peut passer ce tour sans attendre (`POST /api/skip`) : c'est alors un tour manqué comme un autre.
 20. **Élimination** : au deuxième tour manqué d'affilée (`MAX_MISSED_TURNS` = 2), le joueur est éliminé. Jouer une
     action remet son compteur à zéro. Un joueur éliminé garde ses cartes de la manche en cours sur la table, mais il
     ne joue plus, ne reçoit plus de cartes, et n'est plus compté pour la pénalité, la fin de partie, le choix du

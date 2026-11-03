@@ -1,4 +1,4 @@
-//! Les six opérations de l'API (docs/CONTRACT.md), indépendantes de Vercel.
+//! Les sept opérations de l'API (docs/CONTRACT.md), indépendantes de Vercel.
 //!
 //! Chaque opération suit le même parcours (serverless : rien n'est gardé en mémoire) :
 //! valider la requête → charger la partie → identifier le joueur par son jeton → vérifier
@@ -9,7 +9,8 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use spacejo_core::{
-    Action, Game, INITIAL_REVEALS, MAX_MISSED_TURNS, Phase, PlayerId, Rules, view_for,
+    Action, Game, GameError, HOST, INITIAL_REVEALS, MAX_MISSED_TURNS, Phase, PlayerId, Rules,
+    view_for,
 };
 
 use crate::auth;
@@ -40,6 +41,7 @@ pub enum Endpoint {
     Rules,
     Start,
     Action,
+    Skip,
     State,
 }
 
@@ -52,6 +54,7 @@ impl Endpoint {
             "/api/rules" => Some(Endpoint::Rules),
             "/api/start" => Some(Endpoint::Start),
             "/api/action" => Some(Endpoint::Action),
+            "/api/skip" => Some(Endpoint::Skip),
             "/api/state" => Some(Endpoint::State),
             _ => None,
         }
@@ -137,6 +140,14 @@ struct ActionRequest {
     action: Action,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SkipRequest {
+    code: String,
+    expected_version: i32,
+    player: PlayerId,
+}
+
 /// Point d'entrée : traite une requête et renvoie toujours une réponse (succès ou erreur).
 pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> ApiResponse {
     let result = if request.method != endpoint.method() {
@@ -148,6 +159,7 @@ pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> A
             Endpoint::Rules => update_rules(store, &request).await,
             Endpoint::Start => start(store, &request).await,
             Endpoint::Action => action(store, &request).await,
+            Endpoint::Skip => skip(store, &request).await,
             Endpoint::State => state(store, &request).await,
         }
     };
@@ -260,6 +272,29 @@ async fn action(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiE
     .await
 }
 
+/// L'hôte passe, sans attendre la fin du délai, le tour du joueur absent qui bloque la partie.
+/// Mêmes conséquences qu'un passage automatique : tour manqué compté, élimination au tour de trop.
+async fn skip(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: SkipRequest = parse_body(&request.body)?;
+    let code = auth::normalize_code(&body.code)?;
+    let token = require_token(request)?;
+    let (record, mut stored) = load(store, &code).await?;
+    let player = identify(&stored, token)?;
+    if body.expected_version != record.version {
+        return Err(ApiError::version_conflict());
+    }
+    if player != HOST {
+        return Err(GameError::NotHost.into());
+    }
+    // Seul le joueur absent qui bloque la partie peut être passé : jamais un joueur présent.
+    let presence = store.presence(record.id).await.map_err(storage_error)?;
+    if blocking_absent_player(&stored.game, &presence) != Some(body.player) {
+        return Err(ApiError::player_not_absent());
+    }
+    stored.game.skip_absent(body.player)?;
+    save_as_player(store, record, &stored, player).await
+}
+
 async fn state(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
     let mut code = None;
     let mut known_version = None;
@@ -327,8 +362,18 @@ where
         return Err(ApiError::version_conflict());
     }
     operation(&mut stored.game, player)?;
+    save_as_player(store, record, &stored, player).await
+}
+
+/// Sauvegarde la partie modifiée (verrou optimiste), note la présence du joueur et lui renvoie sa vue.
+async fn save_as_player(
+    store: &Store,
+    record: Record,
+    stored: &StoredGame,
+    player: PlayerId,
+) -> Result<ApiResponse, ApiError> {
     let version = match store
-        .save(record.id, &encode(&stored)?, record.version)
+        .save(record.id, &encode(stored)?, record.version)
         .await
     {
         Ok(version) => version,
@@ -345,7 +390,7 @@ where
         ..record
     };
     Ok(ApiResponse::ok(
-        game_payload(store, &saved, &stored, player).await?,
+        game_payload(store, &saved, stored, player).await?,
     ))
 }
 

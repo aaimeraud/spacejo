@@ -4,7 +4,7 @@ mod common;
 
 use std::time::Duration;
 
-use common::{Client, act, create, get_state, join, start, version};
+use common::{Client, act, create, get_state, join, skip, start, version};
 use serde_json::{Value, json};
 use spacejo_api::handlers::{ABSENT_TURN_WAIT_SECS, PRESENCE_TIMEOUT_SECS};
 use spacejo_api::{MemoryStore, Store};
@@ -179,4 +179,81 @@ async fn a_present_player_is_never_skipped() {
     assert_eq!(current(&body), turn);
     assert_eq!(body["version"].as_i64().unwrap(), v);
     assert_eq!(body["waiting"], json!(null));
+}
+
+/// Joue le tour du joueur courant (pioche, puis échange avec sa première carte).
+async fn play_turn(store: &Store, clients: &[Client]) {
+    let body = poll(store, &clients[0]).await;
+    let player = &clients[current(&body)];
+    let v = version(store, player).await;
+    assert_eq!(
+        act(store, player, v, json!({ "type": "DrawFromPile" }))
+            .await
+            .status,
+        200
+    );
+    let v = version(store, player).await;
+    let swap = json!({ "type": "SwapHeld", "column": 0, "row": 0 });
+    assert_eq!(act(store, player, v, swap).await.status, 200);
+}
+
+/// Partie à 3 joueurs où le joueur courant n'est pas l'hôte et vient de partir.
+async fn absent_opponent(store: &Store, memory: &MemoryStore) -> (Vec<Client>, usize) {
+    let clients = playing(store).await;
+    if current(&poll(store, &clients[0]).await) == 0 {
+        play_turn(store, &clients).await;
+    }
+    let absent = current(&poll(store, &clients[0]).await);
+    memory.advance(secs(PRESENCE_TIMEOUT_SECS + 1.0));
+    for c in clients.iter().filter(|c| c.player_id as usize != absent) {
+        poll(store, c).await;
+    }
+    (clients, absent)
+}
+
+#[tokio::test]
+async fn the_host_can_skip_an_absent_player_without_waiting() {
+    let (store, memory) = memory();
+    let (clients, absent) = absent_opponent(&store, &memory).await;
+    let body = poll(&store, &clients[0]).await;
+    assert_eq!(body["waiting"]["player"], absent);
+    let v = body["version"].as_i64().unwrap();
+
+    let skipped = skip(&store, &clients[0], v, absent).await;
+    assert_eq!(skipped.status, 200, "{:?}", skipped.body);
+    assert_eq!(skipped.body["version"].as_i64().unwrap(), v + 1);
+    assert_ne!(
+        current(&skipped.body),
+        absent,
+        "son tour est passé tout de suite"
+    );
+    assert_eq!(skipped.body["view"]["players"][absent]["missed_turns"], 1);
+}
+
+#[tokio::test]
+async fn only_the_host_skips_and_only_the_absent_player_who_blocks() {
+    let (store, memory) = memory();
+    let (clients, absent) = absent_opponent(&store, &memory).await;
+    let v = version(&store, &clients[0]).await;
+    let other = (1..clients.len()).find(|&p| p != absent).unwrap();
+
+    // Un joueur qui n'est pas l'hôte : refusé.
+    let refused = skip(&store, &clients[other], v, absent).await;
+    assert_eq!(refused.status, 403);
+    assert_eq!(refused.body["error"]["code"], "not_host");
+
+    // Un joueur présent, ou qui ne bloque pas la partie : refusé.
+    for target in [0, other] {
+        let refused = skip(&store, &clients[0], v, target).await;
+        assert_eq!(refused.status, 422, "{target}");
+        assert_eq!(refused.body["error"]["code"], "player_not_absent");
+    }
+    // Joueur inconnu : refusé de la même façon.
+    let refused = skip(&store, &clients[0], v, 9).await;
+    assert_eq!(refused.body["error"]["code"], "player_not_absent");
+
+    // Écran périmé : refusé, rien n'est écrit.
+    let refused = skip(&store, &clients[0], v - 1, absent).await;
+    assert_eq!(refused.status, 409);
+    assert_eq!(version(&store, &clients[0]).await, v);
 }
