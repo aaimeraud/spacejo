@@ -150,11 +150,19 @@ Règles :
   Ne lis et n'écris aucun secret réel : seulement un fichier `.env.example`.
 
 ## Commandes
-(À compléter par Claude Code dès que le projet existe, et à garder à jour.)
-- Tests Rust :
-- Lint Rust :
-- Lancer l'API en local :
-- Interface (installer / lancer / typecheck / tests) :
+(À garder à jour.)
+- Tests Rust : `cargo test --workspace` (tests PostgreSQL : définir `DATABASE_URL` vers un utilisateur qui
+  peut créer des bases, par exemple `postgres://spacejo:spacejo@localhost:5433/spacejo` après
+  `docker compose up -d`)
+- Lint Rust : `cargo fmt --all --check` et `cargo clippy --workspace --all-targets -- -D warnings`
+- Lancer l'API en local : `cargo run --bin dev_server` (port 3000 ; en mémoire sans `DATABASE_URL`) ;
+  migrations seules : `cargo run --bin migrate`
+- Interface (installer / lancer / typecheck / tests) : `npm --prefix web install` /
+  `npm --prefix web run dev` / `npm --prefix web run typecheck` / `npm --prefix web test`
+- Scripts : `tests/scripts/check-commit.test.sh`, `tests/scripts/release.test.sh`,
+  `scripts/changelog.sh`, `scripts/release.sh --dry-run`
+- Commit avec GitButler (`but commit` ne lance pas le hook) : lancer d'abord
+  `scripts/check-commit.sh <fichier-message>` avec la liste des fichiers du commit sur l'entrée standard.
 
 ## Définition de « terminé »
 Tests verts, lint propre, `docs/` complète et cohérente avec le code (en particulier `ARCHITECTURE.md` et

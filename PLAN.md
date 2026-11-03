@@ -10,8 +10,8 @@ importantes dans `docs/decisions/`.
 3. [x] `spacejo-core` : tests d'abord (critères 1 à 8, 13 à 15), puis implémentation.
 4. [x] Vue filtrée `view_for` (critère 10) et jetons (critère 11).
 5. [x] API, persistance, verrou optimiste, migrations, version du format d'état (critères 9, 12, 16, 17, 18).
-6. [ ] Interface React (accueil, salon, partie, fin de partie).
-7. [ ] CI, release (git-cliff), `vercel.json`, `.env.example`, `docker-compose.yml`, README.
+6. [x] Interface React (accueil, salon, partie, fin de partie).
+7. [x] CI, release (git-cliff), `vercel.json`, `.env.example`, `docker-compose.yml`, README.
 8. [ ] Relecture critère par critère ; `docs/` décrit le code réel.
 
 ## Structure des dossiers
