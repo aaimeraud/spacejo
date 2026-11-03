@@ -1,0 +1,63 @@
+# Configuration de git-cliff (https://git-cliff.org/docs/configuration).
+# Point de départ : `git cliff --init detailed`, puis adapté :
+# sections par type de commit (en français), scope affiché, changements cassants signalés,
+# commits non conformes ignorés, et règle de version pour la série 0.x (section [bump]).
+
+[changelog]
+header = """
+# Journal des versions\n
+Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.\n
+"""
+# Le préfixe <!-- n --> des groupes fixe leur ordre ; il est retiré à l'affichage (striptags).
+body = """
+{% if version %}\
+    ## {{ version | trim_start_matches(pat="v") }} - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## Non publié
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | striptags | trim | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.scope %}**{{ commit.scope }}** : {% endif %}\
+          {% if commit.breaking %}[**cassant**] {% endif %}\
+          {{ commit.message | upper_first | trim }} ({{ commit.id | truncate(length=7, end="") }})\
+    {% endfor %}
+{% endfor %}\n
+"""
+footer = """
+<!-- généré par git-cliff -->
+"""
+trim = true
+
+[git]
+conventional_commits = true
+# Les commits qui ne respectent pas Conventional Commits n'apparaissent pas.
+filter_unconventional = true
+# Un changement cassant reste visible même si un analyseur ci-dessous l'ignorerait.
+protect_breaking_commits = true
+commit_parsers = [
+    { message = "^feat", group = "<!-- 0 -->Nouveautés" },
+    { message = "^fix", group = "<!-- 1 -->Corrections" },
+    { message = "^perf", group = "<!-- 2 -->Performances" },
+    { message = "^refactor", group = "<!-- 3 -->Restructurations" },
+    { message = "^docs", group = "<!-- 4 -->Documentation" },
+    { message = "^test", group = "<!-- 5 -->Tests" },
+    { message = "^ci", group = "<!-- 6 -->Intégration continue" },
+    { message = "^style", group = "<!-- 7 -->Style" },
+    # Les commits de release eux-mêmes ne figurent pas dans le journal.
+    { message = "^chore\\(release\\)", skip = true },
+    { message = "^chore", group = "<!-- 8 -->Maintenance" },
+]
+filter_commits = false
+tag_pattern = "v[0-9].*"
+topo_order = false
+sort_commits = "oldest"
+
+[bump]
+# Série 0.x : une nouveauté (feat) incrémente la version mineure, un correctif la version de
+# correctif. Un changement cassant incrémente la version MINEURE tant que la version majeure vaut 0
+# (sinon git-cliff passerait directement à 1.0.0). Voir docs/decisions/2026-11-03-releases-git-cliff.md.
+features_always_bump_minor = true
+breaking_always_bump_major = false
+# Version proposée s'il n'existe encore aucun tag.
+initial_tag = "v0.1.0"

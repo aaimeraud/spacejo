@@ -1,0 +1,22 @@
+# PostgreSQL local pour le développement : `docker compose up -d`.
+# Port 5433 côté machine, pour ne pas entrer en conflit avec un PostgreSQL déjà installé sur 5432.
+# Identifiants de développement uniquement (voir .env.example).
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: spacejo
+      POSTGRES_PASSWORD: spacejo
+      POSTGRES_DB: spacejo
+    ports:
+      - "5433:5432"
+    volumes:
+      - spacejo-pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U spacejo"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  spacejo-pgdata:
