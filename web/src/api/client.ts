@@ -106,6 +106,15 @@ export class SpaceJoApi {
     );
   }
 
+  /** L'hôte passe le tour du joueur absent qui bloque la partie, sans attendre la fin du délai. */
+  skip(code: string, token: string, expectedVersion: number, player: number): Promise<WriteResponse> {
+    return this.request(
+      "/api/skip",
+      { method: "POST", body: JSON.stringify({ code, expected_version: expectedVersion, player }) },
+      token,
+    );
+  }
+
   state(code: string, token: string, knownVersion?: number): Promise<StateResponse> {
     const params = new URLSearchParams({ code });
     if (knownVersion !== undefined) params.set("known_version", String(knownVersion));

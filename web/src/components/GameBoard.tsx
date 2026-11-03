@@ -4,7 +4,7 @@
 // - Portrait : table à plat, adversaires en mosaïque, ma grille en bas.
 // La disposition vient de `game/seats.ts`, le relief du CSS (styles.css, « Table »). Le tableau des scores
 // s'ouvre dans une fenêtre (il s'ouvre tout seul en fin de manche).
-import { CircleCheck, Crown, Hourglass, ListOrdered, LogOut, Play, Repeat, RotateCcw, Trophy, UserX, Users, WifiOff } from "lucide-react";
+import { CircleCheck, Crown, Hourglass, ListOrdered, LogOut, Play, Repeat, RotateCcw, SkipForward, Trophy, UserX, Users, WifiOff } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import type { Action, GameView, PlayerView, PresenceEntry, Waiting } from "../api/types";
 import { hint, isMyTurn, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
@@ -21,6 +21,8 @@ interface Props {
   presence: PresenceEntry[];
   waiting: Waiting | null;
   onAction: (action: Action) => void;
+  /** L'hôte passe le tour d'un joueur absent. */
+  onSkip: (player: number) => void;
   onLeave: () => void;
 }
 
@@ -91,23 +93,51 @@ function PlayerBadge({
 }
 
 /** Bandeau « on attend un joueur absent », avec le compte à rebours donné par le serveur. */
-function WaitingBanner({ view, waiting }: { view: GameView; waiting: Waiting }) {
+/** Bandeau « X est parti·e » : compte à rebours avant que son tour soit passé. L'hôte peut le passer tout
+ * de suite, sans attendre. */
+function WaitingBanner({
+  view,
+  waiting,
+  busy,
+  onSkip,
+}: {
+  view: GameView;
+  waiting: Waiting;
+  busy: boolean;
+  onSkip: (player: number) => void;
+}) {
   const name = playerName(view, waiting.player);
   const last = waiting.missed_turns + 1 >= waiting.max_missed_turns;
+  const isHost = view.me === view.host;
   return (
-    <p className="waiting-banner" role="status">
+    <div className="waiting-banner" role="status">
       <Hourglass aria-hidden="true" />
       <span>
         <strong>{name} est parti·e</strong> : on l'attend encore {waiting.seconds_left} s.{" "}
-        {last
-          ? "Sinon, ce sera son dernier tour manqué : il sera éliminé."
-          : `Sinon, son tour sera passé (tour manqué ${waiting.missed_turns + 1} sur ${waiting.max_missed_turns}).`}
+        {/* Conséquence détaillée : masquée en portrait, où le bandeau tient sur une ligne. */}
+        <span className="waiting-consequence">
+          {last
+            ? "Sinon, ce sera son dernier tour manqué : il sera éliminé."
+            : `Sinon, son tour sera passé (tour manqué ${waiting.missed_turns + 1} sur ${waiting.max_missed_turns}).`}
+        </span>
       </span>
-    </p>
+      {isHost && (
+        <button type="button" className="ghost-button" disabled={busy} onClick={() => onSkip(waiting.player)}>
+          <SkipForward aria-hidden="true" />{" "}
+          {last ? (
+            "Éliminer"
+          ) : (
+            <>
+              Passer<span className="waiting-skip-more"> son tour</span>
+            </>
+          )}
+        </button>
+      )}
+    </div>
   );
 }
 
-export function GameBoard({ view, busy, presence, waiting, onAction, onLeave }: Props) {
+export function GameBoard({ view, busy, presence, waiting, onAction, onSkip, onLeave }: Props) {
   const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const [mode, setMode] = useState<HeldMode>("swap");
   const [scoresOpen, setScoresOpen] = useState(false);
@@ -345,7 +375,7 @@ export function GameBoard({ view, busy, presence, waiting, onAction, onLeave }: 
                 <ListOrdered aria-hidden="true" /> Scores
               </button>
             </header>
-            {waiting !== null && <WaitingBanner view={view} waiting={waiting} />}
+            {waiting !== null && <WaitingBanner view={view} waiting={waiting} busy={busy} onSkip={onSkip} />}
 
             {orientation === "landscape" ? (
               <div className="scene">

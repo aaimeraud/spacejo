@@ -167,6 +167,7 @@ export function App() {
     write((s, version) => api.updateRules(s.code, s.token, version, rules));
   const onStart = () => write((s, version) => api.start(s.code, s.token, version));
   const onAction = (action: Action) => write((s, version) => api.act(s.code, s.token, version, action));
+  const onSkip = (player: number) => write((s, version) => api.skip(s.code, s.token, version, player));
 
   return (
     // L'application occupe exactement l'écran : un en-tête fin, puis l'écran courant, mis à l'échelle pour
@@ -222,6 +223,7 @@ export function App() {
             presence={presence}
             waiting={waiting}
             onAction={onAction}
+            onSkip={onSkip}
             onLeave={() => leave(true)}
           />
         )}

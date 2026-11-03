@@ -213,10 +213,11 @@ button.primary.big { padding: 12px 22px; font-size: 1.1rem; }
 .stage-info { flex: none; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.9rem; }
 .hint { flex: 1; font-size: 1.05rem; background: var(--bg-raised); border-left: 4px solid var(--accent); padding: 10px 14px; border-radius: 6px; }
 .waiting-banner {
-  position: absolute; z-index: 6; top: 62px; left: 50%; transform: translateX(-50%); width: 760px;
+  position: absolute; z-index: 6; top: 62px; left: 50%; transform: translateX(-50%); width: 920px;
   display: flex; align-items: center; gap: 10px;
   background: #3b2a12; border: 1px solid var(--mid); border-left: 4px solid var(--mid); padding: 8px 12px; border-radius: 8px;
 }
+.waiting-banner .ghost-button { flex: none; margin-left: auto; padding: 6px 12px; }
 
 /* Paysage : table ovale inclinée en perspective. */
 .scene { position: absolute; top: 74px; left: 0; right: 0; height: 560px; perspective: 1000px; perspective-origin: 50% 0%; }
@@ -307,20 +308,23 @@ button.primary.big { padding: 12px 22px; font-size: 1.1rem; }
 .is-portrait .stage-info { order: 1; }
 .is-portrait .stage-bar .ghost-button { order: 2; margin-left: auto; }
 .is-portrait .hint { order: 3; flex-basis: 100%; font-size: 0.95rem; padding: 8px 10px; }
-.is-portrait .waiting-banner { top: 100px; width: 464px; font-size: 0.85rem; }
+/* Portrait : le bandeau d'attente prend la place de l'indication (« C'est au tour de… », redondante), sur une
+   seule ligne, pour ne pas réduire la table. */
+.is-portrait .waiting-banner { top: 50px; width: 464px; min-height: 42px; padding: 4px 6px 4px 10px; font-size: 0.85rem; }
+.is-portrait .has-waiting .hint { visibility: hidden; }
+.is-portrait .waiting-consequence, .is-portrait .waiting-skip-more { display: none; }
 .flat-table {
   position: absolute; top: 104px; left: 0; right: 0; height: 490px; padding: 10px; border-radius: 24px;
   display: flex; flex-direction: column; gap: 6px;
   background: linear-gradient(160deg, #1d2a5c, #10183d 70%); border: 8px solid #2a2350;
 }
 .flat-seats { flex: 1; min-height: 0; display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 6px; overflow: hidden; }
-.is-portrait .has-waiting .flat-table { top: 164px; height: 430px; }
 .is-portrait .seat, .is-portrait .seat.is-active { position: static; display: flex; flex-direction: column; align-items: center; transform: none; padding: 4px; gap: 3px; min-width: 0; }
 /* Portrait : l'étiquette reprend sa place normale, au-dessus des cartes. */
 .is-portrait .seat-label { position: static; order: -1; transform: none; max-width: 100%; }
 .is-portrait .seat-grid, .is-portrait .seat.is-active .seat-grid { padding: 0; background: none; box-shadow: none; }
 /* Largeur fixe : 2, 3 ou 5 sièges par ligne selon le nombre de joueurs. */
-.is-portrait .crowd-few .seat { width: calc(50% - 6px); }
+.is-portrait .crowd-few .seat { width: calc(33.3% - 6px); }
 .is-portrait .crowd-some .seat { width: calc(33.3% - 6px); }
 .is-portrait .crowd-many .seat { width: calc(20% - 5px); }
 .is-portrait .seat .badge { max-width: 100%; flex-wrap: wrap; justify-content: center; border-radius: 10px; row-gap: 2px; }

@@ -29,6 +29,14 @@ describe("SpaceJoApi", () => {
     });
   });
 
+  it("demande à passer le tour d'un joueur absent", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(200, { version: 9, view: {} }, calls));
+    await api.skip("K7MPQX", "secret", 8, 2);
+    expect(calls[0]?.url).toBe("/api/skip");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ code: "K7MPQX", expected_version: 8, player: 2 });
+  });
+
   it("ne met pas le jeton dans l'URL de lecture de l'état", async () => {
     const calls: Call[] = [];
     const api = new SpaceJoApi(fakeFetch(200, { changed: false, version: 3 }, calls));

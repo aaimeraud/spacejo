@@ -96,7 +96,7 @@ Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
 
 | Fichier | Rôle |
 |---|---|
-| `src/handlers.rs` | les six opérations, indépendantes de Vercel (`handle(store, endpoint, request)`) |
+| `src/handlers.rs` | les sept opérations, indépendantes de Vercel (`handle(store, endpoint, request)`) |
 | `src/auth.rs` | jetons (256 bits, hachage SHA-256, comparaison en temps constant), codes de partie, graines |
 | `src/stored.rs` | `StoredGame` (ce qui est dans `games.state`) et `STATE_VERSION` |
 | `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste |
@@ -182,7 +182,7 @@ faces dos à dos : la retourner, c'est la faire pivoter de 180° (`rotateY`). Un
 une petite animation d'apparition. Quand une colonne de trois cartes identiques est retirée, ses cartes
 s'illuminent, s'envolent et disparaissent avec le message « Colonne identique ! » : `game/columns.ts` repère ces
 colonnes en comparant la vue précédente et la nouvelle. En portrait, la table est à
-plat et les adversaires en mosaïque (2, 3 ou 5 par ligne), étiquettes réduites à leur icône. Avec la préférence système « réduire les animations », il n'y a aucune
+plat et les adversaires en mosaïque (3 ou 5 par ligne), étiquettes réduites à leur icône. Avec la préférence système « réduire les animations », il n'y a aucune
 animation. Le choix du CSS 3D plutôt que WebGL est expliqué dans
 [decisions/2026-11-03-vue-table-css-3d.md](decisions/2026-11-03-vue-table-css-3d.md).
 
@@ -241,7 +241,12 @@ Le serveur ne garde rien en mémoire et ne lance aucune tâche de fond : tout se
 4. `skip_absent` (dans le core, sans horloge) défausse la carte en main ou retourne les cartes de mise en place,
    compte un tour manqué, et élimine le joueur au deuxième tour manqué d'affilée (`MAX_MISSED_TURNS`). Jouer une
    action remet le compteur à zéro. S'il ne reste qu'un joueur, il gagne.
-5. Les réponses donnent `presence` (qui est connecté) et `waiting` (le compte à rebours), que l'interface affiche.
+5. L'hôte n'est pas obligé d'attendre : `POST /api/skip` passe tout de suite le tour de l'absent qui bloque
+   (`Game::skip_absent`, mêmes conséquences). Le serveur vérifie que l'appelant est l'hôte et que le joueur visé
+   est bien absent et bloquant : on ne peut jamais passer le tour d'un joueur présent.
+6. Les réponses donnent `presence` (qui est connecté) et `waiting` (le compte à rebours), que l'interface affiche
+   dans le bandeau « X est parti·e », avec, pour l'hôte, un bouton « Passer son tour » (« Éliminer » au dernier
+   tour manqué). En portrait, ce bandeau tient sur une ligne et remplace l'indication du tour.
 
 Le core ne connaît que les tours manqués ; l'heure est mesurée par PostgreSQL (`now()`), ou par le stockage en
 mémoire, dont l'horloge peut être avancée dans les tests (`MemoryStore::advance`).
