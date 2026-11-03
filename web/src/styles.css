@@ -1,0 +1,165 @@
+/* Thème « espace » original : fond nuit, cartes aux couleurs des planètes.
+   La valeur d'une carte est toujours écrite ; la couleur n'est qu'un repère supplémentaire. */
+:root {
+  --bg: #0d1028;
+  --bg-panel: #171b3d;
+  --border: #2e3570;
+  --text: #eef0ff;
+  --muted: #b3b8e0;
+  --accent: #ffd166;
+  --focus: #7cf3ff;
+  --danger: #ff8a8a;
+  --negative: #3a86ff;
+  --zero: #8ecae6;
+  --low: #52b788;
+  --mid: #f4a261;
+  --high: #e63946;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.4;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(124, 243, 255, 0.08), transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(255, 209, 102, 0.06), transparent 40%),
+    var(--bg);
+}
+
+.app { max-width: 1100px; margin: 0 auto; padding: 0 16px 32px; }
+.app-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.app-header h1 { color: var(--accent); letter-spacing: 0.05em; }
+.session-info { display: flex; gap: 12px; align-items: center; }
+.app-footer { margin-top: 32px; color: var(--muted); font-size: 0.85rem; }
+
+h2 { font-size: 1.15rem; margin-top: 0; }
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+button, input, select { font: inherit; }
+
+button {
+  background: #262c5e;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--focus); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.primary { background: var(--accent); color: #1a1a2e; font-weight: 700; border-color: var(--accent); }
+
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+input[type="text"], input:not([type]), input[type="number"] {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  padding: 8px;
+  margin: 4px 0 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: #0f1330;
+  color: var(--text);
+}
+.code-input { text-transform: uppercase; letter-spacing: 0.3em; font-family: ui-monospace, monospace; }
+
+.home { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); align-items: start; }
+.lobby { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); align-items: start; }
+.rules-panel { grid-column: 1 / -1; }
+.game-code { font-size: 2.2rem; font-family: ui-monospace, monospace; letter-spacing: 0.3em; color: var(--accent); margin: 8px 0; }
+
+details { margin: 8px 0 16px; }
+summary { cursor: pointer; color: var(--focus); }
+
+.rule-row { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.rule-row legend, .rule-row dt { font-weight: 700; }
+.rule-row dd { margin: 4px 0 0; }
+.rule-row p { margin: 4px 0; }
+.option { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+.explanation, .note { color: var(--muted); font-size: 0.9rem; }
+.rules-summary { margin: 0; }
+
+.tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.tag-officiel { color: var(--low); }
+.tag-variante { color: var(--mid); border-style: dashed; }
+
+.error { background: #4a1c28; border: 1px solid var(--danger); color: #ffd6d6; padding: 10px 14px; border-radius: 8px; }
+.hint { font-size: 1.05rem; background: #1f2552; border-left: 4px solid var(--accent); padding: 10px 14px; border-radius: 6px; }
+
+.table-center { display: flex; flex-wrap: wrap; gap: 20px; align-items: center; }
+.pile button { display: flex; flex-direction: column; align-items: center; gap: 6px; background: transparent; }
+.held { display: flex; align-items: center; gap: 10px; }
+.mode { border: 1px solid var(--border); border-radius: 8px; }
+.mode label { display: block; margin: 4px 0; }
+
+.others { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.player.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.3); }
+
+.grid { display: flex; gap: 8px; }
+.grid-column { display: flex; flex-direction: column; gap: 8px; }
+.slot { display: block; padding: 0; background: transparent; border: none; border-radius: 10px; }
+.slot-button.playable { outline: 2px dashed var(--focus); outline-offset: 2px; }
+.removed-column {
+  width: 56px; height: calc(3 * 78px + 16px);
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  border: 2px dashed var(--border); border-radius: 10px; color: var(--muted); font-size: 0.75rem; padding: 4px;
+}
+
+.card {
+  width: 56px; height: 78px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  font-weight: 800; font-size: 1.4rem;
+  color: #10122a;
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.25);
+}
+.card-hidden {
+  background:
+    radial-gradient(circle at 30% 30%, #9aa3ff 0 6%, transparent 7%),
+    radial-gradient(circle at 70% 65%, #ffffff 0 4%, transparent 5%),
+    linear-gradient(135deg, #2b2f77, #4b1d6b);
+  color: var(--accent);
+}
+.card-empty { background: transparent; border-style: dashed; box-shadow: none; }
+.card-star { font-size: 1.6rem; }
+.tone-negative { background: var(--negative); color: #fff; }
+.tone-zero { background: var(--zero); }
+.tone-low { background: var(--low); }
+.tone-mid { background: var(--mid); }
+.tone-high { background: var(--high); color: #fff; }
+
+.scoreboard { width: 100%; border-collapse: collapse; background: var(--bg-panel); border-radius: 12px; overflow: hidden; }
+.scoreboard caption { text-align: left; padding: 8px 0; font-weight: 700; }
+.scoreboard th, .scoreboard td { border: 1px solid var(--border); padding: 6px 10px; text-align: left; }
+.penalty { color: var(--danger); font-size: 0.85rem; }
+
+.winner { font-size: 1.4rem; color: var(--accent); font-weight: 700; }
+.ranking li { margin: 4px 0; }
+
+@media (max-width: 480px) {
+  .card { width: 44px; height: 62px; font-size: 1.1rem; }
+  .removed-column { width: 44px; height: calc(3 * 62px + 16px); }
+  .scoreboard { font-size: 0.85rem; }
+}

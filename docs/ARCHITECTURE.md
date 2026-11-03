@@ -143,8 +143,42 @@ jonction, qui ne connaissent pas encore la version, relisent et réessaient elle
 
 À la création ou à la jonction, le serveur tire un jeton de 32 octets aléatoires (`getrandom`, entropie du
 système) et le renvoie UNE fois. Il n'en stocke que le hachage SHA-256, dans `StoredGame::token_hashes`
-(l'indice est l'identifiant du joueur). Le navigateur garde le jeton dans `localStorage` et l'envoie dans
+(l'indice est l'identifiant du joueur). Le navigateur garde le jeton dans `sessionStorage` (propre à chaque onglet, conservé au rechargement) et l'envoie dans
 `X-Player-Token`. Un jeton n'est valable que pour sa partie, et ne permet d'agir qu'en son propre nom.
+
+## L'interface : `web/`
+
+React + TypeScript (mode strict) + Vite. L'interface n'a aucune règle du jeu : elle envoie des
+intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau affiche `rounds` et
+`total_score` tels que le serveur les donne).
+
+| Fichier | Rôle |
+|---|---|
+| `src/api/types.ts` | types de l'API, recopiés de [CONTRACT.md](CONTRACT.md) |
+| `src/api/client.ts` | appels HTTP, jeton dans l'en-tête `X-Player-Token`, erreurs → `ApiError` |
+| `src/App.tsx` | session, polling, envoi des actions avec `expected_version`, choix de l'écran |
+| `src/components/` | `Home` (créer avec réglages / rejoindre), `Lobby` (salon), `GameBoard` (partie et fin de partie), `GridView`, `Card`, `Scoreboard`, `RulesPanel` |
+| `src/rulesInfo.ts` | phrases d'explication et étiquettes « officiel » / « variante » des réglages |
+| `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, classement (simple tri des totaux) |
+| `src/session.ts` | session (code, jeton, identifiant) dans `sessionStorage` |
+| `src/config.ts` | constantes : `POLL_INTERVAL_MS` (2000), bornes, longueurs |
+
+**Polling** : toutes les 2 secondes, `GET /api/state?code=…&known_version=…`. Si la version n'a pas changé,
+la réponse est minimale (`changed: false`) et rien n'est redessiné.
+
+**Conflits** : chaque écriture envoie la version connue. En cas de 409 (un autre joueur a joué entre-temps,
+fréquent pendant la mise en place où tous retournent leurs cartes en même temps), l'interface affiche le
+message, relit l'état complet, et le joueur refait son geste.
+
+**Session** : `sessionStorage` est propre à chaque onglet et survit au rechargement de la page ; on peut
+donc jouer à deux dans deux onglets du même navigateur. Fermer l'onglet fait perdre la session.
+
+**Accessibilité** : cartes et commandes sont des `button` (clavier, focus visible) avec un libellé
+(« Carte cachée, colonne 2, ligne 1 », « Carte 7, … ») ; la valeur d'une carte est toujours écrite (la
+couleur n'est qu'un repère) ; les étiquettes de réglage sont textuelles ; la consigne et les erreurs sont
+annoncées (`role="status"`, `role="alert"`).
+
+En développement, Vite (port 5173) renvoie `/api` vers `cargo run --bin dev_server` (port 3000).
 
 ## Modèle de données
 

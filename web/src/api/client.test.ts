@@ -1,0 +1,64 @@
+import { describe, expect, it } from "vitest";
+import { ApiError, SpaceJoApi, TOKEN_HEADER, type FetchLike } from "./client";
+
+interface Call {
+  url: string;
+  init: RequestInit | undefined;
+}
+
+function fakeFetch(status: number, body: unknown, calls: Call[]): FetchLike {
+  return (url, init) => {
+    calls.push({ url, init });
+    return Promise.resolve(new Response(JSON.stringify(body), { status }));
+  };
+}
+
+describe("SpaceJoApi", () => {
+  it("envoie l'action avec la version attendue et le jeton dans l'en-tête", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(200, { version: 8, view: {} }, calls));
+    await api.act("K7MPQX", "secret", 7, { type: "DrawFromPile" });
+    const call = calls[0];
+    expect(call?.url).toBe("/api/action");
+    expect(call?.init?.method).toBe("POST");
+    expect((call?.init?.headers as Record<string, string>)[TOKEN_HEADER]).toBe("secret");
+    expect(JSON.parse(String(call?.init?.body))).toEqual({
+      code: "K7MPQX",
+      expected_version: 7,
+      action: { type: "DrawFromPile" },
+    });
+  });
+
+  it("ne met pas le jeton dans l'URL de lecture de l'état", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(200, { changed: false, version: 3 }, calls));
+    const response = await api.state("K7MPQX", "secret", 3);
+    expect(response).toEqual({ changed: false, version: 3 });
+    expect(calls[0]?.url).toBe("/api/state?code=K7MPQX&known_version=3");
+    expect(calls[0]?.url).not.toContain("secret");
+  });
+
+  it("crée une partie sans réglages quand aucun n'est donné", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(201, {}, calls));
+    await api.create("Alice");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ name: "Alice" });
+  });
+
+  it("transforme une réponse d'erreur en ApiError", async () => {
+    const api = new SpaceJoApi(
+      fakeFetch(409, { error: { code: "version_conflict", message: "La partie a changé" } }, []),
+    );
+    const error = await api.start("K7MPQX", "secret", 1).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiError);
+    expect((error as ApiError).code).toBe("version_conflict");
+    expect((error as ApiError).isConflict).toBe(true);
+    expect((error as ApiError).message).toBe("La partie a changé");
+  });
+
+  it("signale un serveur injoignable", async () => {
+    const api = new SpaceJoApi(() => Promise.reject(new Error("offline")));
+    const error = await api.join("K7MPQX", "Bob").catch((e: unknown) => e);
+    expect((error as ApiError).code).toBe("network");
+  });
+});
