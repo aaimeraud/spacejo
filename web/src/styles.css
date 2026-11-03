@@ -113,7 +113,7 @@ summary { cursor: pointer; color: var(--focus); }
 .table-info { color: var(--muted); margin: 0 0 4px; }
 
 .scene {
-  perspective: 1100px;
+  perspective: 1250px;
   perspective-origin: 50% 0%;
   padding: 24px 0 0;
 }
@@ -126,7 +126,7 @@ summary { cursor: pointer; color: var(--focus); }
   aspect-ratio: 2 / 1;
   min-height: 440px;
   border-radius: 50% / 46%;
-  transform: rotateX(36deg);
+  transform: rotateX(30deg);
   transform-origin: 50% 100%;
   transform-style: preserve-3d;
   background:
@@ -153,6 +153,7 @@ summary { cursor: pointer; color: var(--focus); }
   border-radius: 14px;
   transition: box-shadow 0.3s ease, background 0.3s ease;
 }
+.seat-grid { transform: rotate(var(--seat-rotation, 0deg)); transition: transform 0.35s ease; }
 .seat { transition: transform 0.35s ease, box-shadow 0.3s ease, background 0.3s ease; }
 .seat.is-active {
   z-index: 2;
@@ -206,8 +207,8 @@ summary { cursor: pointer; color: var(--focus); }
   position: relative;
   z-index: 1;
   /* Ma place empiète sur le bord de la table, comme si j'étais assis devant. */
-  margin: -130px auto 16px;
-  transform: rotateX(14deg);
+  margin: -120px auto 16px;
+  transform: rotateX(7deg);
   transform-origin: 50% 100%;
   width: fit-content;
   max-width: 100%;
@@ -389,6 +390,8 @@ summary { cursor: pointer; color: var(--focus); }
     padding: 12px 8px;
   }
   .seat, .seat.is-active { position: static; transform: none; padding: 4px; }
+  /* Sans table en perspective, on garde les grilles droites pour qu'elles restent lisibles. */
+  .seat-grid { transform: none; }
   .my-seat-scene { perspective: none; }
   .my-seat { transform: none; }
   /* Adversaires côte à côte : cartes et badges plus compacts. */

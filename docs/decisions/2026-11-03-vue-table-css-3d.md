@@ -30,3 +30,10 @@ Il veut d'abord essayer en CSS 3D, et pourra demander React Three Fiber (WebGL) 
   propriétaire du dépôt.
 - Le rendu dépend de la perspective CSS, bien prise en charge par les navigateurs récents ; sur petit écran,
   la table est affichée à plat pour rester lisible.
+
+## Essai de React Three Fiber, abandonné
+
+Un prototype WebGL (React Three Fiber, avec un sélecteur pour comparer les deux rendus sur la même partie) a été
+essayé sur une branche jetable, puis supprimé à la demande du propriétaire du dépôt, qui préfère le rendu CSS 3D.
+Constats retenus : environ 244 Ko compressés de plus (chargés à la demande), étiquettes trop petites sur
+téléphone, scène inaccessible au clavier sans repli HTML, pour un gain visuel jugé faible.

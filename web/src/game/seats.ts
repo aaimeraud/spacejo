@@ -13,6 +13,9 @@ export interface Seat {
   /** Position du centre du siège sur la table, en pourcentage de sa largeur et de sa hauteur. */
   x: number;
   y: number;
+  /** Rotation de la grille (degrés, sens des aiguilles d'une montre) pour qu'elle soit tournée vers son
+   * propriétaire, comme des cartes posées devant lui : 0 en bas (moi), 180 en face, 90 à gauche, 270 à droite. */
+  rotation: number;
 }
 
 /** Demi-axes de l'ellipse des sièges, en pourcentage de la table. */
@@ -36,6 +39,7 @@ export function seatPlayers(view: GameView): Seat[] {
       angle,
       x: round(50 + SEAT_RADIUS_X * Math.cos(radians)),
       y: round(50 + SEAT_RADIUS_Y * Math.sin(radians)),
+      rotation: (angle - 90 + 360) % 360,
     };
   });
 }

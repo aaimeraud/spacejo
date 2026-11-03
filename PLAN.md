@@ -29,6 +29,8 @@ Demandée après la v1 par le propriétaire du dépôt, qui pourra préférer en
 5. [x] Vérification dans le navigateur à 2 et 4 joueurs ; documentation à jour.
 6. [x] Retours du propriétaire : table plus inclinée, grille de l'adversaire actif agrandie, animation propre
    aux colonnes retirées, cartes plus grandes et plus espacées.
+7. [x] Deuxième retour : inclinaison ramenée à 30°, grilles des adversaires tournées vers eux ; prototype
+   React Three Fiber essayé puis abandonné (voir la décision).
 
 Aucune nouvelle dépendance.
 

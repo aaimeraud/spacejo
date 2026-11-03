@@ -103,7 +103,10 @@ export function GameBoard({ view, busy, onAction }: Props) {
               aria-label={`Place de ${seat.player.name}`}
             >
               <PlayerBadge view={view} player={seat.player} />
-              <GridView player={seat.player} size="sm" />
+              {/* Les cartes sont tournées vers leur propriétaire, comme posées devant lui. */}
+                <div className="seat-grid" style={{ "--seat-rotation": `${seat.rotation}deg` } as CSSProperties}>
+                  <GridView player={seat.player} size="sm" />
+                </div>
             </section>
           ))}
 

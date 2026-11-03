@@ -37,6 +37,11 @@ describe("seatPlayers", () => {
     expect(seats[3]).toMatchObject({ x: 92, y: 50 });
   });
 
+  it("tourne chaque grille vers son propriétaire", () => {
+    expect(seatPlayers(view(4, 0)).map((s) => s.rotation)).toEqual([0, 90, 180, 270]);
+    expect(seatPlayers(view(3, 0)).map((s) => s.rotation)).toEqual([0, 120, 240]);
+  });
+
   it("à 2 joueurs, l'adversaire est en face", () => {
     const seats = seatPlayers(view(2, 1));
     expect(seats.map((s) => [s.player.id, s.angle])).toEqual([
