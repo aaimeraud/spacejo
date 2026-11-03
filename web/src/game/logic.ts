@@ -6,7 +6,11 @@ import type { Action, GameView, PlayerView, PublicSlot } from "../api/types";
 /** Ce que fait un clic sur une carte de sa grille, quand on a une carte de la pioche en main. */
 export type HeldMode = "swap" | "reveal";
 
-export function slotAt(player: PlayerView, column: number, row: number): PublicSlot | undefined {
+export function slotAt(
+  player: PlayerView,
+  column: number,
+  row: number,
+): PublicSlot | undefined {
   const col = player.grid[column];
   if (col === undefined || col.kind === "Removed") return undefined;
   return col.slots[row];
@@ -23,7 +27,12 @@ export function playerName(view: GameView, id: number | null): string {
 
 /** Action envoyée par un clic sur la case (colonne, ligne) de SA grille, ou `null` si ce clic ne
  * correspond à rien dans la situation actuelle. */
-export function slotAction(view: GameView, mode: HeldMode, column: number, row: number): Action | null {
+export function slotAction(
+  view: GameView,
+  mode: HeldMode,
+  column: number,
+  row: number,
+): Action | null {
   const me = view.players[view.me];
   if (me === undefined) return null;
   const slot = slotAt(me, column, row);
@@ -34,7 +43,9 @@ export function slotAction(view: GameView, mode: HeldMode, column: number, row: 
   }
   if (!isMyTurn(view) || view.held === null) return null;
   if (view.held.source === "Pile" && mode === "reveal") {
-    return slot.kind === "Hidden" ? { type: "DiscardHeldAndReveal", column, row } : null;
+    return slot.kind === "Hidden"
+      ? { type: "DiscardHeldAndReveal", column, row }
+      : null;
   }
   return { type: "SwapHeld", column, row };
 }
@@ -55,7 +66,8 @@ export function hint(view: GameView, mode: HeldMode): string {
     }
     case "Playing": {
       const last = view.finisher !== null ? " (dernier tour)" : "";
-      if (!isMyTurn(view)) return `C'est au tour de ${playerName(view, view.current_player)}${last}.`;
+      if (!isMyTurn(view))
+        return `C'est au tour de ${playerName(view, view.current_player)}${last}.`;
       if (view.held === null) {
         return `À vous de jouer${last} : piochez une carte ou prenez la carte de la défausse.`;
       }
@@ -75,11 +87,19 @@ export function hint(view: GameView, mode: HeldMode): string {
 
 /** Classement final, du plus petit total au plus grand (simple tri des totaux reçus du serveur). */
 export function ranking(view: GameView): PlayerView[] {
-  return [...view.players].sort((a, b) => a.total_score - b.total_score || a.id - b.id);
+  return [...view.players].sort(
+    (a, b) => a.total_score - b.total_score || a.id - b.id,
+  );
 }
 
 /** Texte accessible d'une carte. */
-export function slotLabel(slot: PublicSlot, column: number, row: number): string {
+export function slotLabel(
+  slot: PublicSlot,
+  column: number,
+  row: number,
+): string {
   const where = `colonne ${column + 1}, ligne ${row + 1}`;
-  return slot.kind === "Hidden" ? `Carte cachée, ${where}` : `Carte ${slot.value}, ${where}`;
+  return slot.kind === "Hidden"
+    ? `Carte cachée, ${where}`
+    : `Carte ${slot.value}, ${where}`;
 }
