@@ -51,3 +51,6 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
 15. **Code de partie** : la saisie est mise en majuscules et débarrassée des espaces autour.
 16. **Jonction** : rejoindre n'envoie pas d'`expected_version` (le joueur ne connaît pas encore la partie) ;
     en cas d'écriture concurrente, le serveur relit la partie et réessaie quelques fois.
+17. **Préréglages** : « Détente » (pénalité désactivée) et « Partie rapide » (fin à 50 points) sont des raccourcis de
+    l'interface, composés uniquement de valeurs existantes de `Rules` ; ils n'ajoutent aucune règle. Une combinaison
+    qui ne correspond à aucun préréglage est affichée comme « Personnalisée ».

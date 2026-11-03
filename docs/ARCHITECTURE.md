@@ -159,7 +159,7 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/App.tsx` | session, polling, envoi des actions avec `expected_version`, choix de l'écran |
 | `src/components/` | `Home` (créer avec réglages / rejoindre), `Lobby` (salon), `GameBoard` (table de jeu et fin de partie), `GridView`, `Card` (carte 3D à deux faces), `Scoreboard`, `RulesPanel` |
 | `src/game/seats.ts` | place de chaque joueur autour de la table (moi en bas, puis l'ordre du tour, dans le sens des aiguilles d'une montre) |
-| `src/rulesInfo.ts` | phrases d'explication et étiquettes « officiel » / « variante » des réglages |
+| `src/rulesInfo.ts` | explications, exemples, étiquettes « officiel » / « variante », préréglages (raccourcis de l'interface) et résumé des réglages |
 | `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, classement (simple tri des totaux) |
 | `src/session.ts` | session (code, jeton, identifiant) dans `sessionStorage` |
 | `src/config.ts` | constantes : `POLL_INTERVAL_MS` (2000), bornes, longueurs |
@@ -181,6 +181,13 @@ colonnes en comparant la vue précédente et la nouvelle. Sur petit écran (moin
 plat et les adversaires côte à côte. Avec la préférence système « réduire les animations », il n'y a aucune
 animation. Le choix du CSS 3D plutôt que WebGL est expliqué dans
 [decisions/2026-11-03-vue-table-css-3d.md](decisions/2026-11-03-vue-table-css-3d.md).
+
+**Réglages** (`RulesPanel.tsx`) : quatre tuiles de préréglage (« Règles officielles », « Détente », « Partie rapide »,
+« Personnalisée »), puis une carte par réglage, dépliable, avec ses choix en pastilles (de vrais boutons radio), son
+explication, un exemple chiffré et l'étiquette « officiel » ou « variante » ; le score de fin se règle au curseur
+(envoyé au relâchement) ou par raccourcis 50 / 100 / 150. Un préréglage n'est qu'un raccourci : le serveur reçoit
+toujours les 7 réglages. Les joueurs qui ne sont pas l'hôte voient un résumé (« Règles officielles, sauf 2
+réglages ») et les cartes en lecture seule.
 
 **Polling** : toutes les 2 secondes, `GET /api/state?code=…&known_version=…`. Si la version n'a pas changé,
 la réponse est minimale (`changed: false`) et rien n'est redessiné.

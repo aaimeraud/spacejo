@@ -40,10 +40,8 @@ export function Home({ busy, onCreate, onJoin }: Props) {
             autoComplete="nickname"
             onChange={(event) => setCreateName(event.target.value)}
           />
-          <details>
-            <summary>Réglages de la partie (règles officielles par défaut)</summary>
-            <RulesEditor rules={rules} onChange={setRules} disabled={busy} />
-          </details>
+          <h3 className="subheading">Type de partie</h3>
+          <RulesEditor rules={rules} onChange={setRules} disabled={busy} />
           <button type="submit" className="primary" disabled={busy}>
             Créer la partie
           </button>

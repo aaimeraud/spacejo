@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { CHOICES, OFFICIAL_RULES, describe as describeOption, endScoreStatus, type ChoiceInfo, type ChoiceKey } from "./rulesInfo";
+import {
+  CHOICES,
+  END_SCORE_LIMITS,
+  END_SCORE_SHORTCUTS,
+  OFFICIAL_RULES,
+  PRESETS,
+  describe as describeOption,
+  differencesFromOfficial,
+  endScoreStatus,
+  matchPreset,
+  rulesSummary,
+  type ChoiceInfo,
+  type ChoiceKey,
+} from "./rulesInfo";
 
 describe("rulesInfo", () => {
   it("les règles officielles correspondent au contrat (Rules::default)", () => {
@@ -46,5 +59,44 @@ describe("rulesInfo", () => {
     }
     expect(endScoreStatus(100)).toBe("officiel");
     expect(endScoreStatus(150)).toBe("variante");
+  });
+
+  it("chaque valeur a un exemple concret", () => {
+    for (const info of CHOICES) {
+      for (const option of info.options) expect(option.example.length).toBeGreaterThan(20);
+    }
+  });
+});
+
+describe("préréglages", () => {
+  it("le préréglage officiel est exactement Rules::default", () => {
+    expect(PRESETS.find((p) => p.id === "official")?.rules).toEqual(OFFICIAL_RULES);
+  });
+
+  it("chaque préréglage est complet et dans les bornes", () => {
+    for (const preset of PRESETS) {
+      expect(Object.keys(preset.rules).sort()).toEqual(Object.keys(OFFICIAL_RULES).sort());
+      expect(preset.rules.end_score).toBeGreaterThanOrEqual(END_SCORE_LIMITS.min);
+      expect(preset.rules.end_score).toBeLessThanOrEqual(END_SCORE_LIMITS.max);
+    }
+    for (const value of END_SCORE_SHORTCUTS) {
+      expect(value).toBeGreaterThanOrEqual(END_SCORE_LIMITS.min);
+      expect(value).toBeLessThanOrEqual(END_SCORE_LIMITS.max);
+    }
+  });
+
+  it("reconnaît un préréglage ou des réglages personnalisés", () => {
+    expect(matchPreset(OFFICIAL_RULES)?.id).toBe("official");
+    expect(matchPreset({ ...OFFICIAL_RULES, penalty: "Disabled" })?.id).toBe("relaxed");
+    expect(matchPreset({ ...OFFICIAL_RULES, end_score: 50 })?.id).toBe("quick");
+    expect(matchPreset({ ...OFFICIAL_RULES, penalty: "Disabled", end_score: 50 })).toBeNull();
+  });
+
+  it("résume les réglages pour le salon", () => {
+    expect(rulesSummary(OFFICIAL_RULES)).toBe("Règles officielles");
+    const custom = { ...OFFICIAL_RULES, penalty: "Disabled" as const, end_score: 50 };
+    expect(differencesFromOfficial(custom)).toBe(2);
+    expect(rulesSummary(custom)).toBe("Règles officielles, sauf 2 réglages");
+    expect(rulesSummary({ ...OFFICIAL_RULES, end_tie: "ExtraRound" })).toBe("Règles officielles, sauf 1 réglage");
   });
 });

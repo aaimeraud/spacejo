@@ -34,6 +34,16 @@ Demandée après la v1 par le propriétaire du dépôt, qui pourra préférer en
 
 Aucune nouvelle dépendance.
 
+## Évolution en cours : écran des réglages (branche `claude/rules-ux`)
+
+Piste choisie par le propriétaire du dépôt parmi deux propositions : préréglages + cartes de règles.
+
+1. [x] `rulesInfo.ts` : titres courts, pictogrammes, exemples chiffrés, préréglages, résumé ; tests.
+2. [x] `RulesPanel.tsx` : tuiles de préréglage (dont le bouton « Règles officielles »), cartes dépliables avec
+   choix en pastilles (boutons radio accessibles), curseur et raccourcis pour le score de fin, résumé en lecture
+   seule pour les autres joueurs.
+3. [x] Accueil : préréglages visibles directement ; vérification dans le navigateur (accueil, salon hôte et invité).
+
 ## Structure des dossiers
 
 La documentation Vercel du runtime Rust (lue le 2026-11-03,

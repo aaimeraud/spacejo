@@ -103,9 +103,9 @@ tests/scripts/release.test.sh
    ou prendre la défausse, puis échanger ou défausser et retourner). Si un message « La partie a changé
    entre-temps » s'affiche, l'autre joueur a joué au même moment : refaire le geste.
 5. Jouer jusqu'à « Fin de partie » : le classement et le tableau des scores s'affichent.
-6. Recommencer (« Quitter », puis créer une partie) avec au moins une variante, par exemple « Aucune
-   pénalité » et un score de fin de 30 points pour une partie courte. Vérifier que l'onglet 2 voit le
-   changement de réglage dans le salon, et qu'il ne peut pas modifier les réglages.
+6. Recommencer (« Quitter », puis créer une partie) avec au moins une variante, par exemple le préréglage
+   « Détente », ou « Personnalisée » avec un score de fin de 30 points au curseur pour une partie courte. Vérifier
+   que l'onglet 2 voit le changement de réglage dans le salon (résumé et cartes), et qu'il ne peut pas les modifier.
 
 ## Déployer sur Vercel
 
