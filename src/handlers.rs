@@ -1,0 +1,402 @@
+//! Les six opérations de l'API (docs/CONTRACT.md), indépendantes de Vercel.
+//!
+//! Chaque opération suit le même parcours (serverless : rien n'est gardé en mémoire) :
+//! valider la requête → charger la partie → identifier le joueur par son jeton → vérifier
+//! `expected_version` → appliquer l'opération du core → sauvegarder avec le verrou optimiste →
+//! répondre avec la vue filtrée du joueur.
+
+use serde::Deserialize;
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
+use spacejo_core::{Action, Game, PlayerId, Rules, view_for};
+
+use crate::auth;
+use crate::error::ApiError;
+use crate::store::{Record, Store, StoreError};
+use crate::stored::StoredGame;
+
+/// Taille maximale d'un corps de requête (16 Kio : largement assez pour nos petits JSON).
+pub const MAX_BODY_BYTES: usize = 16 * 1024;
+/// Nombre d'essais quand le serveur doit réécrire lui-même après un conflit (création, jonction).
+pub const MAX_WRITE_ATTEMPTS: usize = 5;
+/// Nom de l'en-tête qui porte le jeton.
+pub const TOKEN_HEADER: &str = "X-Player-Token";
+
+/// Les routes de l'API.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Endpoint {
+    Create,
+    Join,
+    Rules,
+    Start,
+    Action,
+    State,
+}
+
+impl Endpoint {
+    /// Route correspondant à un chemin (`/api/create` → `Create`), pour le serveur local.
+    pub fn from_path(path: &str) -> Option<Endpoint> {
+        match path.trim_end_matches('/') {
+            "/api/create" => Some(Endpoint::Create),
+            "/api/join" => Some(Endpoint::Join),
+            "/api/rules" => Some(Endpoint::Rules),
+            "/api/start" => Some(Endpoint::Start),
+            "/api/action" => Some(Endpoint::Action),
+            "/api/state" => Some(Endpoint::State),
+            _ => None,
+        }
+    }
+
+    fn method(self) -> &'static str {
+        match self {
+            Endpoint::State => "GET",
+            _ => "POST",
+        }
+    }
+}
+
+/// Une requête HTTP réduite à ce dont l'API a besoin.
+#[derive(Clone, Debug, Default)]
+pub struct ApiRequest {
+    pub method: String,
+    /// Partie après le `?` de l'URL (vide s'il n'y en a pas).
+    pub query: String,
+    /// Valeur de l'en-tête `X-Player-Token`, s'il est présent.
+    pub token: Option<String>,
+    pub body: Vec<u8>,
+}
+
+/// Une réponse : statut HTTP et corps JSON.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ApiResponse {
+    pub status: u16,
+    pub body: Value,
+}
+
+impl ApiResponse {
+    fn ok(body: Value) -> Self {
+        Self { status: 200, body }
+    }
+}
+
+impl From<ApiError> for ApiResponse {
+    fn from(error: ApiError) -> Self {
+        Self {
+            status: error.status,
+            body: error.body(),
+        }
+    }
+}
+
+// Corps des requêtes. `deny_unknown_fields` : tout champ inattendu est refusé.
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct CreateRequest {
+    name: String,
+    rules: Option<Rules>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct JoinRequest {
+    code: String,
+    name: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RulesRequest {
+    code: String,
+    expected_version: i32,
+    rules: Rules,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct StartRequest {
+    code: String,
+    expected_version: i32,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ActionRequest {
+    code: String,
+    expected_version: i32,
+    action: Action,
+}
+
+/// Point d'entrée : traite une requête et renvoie toujours une réponse (succès ou erreur).
+pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> ApiResponse {
+    let result = if request.method != endpoint.method() {
+        Err(ApiError::method_not_allowed())
+    } else {
+        match endpoint {
+            Endpoint::Create => create(store, &request).await,
+            Endpoint::Join => join(store, &request).await,
+            Endpoint::Rules => update_rules(store, &request).await,
+            Endpoint::Start => start(store, &request).await,
+            Endpoint::Action => action(store, &request).await,
+            Endpoint::State => state(store, &request).await,
+        }
+    };
+    match result {
+        Ok(response) => response,
+        Err(error) => error.into(),
+    }
+}
+
+// ----- Opérations -----
+
+async fn create(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: CreateRequest = parse_body(&request.body)?;
+    // Sans réglages : règles officielles. Les réglages complets sont enregistrés dans la partie.
+    let rules = body.rules.unwrap_or_default();
+    let game = Game::new(&body.name, rules, auth::generate_seed()?)?;
+    let token = auth::generate_token()?;
+    let stored = StoredGame::new(game, vec![auth::hash_token(&token)]);
+    let state = encode(&stored)?;
+
+    // Un code déjà pris (très improbable) : on en tire un autre.
+    for _ in 0..MAX_WRITE_ATTEMPTS {
+        let code = auth::generate_code()?;
+        match store.insert(&code, &state).await {
+            Ok(record) => {
+                let body = json!({
+                    "code": code,
+                    "token": token,
+                    "player_id": 0,
+                    "version": record.version,
+                    "view": view_for(&stored.game, 0),
+                });
+                return Ok(ApiResponse { status: 201, body });
+            }
+            Err(StoreError::CodeTaken) => continue,
+            Err(error) => return Err(storage_error(error)),
+        }
+    }
+    Err(ApiError::internal())
+}
+
+async fn join(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: JoinRequest = parse_body(&request.body)?;
+    let code = auth::normalize_code(&body.code)?;
+    let token = auth::generate_token()?;
+    // Le joueur qui rejoint ne connaît pas encore la version : en cas d'écriture concurrente
+    // (deux joueurs rejoignent en même temps), on relit et on réessaie.
+    for _ in 0..MAX_WRITE_ATTEMPTS {
+        let (record, mut stored) = load(store, &code).await?;
+        let player = stored.game.join(&body.name)?;
+        stored.token_hashes.push(auth::hash_token(&token));
+        match store
+            .save(record.id, &encode(&stored)?, record.version)
+            .await
+        {
+            Ok(version) => {
+                return Ok(ApiResponse::ok(json!({
+                    "code": code,
+                    "token": token,
+                    "player_id": player,
+                    "version": version,
+                    "view": view_for(&stored.game, player),
+                })));
+            }
+            Err(StoreError::Conflict) => continue,
+            Err(error) => return Err(storage_error(error)),
+        }
+    }
+    Err(ApiError::version_conflict())
+}
+
+async fn update_rules(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: RulesRequest = parse_body(&request.body)?;
+    write_as_player(
+        store,
+        request,
+        &body.code,
+        body.expected_version,
+        |game, player| game.update_rules(player, body.rules),
+    )
+    .await
+}
+
+async fn start(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: StartRequest = parse_body(&request.body)?;
+    write_as_player(
+        store,
+        request,
+        &body.code,
+        body.expected_version,
+        |game, player| game.start(player),
+    )
+    .await
+}
+
+async fn action(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: ActionRequest = parse_body(&request.body)?;
+    write_as_player(
+        store,
+        request,
+        &body.code,
+        body.expected_version,
+        |game, player| spacejo_core::apply(game, player, body.action),
+    )
+    .await
+}
+
+async fn state(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let mut code = None;
+    let mut known_version = None;
+    for pair in request.query.split('&').filter(|p| !p.is_empty()) {
+        let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+        match key {
+            "code" => code = Some(auth::normalize_code(value)?),
+            "known_version" => {
+                let parsed = value
+                    .parse::<i32>()
+                    .map_err(|_| ApiError::invalid_request("known_version doit être un entier"))?;
+                known_version = Some(parsed);
+            }
+            other => {
+                return Err(ApiError::invalid_request(format!(
+                    "paramètre inconnu « {other} »"
+                )));
+            }
+        }
+    }
+    let code = code.ok_or_else(|| ApiError::invalid_request("paramètre « code » manquant"))?;
+    let token = require_token(request)?;
+    let (record, stored) = load(store, &code).await?;
+    let player = identify(&stored, token)?;
+    // Rien n'a changé depuis la dernière lecture du client : réponse minimale.
+    if known_version == Some(record.version) {
+        return Ok(ApiResponse::ok(
+            json!({ "changed": false, "version": record.version }),
+        ));
+    }
+    Ok(ApiResponse::ok(json!({
+        "changed": true,
+        "version": record.version,
+        "view": view_for(&stored.game, player),
+    })))
+}
+
+// ----- Briques communes -----
+
+/// Parcours commun de `rules`, `start` et `action` : jeton, version attendue, opération du
+/// core, sauvegarde avec verrou optimiste, puis vue filtrée.
+///
+/// `operation` est une fermeture (closure) qui reçoit la partie à modifier et le joueur.
+/// https://doc.rust-lang.org/stable/book/ch13-01-closures.html
+async fn write_as_player<F>(
+    store: &Store,
+    request: &ApiRequest,
+    code: &str,
+    expected_version: i32,
+    operation: F,
+) -> Result<ApiResponse, ApiError>
+where
+    F: FnOnce(&mut Game, PlayerId) -> Result<(), spacejo_core::GameError>,
+{
+    let code = auth::normalize_code(code)?;
+    let token = require_token(request)?;
+    let (record, mut stored) = load(store, &code).await?;
+    let player = identify(&stored, token)?;
+    // Écran périmé ou requête rejouée : refus, rien n'est écrit.
+    if expected_version != record.version {
+        return Err(ApiError::version_conflict());
+    }
+    operation(&mut stored.game, player)?;
+    let version = match store
+        .save(record.id, &encode(&stored)?, record.version)
+        .await
+    {
+        Ok(version) => version,
+        Err(StoreError::Conflict) => return Err(ApiError::version_conflict()),
+        Err(error) => return Err(storage_error(error)),
+    };
+    Ok(ApiResponse::ok(json!({
+        "version": version,
+        "view": view_for(&stored.game, player),
+    })))
+}
+
+/// Lit un corps JSON dans le type attendu ; toute erreur (JSON invalide, champ inconnu ou
+/// manquant, valeur d'enum inconnue) devient un `400 invalid_request`.
+fn parse_body<T: DeserializeOwned>(body: &[u8]) -> Result<T, ApiError> {
+    serde_json::from_slice(body).map_err(ApiError::invalid_request)
+}
+
+fn require_token(request: &ApiRequest) -> Result<&str, ApiError> {
+    match request.token.as_deref() {
+        Some(token) if !token.is_empty() => Ok(token),
+        _ => Err(ApiError::missing_token()),
+    }
+}
+
+/// Joueur correspondant au jeton, dans CETTE partie.
+fn identify(stored: &StoredGame, token: &str) -> Result<PlayerId, ApiError> {
+    auth::find_player(&stored.token_hashes, token).ok_or_else(ApiError::invalid_token)
+}
+
+/// Charge et décode une partie.
+async fn load(store: &Store, code: &str) -> Result<(Record, StoredGame), ApiError> {
+    let record = store
+        .load(code)
+        .await
+        .map_err(storage_error)?
+        .ok_or_else(ApiError::game_not_found)?;
+    match StoredGame::decode(record.state.clone()) {
+        Ok(stored) => Ok((record, stored)),
+        Err(error) => {
+            // Journal : le message ne contient aucune donnée de la partie.
+            eprintln!(
+                "état illisible pour la partie {}: {}",
+                record.id,
+                error.message()
+            );
+            Err(ApiError::new(
+                500,
+                "unsupported_state_version",
+                "Cette partie a été enregistrée dans un format que ce serveur ne sait pas lire.",
+            ))
+        }
+    }
+}
+
+fn encode(stored: &StoredGame) -> Result<Value, ApiError> {
+    stored.encode().map_err(|_| ApiError::internal())
+}
+
+/// Erreur de stockage → erreur HTTP. Le détail technique va au journal, jamais au navigateur.
+fn storage_error(error: StoreError) -> ApiError {
+    match error {
+        StoreError::Conflict => ApiError::version_conflict(),
+        StoreError::CodeTaken => ApiError::internal(),
+        StoreError::Database(error) => {
+            // On ne journalise que le type d'erreur sqlx, pas les valeurs envoyées.
+            eprintln!(
+                "erreur de base de données : {}",
+                database_error_kind(&error)
+            );
+            ApiError::internal()
+        }
+        StoreError::Poisoned => {
+            eprintln!("erreur de stockage en mémoire : verrou empoisonné");
+            ApiError::internal()
+        }
+    }
+}
+
+fn database_error_kind(error: &sqlx::Error) -> &'static str {
+    match error {
+        sqlx::Error::Configuration(_) => "configuration",
+        sqlx::Error::Database(_) => "erreur renvoyée par PostgreSQL",
+        sqlx::Error::Io(_) => "entrée/sortie réseau",
+        sqlx::Error::Tls(_) => "TLS",
+        sqlx::Error::PoolTimedOut => "délai d'attente du pool dépassé",
+        sqlx::Error::PoolClosed => "pool fermé",
+        _ => "autre",
+    }
+}

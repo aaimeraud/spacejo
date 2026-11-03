@@ -6,13 +6,28 @@ sont dans [decisions/](decisions/).
 ## Vue d'ensemble
 
 SpaceJo est un jeu de cartes au tour par tour (2 à 4 joueurs) qui reprend les règles de Skyjo
-([RULES.md](RULES.md)).
+([RULES.md](RULES.md)). Trois composants :
 
 ```
-crates/spacejo-core   logique du jeu (Rust pur, sans réseau, sans base, sans horloge)
+ Navigateur (web/, React)                Vercel                              PostgreSQL
+┌──────────────────────┐   HTTPS/JSON   ┌───────────────────────────────┐   SQL   ┌──────────────┐
+│ écrans, polling 2 s   │ ─────────────▶ │ api/*.rs : une fonction Rust  │ ──────▶ │ table games  │
+│ envoie des Action     │ ◀───────────── │ par route, sans état          │ ◀────── │ (state JSONB,│
+│ affiche la vue reçue  │   vue filtrée  │ src/ : HTTP, jetons, stockage │         │  version)    │
+└──────────────────────┘                │ crates/spacejo-core : le jeu  │         └──────────────┘
+                                        └───────────────────────────────┘
 ```
 
-> Les sections sur l'API, la base de données et l'interface seront ajoutées avec le code correspondant.
+| Dossier | Rôle |
+|---|---|
+| `crates/spacejo-core/` | logique du jeu (Rust pur, sans réseau, sans base, sans horloge) |
+| `src/` | bibliothèque `spacejo-api` : routes, jetons, format enregistré, stockage, adaptateur Vercel |
+| `api/` | une fonction Vercel par fichier (quelques lignes : elles appellent `spacejo_api::vercel::serve`) |
+| `src/bin/` | `dev_server` (toutes les routes dans un processus, pour le développement) et `migrate` |
+| `migrations/` | migrations SQL versionnées, appliquées par `sqlx::migrate!` |
+| `tests/` | tests de l'API (mémoire et PostgreSQL), exemple figé du format enregistré, tests des scripts |
+| `web/` | interface React + TypeScript + Vite |
+| `scripts/` | contrôle des commits, release, aperçu du changelog |
 
 ## Le core : `crates/spacejo-core`
 
@@ -75,11 +90,97 @@ pioche n'est donnée que par son nombre de cartes ; la carte en main n'est montr
 (une carte prise sur la défausse était déjà publique). Le test `crates/spacejo-core/tests/view.rs` vérifie que
 deux parties qui ne diffèrent que par UNE carte cachée donnent exactement la même vue.
 
+## L'API : `src/` et `api/`
+
+Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
+
+| Fichier | Rôle |
+|---|---|
+| `src/handlers.rs` | les six opérations, indépendantes de Vercel (`handle(store, endpoint, request)`) |
+| `src/auth.rs` | jetons (256 bits, hachage SHA-256, comparaison en temps constant), codes de partie, graines |
+| `src/stored.rs` | `StoredGame` (ce qui est dans `games.state`) et `STATE_VERSION` |
+| `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste |
+| `src/vercel.rs` | conversion entre les requêtes de `vercel_runtime` (hyper) et `handlers` |
+| `src/error.rs` | `ApiError` (statut, code, message) et conversion depuis `GameError` |
+
+### Parcours d'une action, du clic à la réponse
+
+1. Le joueur clique sur une carte. L'interface envoie `POST /api/action` avec
+   `{ code, expected_version, action }` et l'en-tête `X-Player-Token`. Elle envoie une intention
+   (`Action`), jamais un état.
+2. Vercel lance la fonction `api/action.rs`, qui appelle `vercel::serve(Endpoint::Action)`. Le corps est
+   lu avec une taille maximale (16 Kio), puis `handlers::handle` prend le relais.
+3. Le corps est validé (`serde` refuse champ inconnu, valeur inconnue, type incorrect → 400).
+4. La partie est chargée par son code : `SELECT id, state, version FROM games WHERE code = $1`. Le JSON
+   est relu par `StoredGame::decode`, qui vérifie `state_version`.
+5. Le jeton est haché et comparé aux hachages stockés : on obtient l'identifiant du joueur (sinon 401).
+6. Si `expected_version` diffère de `version` : 409, rien n'est écrit (écran périmé ou requête rejouée).
+7. `spacejo_core::apply(&mut game, joueur, action)` applique la règle ; une erreur de jeu donne 422.
+8. Sauvegarde avec verrou optimiste (ci-dessous). Si quelqu'un a écrit entre-temps : 409.
+9. Réponse : `{ version, view }`, où `view = view_for(&game, joueur)`. L'interface affiche cette vue ; les
+   autres joueurs la verront à leur prochain polling (`GET /api/state`, toutes les 2 secondes).
+
+Aucune donnée de partie n'est gardée en mémoire entre deux requêtes : chaque requête recharge tout. Seul
+le pool de connexions PostgreSQL survit d'une requête à l'autre dans une même instance.
+
+### Verrou optimiste
+
+« Optimiste » : on ne bloque personne pendant le calcul ; on vérifie seulement au moment d'écrire que
+personne n'a écrit avant nous.
+
+```sql
+UPDATE games SET state = $1, version = version + 1, updated_at = now()
+WHERE id = $2 AND version = $3      -- $3 = la version lue à l'étape 4
+RETURNING version
+```
+
+Si deux requêtes ont lu la même version, PostgreSQL n'exécute la mise à jour que pour la première ; la
+seconde ne trouve plus de ligne avec `version = $3`, ne modifie rien et reçoit un conflit (409). Le test
+`tests/postgres.rs` lance deux écritures simultanées et vérifie qu'une seule réussit. La création et la
+jonction, qui ne connaissent pas encore la version, relisent et réessaient elles-mêmes (5 fois au plus).
+
+### Identité des joueurs
+
+À la création ou à la jonction, le serveur tire un jeton de 32 octets aléatoires (`getrandom`, entropie du
+système) et le renvoie UNE fois. Il n'en stocke que le hachage SHA-256, dans `StoredGame::token_hashes`
+(l'indice est l'identifiant du joueur). Le navigateur garde le jeton dans `localStorage` et l'envoie dans
+`X-Player-Token`. Un jeton n'est valable que pour sa partie, et ne permet d'agir qu'en son propre nom.
+
+## Modèle de données
+
+Une seule table, créée par `migrations/0001_create_games.sql` :
+
+| Colonne | Type | Rôle |
+|---|---|---|
+| `id` | `BIGSERIAL` | clé primaire |
+| `code` | `TEXT UNIQUE` | code de partie à partager (6 caractères sans 0/O ni 1/I) |
+| `state` | `JSONB` | `StoredGame` : `state_version`, `game` (état complet du core), `token_hashes` |
+| `version` | `INTEGER` | numéro de version pour le verrou optimiste (1 à la création, +1 par écriture) |
+| `updated_at` | `TIMESTAMPTZ` | date de la dernière écriture |
+
+Le schéma n'évolue que par de nouveaux fichiers dans `migrations/` (jamais à la main) ; `cargo run --bin migrate`
+les applique, et `sqlx` note celles déjà appliquées dans `_sqlx_migrations`.
+
+Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 1). Si le format de `Game`
+change, il faut incrémenter `STATE_VERSION` et écrire la migration dans `StoredGame::decode` ; un état
+illisible est refusé avec l'erreur `unsupported_state_version`. Le test `tests/state_version.rs` relit un
+exemple figé (`tests/fixtures/state_v1.json`) pour détecter tout changement de format oublié.
+
+## Journaux
+
+Le serveur n'écrit que la méthode, le chemin et le statut de chaque requête, et le type des erreurs de
+stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état de partie.
+
 ## Limites connues et évolutions prévues
 
 - **Polling** : l'interface interroge le serveur toutes les 2 secondes. Évolution prévue : SSE ou service
   temps réel.
-- **Expiration des parties** : les anciennes parties ne sont jamais supprimées.
+- **Expiration des parties** : les anciennes parties ne sont jamais supprimées (`updated_at` permettra un
+  nettoyage périodique).
+- **Connexions PostgreSQL** : chaque instance de fonction ouvre ses propres connexions (5 au plus) ; en
+  production, utiliser l'URL « poolée » du fournisseur.
+- **Déploiement non vérifié** : le runtime Rust de Vercel est en bêta ; l'espace de travail Cargo (core à
+  part) n'a pas été testé par un vrai déploiement.
 - **Limitation de débit** : aucune limite sur la création et la jonction de parties.
 - **Comptes utilisateurs** : aucun ; l'identité est un jeton secret par partie.
 - **Nombre de joueurs** : plafonné à 4 en v1 (`MAX_PLAYERS`) ; le core n'en dépend pas ailleurs.
