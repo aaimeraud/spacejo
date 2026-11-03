@@ -98,6 +98,7 @@ Sept fonctions, sous la limite de 12 fonctions par déploiement du plan gratuit.
 | `react`, `react-dom` | web | imposé |
 | `typescript`, `vite`, `@vitejs/plugin-react` | web | imposé (Vite + TypeScript strict) |
 | `vitest` | web | tests du front, même configuration que Vite |
+| police Inter (Google Fonts) | web | une police lisible et moderne avec chiffres de même largeur ; ressource chargée par la page, pas un paquet npm (voir `docs/decisions/2026-11-04-theme-nuit.md`) |
 
 Pas de caisse `rand` dans le core : le mélange utilise un petit générateur SplitMix64 écrit dans le
 core (voir `docs/decisions/2026-11-03-generateur-aleatoire.md`), pour un résultat identique quelle que

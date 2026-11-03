@@ -1,4 +1,4 @@
-// Carte en relief (CSS 3D, dessin original). Deux faces : le dos étoilé et la face visible. Retourner
+// Carte en relief (CSS 3D, dessin original). Deux faces : le dos (marque « S ») et la face visible. Retourner
 // une carte, c'est faire pivoter l'ensemble de 180° autour de l'axe vertical (classe `is-up`).
 // La valeur est toujours écrite en chiffres ; la couleur n'est qu'un repère supplémentaire.
 import type { PublicSlot } from "../api/types";
@@ -26,7 +26,7 @@ export function Card3D({ slot, size = "md" }: Props) {
       <span className="card3d-inner">
         <span className="card3d-face card3d-back">
           <span className="card-orbit" />
-          <span className="card-star">✦</span>
+          <span className="card-star">S</span>
         </span>
         {faceUp ? (
           // `key` sur la valeur : quand une carte visible est remplacée par une autre, la face est

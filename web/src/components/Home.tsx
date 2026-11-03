@@ -7,6 +7,7 @@ import type { Rules } from "../api/types";
 import { GAME_CODE_LENGTH, MAX_NAME_CHARS } from "../config";
 import { OFFICIAL_RULES } from "../rulesInfo";
 import type { KnownSession } from "../session";
+import { ValueCard } from "./Card";
 import { FitStage } from "./FitStage";
 import { RuleStepBody, WizardFrame, ruleStepTitle, useRulesFlow } from "./wizard/RuleSteps";
 
@@ -20,6 +21,9 @@ interface Props {
 }
 
 type Mode = "menu" | "create" | "join";
+
+/** Cartes montrées sur l'accueil : une de chaque famille de couleur. */
+const HOME_CARDS = [-2, 0, 3, 7, 12];
 
 export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
   const [mode, setMode] = useState<Mode>("menu");
@@ -64,8 +68,16 @@ export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
       return (
         <div className="home-menu">
           <div className="home-brand">
-            <h2>Bienvenue sur SpaceJo</h2>
-            <p>Un jeu de cartes au tour par tour, de 2 à 10 joueurs.</p>
+            <div>
+              <h2>Bienvenue sur SpaceJo</h2>
+              <p>Un jeu de cartes au tour par tour, de 2 à 10 joueurs.</p>
+            </div>
+            {/* Un éventail de cartes du jeu, de la meilleure (-2) à la pire (12) : décoratif. */}
+            <div className="home-cards" aria-hidden="true">
+              {HOME_CARDS.map((value) => (
+                <ValueCard key={value} value={value} size="md" />
+              ))}
+            </div>
           </div>
           <div className="tile-grid two">
             <button type="button" className="big-tile" onClick={() => reset("create")}>

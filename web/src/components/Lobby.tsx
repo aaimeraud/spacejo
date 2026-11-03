@@ -145,7 +145,7 @@ export function Lobby({ view, code, busy, presence, onRulesChange, onStart }: Pr
               <RulesRecap rules={view.rules} />
               <div className="lobby-rules-actions">
                 {isHost && (
-                  <button type="button" className="primary" onClick={() => setEditing(true)} disabled={busy}>
+                  <button type="button" onClick={() => setEditing(true)} disabled={busy}>
                     <Pencil aria-hidden="true" /> Modifier les règles
                   </button>
                 )}
