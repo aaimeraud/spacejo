@@ -5,6 +5,8 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) : vue d'ensemble des composants, parcours d'une action, modèle de
   données, vue filtrée et verrou optimiste, limites connues.
+- [RULES.md](RULES.md) : règles du jeu et réglages de partie (source de vérité), avec le statut et les sources.
+- [CONTRACT.md](CONTRACT.md) : routes de l'API, formats JSON exacts des requêtes, réponses et erreurs.
 - [CONCEPTS.md](CONCEPTS.md) : notions Rust rencontrées dans le code, avec le fichier où elles apparaissent.
 - [decisions/](decisions/) : une page par décision importante (contexte, décision, alternatives, conséquences).
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).
