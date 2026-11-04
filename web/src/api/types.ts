@@ -36,8 +36,10 @@ export interface PlayerView {
   initial_reveals: number;
   /** Tours passés d'affilée pour cause d'absence. */
   missed_turns: number;
-  /** Éliminé après trop de tours manqués : ne joue plus. */
+  /** Éliminé (trop de tours manqués, ou abandon) : ne joue plus. */
   eliminated: boolean;
+  /** A quitté la partie de lui-même (il est aussi éliminé). */
+  abandoned: boolean;
   grid: ColumnView[];
 }
 

@@ -6,6 +6,7 @@ import { hiddenCount, seatPlayers } from "./seats";
 const player = (id: number): PlayerView => ({ id, name: `P${id}`, total_score: 0, initial_reveals: 0,
   missed_turns: 0,
   eliminated: false,
+  abandoned: false,
   grid: [],
 });
 

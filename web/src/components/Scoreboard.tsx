@@ -45,7 +45,9 @@ export function Scoreboard({ view }: { view: GameView }) {
           {view.players.map((player) => (
             <td key={player.id}>
               <strong>{player.total_score}</strong>
-              {player.eliminated && <span className="note"> · éliminé</span>}
+              {player.eliminated && (
+                <span className="note"> · {player.abandoned ? "a abandonné" : "éliminé"}</span>
+              )}
             </td>
           ))}
         </tr>
