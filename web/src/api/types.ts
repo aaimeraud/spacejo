@@ -6,6 +6,7 @@ export type FirstPlayerTie = "JoinOrder" | "Random";
 export type NextRoundStarter = "Finisher" | "RoundWinner" | "Rotate";
 export type EmptyPile = "ReshuffleDiscard" | "EndRound";
 export type EndTie = "SharedVictory" | "ExtraRound";
+export type DeckSize = "Full" | "Reduced";
 
 export interface Rules {
   penalty: PenaltyRule;
@@ -15,6 +16,7 @@ export interface Rules {
   empty_pile: EmptyPile;
   end_tie: EndTie;
   end_score: number;
+  deck: DeckSize;
 }
 
 export type Action =

@@ -568,6 +568,30 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 }
 
 /* Respect de la préférence « réduire les animations » du système. */
+/* Remélange de la défausse en pioche : les cartes glissent de la défausse (à droite) vers la pioche, puis la
+   pioche se « bat » un instant. Distance : une carte et l'écart entre les deux tas (`.table-center`, gap 22px). */
+.pile { position: relative; }
+.reshuffle-flight { position: absolute; top: 4px; left: 4px; pointer-events: none; z-index: 2; }
+.reshuffle-card { position: absolute; top: 0; left: 0; opacity: 0; animation: reshuffle-fly 0.7s ease-in-out both; animation-delay: calc(var(--i) * 0.18s); }
+.pile-stack.is-shuffling { animation: reshuffle-riffle 0.5s ease-in-out 0.9s 2; }
+.reshuffle-note {
+  position: absolute; left: 50%; top: calc(100% + 10px); transform: translateX(-50%); width: max-content; max-width: 320px;
+  pointer-events: none; z-index: 3; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  margin: 0; padding: 6px 12px; border-radius: 999px; background: var(--bg-raised); color: var(--text);
+  border: 1px solid var(--border); font-size: 0.85rem; text-align: center; animation: fade-in 0.3s ease-out;
+}
+.is-portrait .table-center { position: relative; }
+@keyframes reshuffle-fly {
+  0% { opacity: 0; transform: translateX(calc(100% + 30px)) rotate(8deg); }
+  15% { opacity: 1; }
+  100% { opacity: 0.9; transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes reshuffle-riffle {
+  0%, 100% { transform: none; }
+  25% { transform: translateX(-5px) rotate(-4deg); }
+  75% { transform: translateX(5px) rotate(4deg); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

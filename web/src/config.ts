@@ -38,6 +38,9 @@ export const MAX_REVEAL_RETRIES = 3;
 /** Durée d'affichage d'un message d'information (« X a abandonné la partie »), en millisecondes. */
 export const NOTICE_DURATION_MS = 6000;
 
+/** Durée de l'animation du remélange de la défausse en pioche (en millisecondes). */
+export const RESHUFFLE_ANIMATION_MS = 2200;
+
 /** Longueur maximale d'un message du chat, en caractères (même valeur que `MAX_CHAT_CHARS` de l'API ; le serveur
  * reste seul juge). */
 export const MAX_CHAT_CHARS = 200;

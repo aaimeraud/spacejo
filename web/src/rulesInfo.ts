@@ -14,6 +14,7 @@ export const OFFICIAL_RULES: Rules = {
   empty_pile: "ReshuffleDiscard",
   end_tie: "SharedVictory",
   end_score: 100,
+  deck: "Full",
 };
 
 export type Status = "officiel" | "variante";
@@ -180,6 +181,30 @@ export const EMPTY_PILE: ChoiceInfo<"empty_pile"> = {
   ],
 };
 
+export const DECK: ChoiceInfo<"deck"> = {
+  key: "deck",
+  short: "Taille de la pioche",
+  icon: "▤",
+  title: "Nombre de cartes en jeu",
+  options: [
+    {
+      value: "Full",
+      label: "Paquet complet",
+      explanation: "Les 150 cartes sont utilisées à chaque manche, quel que soit le nombre de joueurs.",
+      example: "À 2 joueurs, 24 cartes sont distribuées et la pioche en compte 125 : elle ne s'épuise presque jamais.",
+      status: "officiel",
+    },
+    {
+      value: "Reduced",
+      label: "Pioche réduite",
+      explanation:
+        "On garde 40 cartes par joueur, tirées au hasard (12 pour sa grille, 28 pour la pioche ; tout le paquet à partir de 4 joueurs) : la pioche s'épuise plus vite et la défausse est remélangée plus souvent.",
+      example: "À 2 joueurs, 40 cartes en jeu : 24 distribuées, 1 sur la défausse, 15 dans la pioche.",
+      status: "variante",
+    },
+  ],
+};
+
 export const END_TIE: ChoiceInfo<"end_tie"> = {
   key: "end_tie",
   short: "Égalité finale",
@@ -205,7 +230,7 @@ export const END_TIE: ChoiceInfo<"end_tie"> = {
 };
 
 /** Tous les réglages à choix, dans l'ordre d'affichage. */
-export const CHOICES = [PENALTY, PENALTY_SCOPE, FIRST_PLAYER_TIE, NEXT_ROUND_STARTER, EMPTY_PILE, END_TIE] as const;
+export const CHOICES = [PENALTY, PENALTY_SCOPE, FIRST_PLAYER_TIE, NEXT_ROUND_STARTER, DECK, EMPTY_PILE, END_TIE] as const;
 
 /** Texte du score de fin de partie. */
 export function endScoreExplanation(endScore: number): string {

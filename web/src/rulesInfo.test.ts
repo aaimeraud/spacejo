@@ -24,6 +24,7 @@ describe("rulesInfo", () => {
       empty_pile: "ReshuffleDiscard",
       end_tie: "SharedVictory",
       end_score: 100,
+      deck: "Full",
     });
   });
 
@@ -39,13 +40,14 @@ describe("rulesInfo", () => {
     }
   });
 
-  it("couvre les 6 réglages à choix, avec les valeurs du contrat", () => {
+  it("couvre les 7 réglages à choix, avec les valeurs du contrat", () => {
     const values = Object.fromEntries(CHOICES.map((info) => [info.key, info.options.map((o) => o.value)]));
     expect(values).toEqual({
       penalty: ["DoubleUnlessStrictlyLowest", "DoubleOnlyIfBeaten", "Disabled"],
       penalty_scope: ["RoundTotal", "PositiveCardsOnly"],
       first_player_tie: ["JoinOrder", "Random"],
       next_round_starter: ["Finisher", "RoundWinner", "Rotate"],
+      deck: ["Full", "Reduced"],
       empty_pile: ["ReshuffleDiscard", "EndRound"],
       end_tie: ["SharedVictory", "ExtraRound"],
     });

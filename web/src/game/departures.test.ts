@@ -20,6 +20,7 @@ function view(phase: GameView["phase"], players: PlayerView[], me = 0): GameView
       empty_pile: "ReshuffleDiscard",
       end_tie: "SharedVictory",
       end_score: 100,
+      deck: "Full",
     },
     players,
     current_player: null,
