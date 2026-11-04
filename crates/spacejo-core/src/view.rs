@@ -38,6 +38,8 @@ pub struct PlayerView {
     pub initial_reveals: usize,
     pub missed_turns: u32,
     pub eliminated: bool,
+    /// A quitté la partie de lui-même (il est aussi éliminé).
+    pub abandoned: bool,
     pub grid: Vec<ColumnView>,
 }
 
@@ -92,6 +94,7 @@ pub fn view_for(game: &Game, me: PlayerId) -> GameView {
             initial_reveals: player.initial_reveals,
             missed_turns: player.missed_turns,
             eliminated: player.eliminated,
+            abandoned: player.abandoned,
             grid: player
                 .grid
                 .columns

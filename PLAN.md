@@ -65,7 +65,7 @@ Dockerfile            image de production (interface puis serveur) ; render.yaml
 ```
 
 Routes : `/api/health`, `/api/create`, `/api/join`, `/api/rules`, `/api/start`, `/api/action`, `/api/skip`,
-`/api/state`, `/api/events`, `/api/public-games` ; toute autre adresse reçoit l'interface.
+`/api/state`, `/api/events`, `/api/public-games`, `/api/visibility`, `/api/leave`, `/api/kick` ; toute autre adresse reçoit l'interface.
 
 ## Base de données et driver
 
@@ -206,3 +206,28 @@ Demandée par le propriétaire du dépôt après la v1.1.0 (idées notées dans 
 Dépendance ajoutée : `qrcode-generator` 2.0.4 (licence MIT, aucune dépendance, ~20 Ko), pour calculer la matrice du
 code QR. Écrire un encodeur QR soi-même (correction d'erreurs Reed-Solomon, masques) serait long et risqué pour un
 gain nul. Écartée : `qrcode` (trois dépendances, dont `yargs`, pour la ligne de commande).
+
+## Évolution en cours : quitter, exclure, limitation de débit, retournements rejoués (branche `claude/lobby-visibility-qr`)
+
+Demandée par le propriétaire du dépôt pour la v1.2.0, avec la bascule de visibilité et le code QR.
+
+1. [x] Core (tests d'abord) :
+   - `leave_lobby` : un joueur quitte le salon ; il est retiré et les suivants avancent d'une place (si c'est l'hôte,
+     le joueur arrivé ensuite devient l'hôte). Le dernier joueur ne peut pas être retiré (`last_player`).
+   - `kick` : l'hôte retire un joueur du salon (jamais lui-même : `cannot_kick_host`).
+   - `abandon` : un joueur quitte une partie lancée ; il est marqué `abandoned` et éliminé tout de suite (mêmes
+     conséquences qu'une élimination pour absence : son tour passe, il ne compte plus ; seul restant = gagnant).
+   - Format enregistré v3 (`abandoned` sur chaque joueur), avec migration depuis la v2 et exemple figé.
+2. [x] API : `POST /api/leave` (jeton ; sans `expected_version`, réessayé par le serveur comme la jonction, pour
+   qu'un départ ne soit jamais refusé pour conflit) et `POST /api/kick` (hôte, `expected_version`). Au salon, le
+   jeton et la présence du joueur retiré sont supprimés, ceux des suivants décalés. La vue donne `abandoned`.
+3. [x] Interface : « Quitter » prévient le serveur (avec confirmation pendant la partie) ; bouton « Retirer » de
+   l'hôte au salon ; tout le monde voit « X a abandonné la partie » (message et pastille), ou « X a quitté le
+   salon » ; un joueur retiré revient à l'accueil avec un message clair.
+4. [x] API : limitation de débit par adresse IP sur `create`, `join` et `public-games` (fenêtre fixe d'une minute,
+   compteurs en mémoire, `429 rate_limited` avec `Retry-After`).
+5. [x] Interface : un retournement de mise en place refusé pour conflit de version (409) est relu puis rejoué
+   automatiquement (quelques essais), au lieu d'afficher une erreur.
+6. [x] Documentation, vérifications, essai dans le navigateur.
+
+Aucune nouvelle dépendance.

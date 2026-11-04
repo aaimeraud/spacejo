@@ -12,7 +12,7 @@ Référence commune du front (`web/src/api/types.ts`) et du back (`src/`, `crate
   Il n'est remis qu'une fois. Les autres routes l'attendent dans l'en-tête `X-Player-Token`. Le serveur
   ne stocke que son hachage SHA-256.
 - **Version** : chaque partie a un numéro `version` (entier, 1 à la création, +1 à chaque écriture :
-  jonction, réglages, visibilité, lancement, action, passage d'un tour). `rules`, `visibility`, `start`, `action` et `skip` envoient `expected_version` ; si
+  jonction, départ, retrait, réglages, visibilité, lancement, action, passage d'un tour). `rules`, `visibility`, `kick`, `start`, `action` et `skip` envoient `expected_version` ; si
   elle diffère de la version en base, réponse `409 version_conflict` et rien n'est écrit. Une requête
   rejouée échoue donc aussi.
 - **Vue filtrée** : chaque réponse qui contient l'état le donne sous la forme `view` (type `GameView`
@@ -67,6 +67,26 @@ En-tête `X-Player-Token`. Requête :
 Rend la partie publique (`true`) ou privée (`false`). La version augmente comme pour toute écriture (les autres
 joueurs sont prévenus et relisent l'état), même si la valeur ne change pas. Refus : `not_host` si l'appelant n'est
 pas l'hôte, `wrong_phase` si la partie est lancée. Réponse `200` : `{ "version": 5, "public": true, "view": { ... } }`.
+
+### `POST /api/leave`
+
+En-tête `X-Player-Token`. Requête : `{ "code": "K7MPQX" }` (pas d'`expected_version` : un départ n'est jamais
+refusé pour conflit ; le serveur relit et réessaie, comme pour `join`).
+- **Au salon** : le joueur est retiré. Les joueurs arrivés après lui avancent d'une place (leur `player_id` baisse
+  de 1 ; leur jeton reste valable) ; si c'était l'hôte, le joueur suivant devient l'hôte. Le jeton du joueur
+  parti n'est plus reconnu (`401 invalid_token`). Seul au salon, rien n'est écrit.
+- **Partie lancée** : le joueur abandonne. Il est éliminé et marqué `abandoned` dans la vue de tous ; s'il tenait
+  une carte, elle va sur la défausse et le tour passe. S'il ne reste qu'un joueur, il gagne.
+- **Partie finie** : rien n'est écrit.
+
+Réponse `200` : `{ "version": 8 }` (la version après le départ, ou la version inchangée si rien n'est écrit).
+
+### `POST /api/kick` (hôte, avant le lancement)
+
+En-tête `X-Player-Token`. Requête : `{ "code": "K7MPQX", "expected_version": 4, "player": 2 }`.
+Retire `player` du salon, avec les mêmes effets qu'un départ (places décalées, jeton du joueur retiré refusé).
+Refus : `not_host`, `cannot_kick_host` (l'hôte se viserait lui-même), `wrong_phase` après le lancement,
+`unknown_player`. Réponse `200` : `{ "version": 5, "view": { ... } }`.
 
 ### `POST /api/start` (hôte)
 
@@ -246,7 +266,8 @@ Toutes les réponses qui donnent l'état (`create`, `join`, `rules`, `visibility
   de mise en place). `seconds_left` : secondes avant que son tour soit passé (45 s après la dernière modification
   de la partie, `ABSENT_TURN_WAIT_SECS`), sauf si l'hôte le passe avant (`POST /api/skip`). `missed_turns` : tours déjà manqués d'affilée ; au `max_missed_turns`-ième,
   il est éliminé.
-- Dans `GameView.players`, `missed_turns` et `eliminated` décrivent la situation de chaque joueur. Un joueur
+- Dans `GameView.players`, `missed_turns`, `eliminated` et `abandoned` (le joueur a quitté la partie de lui-même,
+  il est alors aussi éliminé) décrivent la situation de chaque joueur. Un joueur
   éliminé ne joue plus, ne reçoit plus de cartes, et n'apparaît plus dans les scores des manches suivantes ni dans
   le classement.
 

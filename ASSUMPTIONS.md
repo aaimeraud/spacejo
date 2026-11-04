@@ -84,3 +84,19 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
     disparaît de la liste, et y revient si l'hôte revient.
 25. **Lien d'invitation** : il ne porte que le code de la partie (`/?code=…`). Ouvert sur un appareil qui a déjà
     rejoint cette partie, il la reprend au lieu de la rejoindre une seconde fois.
+
+## Quitter, exclure, limitation de débit (demandés par le propriétaire du dépôt)
+
+26. **Quitter le salon** : le joueur est retiré et les suivants avancent d'une place. Si l'hôte part, le joueur arrivé
+    juste après lui devient l'hôte (avec ses droits : réglages, visibilité, lancement). Le dernier joueur d'un salon
+    n'en est pas retiré (le salon reste, sans hôte présent : il disparaît de la liste des parties publiques).
+27. **Abandon** : quitter une partie lancée, c'est l'abandonner. Le joueur est éliminé tout de suite, avec les
+    conséquences d'une élimination pour absence (n° 20), et marqué « a abandonné » pour tous. Il ne peut pas revenir.
+    Quitter une partie finie ne change rien.
+28. **Départ sans version attendue** : `POST /api/leave` n'envoie pas d'`expected_version` (comme la jonction, n° 16) :
+    un départ ne doit pas échouer parce que la partie vient de changer ; le serveur relit et réessaie.
+29. **Limites de débit** : 10 créations, 30 jonctions et 60 lectures de la liste des parties publiques par adresse IP
+    et par minute. Plusieurs personnes peuvent partager une adresse (maison, lycée) : les limites restent larges.
+    L'adresse vient de l'en-tête `CF-Connecting-IP` (Cloudflare, devant Render), qu'un navigateur ne peut pas imposer.
+30. **Retournements rejoués** : un retournement de mise en place refusé pour conflit de version est rejoué jusqu'à
+    3 fois (`MAX_REVEAL_RETRIES`), après relecture de l'état, seulement si la carte peut encore être retournée.

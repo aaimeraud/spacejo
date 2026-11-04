@@ -11,8 +11,9 @@ use spacejo_core::Game;
 
 /// Version actuelle du format enregistré.
 /// - 1 : format initial ;
-/// - 2 : ajout de `missed_turns` et `eliminated` à chaque joueur (absences et élimination).
-pub const STATE_VERSION: u64 = 2;
+/// - 2 : ajout de `missed_turns` et `eliminated` à chaque joueur (absences et élimination) ;
+/// - 3 : ajout de `abandoned` à chaque joueur (joueur qui a quitté la partie).
+pub const STATE_VERSION: u64 = 3;
 
 /// Ce qui est stocké pour une partie : le jeu complet et les hachages des jetons
 /// (indice = identifiant du joueur). Jamais envoyé tel quel au navigateur.
@@ -80,7 +81,8 @@ impl StoredGame {
         // Chaque migration fait passer le JSON d'une version à la suivante ; un exemple figé de chaque
         // ancienne version est relu par `tests/state_version.rs`.
         let value = match version {
-            1 => migrate_v1_to_v2(value)?,
+            1 => migrate_v2_to_v3(migrate_v1_to_v2(value)?)?,
+            2 => migrate_v2_to_v3(value)?,
             STATE_VERSION => value,
             found if found > STATE_VERSION => return Err(StateError::TooNew { found }),
             found => return Err(StateError::Unsupported { found }),
@@ -102,5 +104,20 @@ fn migrate_v1_to_v2(mut value: Value) -> Result<Value, StateError> {
         object.insert("eliminated".to_string(), Value::from(false));
     }
     value["state_version"] = Value::from(2);
+    Ok(value)
+}
+
+/// v2 → v3 : chaque joueur reçoit `abandoned: false` (le départ volontaire n'existait pas).
+fn migrate_v2_to_v3(mut value: Value) -> Result<Value, StateError> {
+    let players = value
+        .get_mut("game")
+        .and_then(|game| game.get_mut("players"))
+        .and_then(Value::as_array_mut)
+        .ok_or(StateError::Corrupt)?;
+    for player in players {
+        let object = player.as_object_mut().ok_or(StateError::Corrupt)?;
+        object.insert("abandoned".to_string(), Value::from(false));
+    }
+    value["state_version"] = Value::from(3);
     Ok(value)
 }

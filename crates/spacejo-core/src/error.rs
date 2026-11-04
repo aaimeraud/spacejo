@@ -25,6 +25,10 @@ pub enum GameError {
     EmptyPile,
     /// Le joueur a été éliminé (trop de tours manqués) : il ne peut plus jouer.
     Eliminated,
+    /// L'hôte ne peut pas se retirer lui-même du salon (il peut le quitter).
+    CannotKickHost,
+    /// Le dernier joueur d'un salon ne peut pas en être retiré : un salon n'est jamais vide.
+    LastPlayer,
     /// Plus de joueurs que le paquet ne peut en servir (impossible avec 4 joueurs maximum).
     NotEnoughCards,
 }
@@ -51,6 +55,8 @@ impl GameError {
             GameError::EmptyPile => "empty_pile",
             GameError::Eliminated => "eliminated",
             GameError::NotEnoughCards => "not_enough_cards",
+            GameError::CannotKickHost => "cannot_kick_host",
+            GameError::LastPlayer => "last_player",
         }
     }
 
@@ -77,8 +83,12 @@ impl GameError {
             }
             GameError::EmptyDiscard => "La défausse est vide.",
             GameError::EmptyPile => "La pioche est vide.",
-            GameError::Eliminated => "Vous avez été éliminé·e après plusieurs tours manqués.",
+            GameError::Eliminated => {
+                "Vous ne jouez plus dans cette partie (éliminé·e ou partie abandonnée)."
+            }
             GameError::NotEnoughCards => "Pas assez de cartes pour autant de joueurs.",
+            GameError::CannotKickHost => "L'hôte ne peut pas se retirer lui-même de la partie.",
+            GameError::LastPlayer => "Le dernier joueur du salon ne peut pas en être retiré.",
         }
     }
 }

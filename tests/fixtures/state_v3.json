@@ -1,0 +1,319 @@
+{
+  "game": {
+    "discard": [
+      0
+    ],
+    "draw_pile": [
+      8,
+      10,
+      7,
+      7,
+      0,
+      1,
+      9,
+      -1,
+      12,
+      5,
+      12,
+      6,
+      -1,
+      -1,
+      5,
+      2,
+      7,
+      4,
+      5,
+      8,
+      11,
+      12,
+      -2,
+      11,
+      4,
+      3,
+      10,
+      0,
+      10,
+      4,
+      -1,
+      1,
+      3,
+      11,
+      0,
+      1,
+      11,
+      6,
+      2,
+      -1,
+      7,
+      3,
+      12,
+      3,
+      -2,
+      7,
+      1,
+      5,
+      8,
+      7,
+      6,
+      4,
+      11,
+      10,
+      10,
+      11,
+      0,
+      5,
+      2,
+      8,
+      9,
+      9,
+      6,
+      0,
+      10,
+      7,
+      3,
+      2,
+      9,
+      2,
+      2,
+      -1,
+      7,
+      11,
+      8,
+      5,
+      9,
+      2,
+      10,
+      2,
+      11,
+      9,
+      12,
+      4,
+      6,
+      -1,
+      -1,
+      -1,
+      4,
+      10,
+      1,
+      5,
+      9,
+      1,
+      0,
+      12,
+      7,
+      11,
+      4,
+      2,
+      3,
+      0,
+      5,
+      4,
+      11,
+      1,
+      4,
+      12,
+      0,
+      12,
+      2,
+      3,
+      8,
+      9,
+      0,
+      3,
+      8,
+      6,
+      6,
+      9,
+      9,
+      6,
+      -2,
+      6
+    ],
+    "next_starter": null,
+    "phase": {
+      "Playing": {
+        "current": 1,
+        "finisher": null,
+        "held": {
+          "source": "Pile",
+          "value": 6
+        }
+      }
+    },
+    "players": [
+      {
+        "abandoned": false,
+        "eliminated": false,
+        "grid": {
+          "columns": [
+            {
+              "Present": [
+                {
+                  "face_up": true,
+                  "value": 0
+                },
+                {
+                  "face_up": false,
+                  "value": 7
+                },
+                {
+                  "face_up": false,
+                  "value": 12
+                }
+              ]
+            },
+            {
+              "Present": [
+                {
+                  "face_up": false,
+                  "value": -1
+                },
+                {
+                  "face_up": true,
+                  "value": 0
+                },
+                {
+                  "face_up": false,
+                  "value": 10
+                }
+              ]
+            },
+            {
+              "Present": [
+                {
+                  "face_up": false,
+                  "value": 0
+                },
+                {
+                  "face_up": false,
+                  "value": 1
+                },
+                {
+                  "face_up": false,
+                  "value": 8
+                }
+              ]
+            },
+            {
+              "Present": [
+                {
+                  "face_up": false,
+                  "value": 5
+                },
+                {
+                  "face_up": false,
+                  "value": 8
+                },
+                {
+                  "face_up": false,
+                  "value": -2
+                }
+              ]
+            }
+          ]
+        },
+        "initial_reveals": 2,
+        "missed_turns": 0,
+        "name": "Alice",
+        "total_score": 0
+      },
+      {
+        "abandoned": false,
+        "eliminated": false,
+        "grid": {
+          "columns": [
+            {
+              "Present": [
+                {
+                  "face_up": true,
+                  "value": -2
+                },
+                {
+                  "face_up": false,
+                  "value": 1
+                },
+                {
+                  "face_up": false,
+                  "value": 10
+                }
+              ]
+            },
+            {
+              "Present": [
+                {
+                  "face_up": false,
+                  "value": 0
+                },
+                {
+                  "face_up": true,
+                  "value": 12
+                },
+                {
+                  "face_up": false,
+                  "value": 3
+                }
+              ]
+            },
+            {
+              "Present": [
+                {
+                  "face_up": false,
+                  "value": 4
+                },
+                {
+                  "face_up": false,
+                  "value": 1
+                },
+                {
+                  "face_up": false,
+                  "value": 5
+                }
+              ]
+            },
+            {
+              "Present": [
+                {
+                  "face_up": false,
+                  "value": 8
+                },
+                {
+                  "face_up": false,
+                  "value": 0
+                },
+                {
+                  "face_up": false,
+                  "value": 3
+                }
+              ]
+            }
+          ]
+        },
+        "initial_reveals": 2,
+        "missed_turns": 0,
+        "name": "Bob",
+        "total_score": 0
+      }
+    ],
+    "rng": {
+      "state": 1606053297877827619
+    },
+    "round": 1,
+    "round_starter": 1,
+    "rounds": [],
+    "rules": {
+      "empty_pile": "ReshuffleDiscard",
+      "end_score": 100,
+      "end_tie": "SharedVictory",
+      "first_player_tie": "JoinOrder",
+      "next_round_starter": "Finisher",
+      "penalty": "DoubleUnlessStrictlyLowest",
+      "penalty_scope": "RoundTotal"
+    },
+    "winners": []
+  },
+  "state_version": 3,
+  "token_hashes": [
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  ]
+}
