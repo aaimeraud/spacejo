@@ -28,8 +28,8 @@ Jusque-là, on ne rejoignait une partie qu'en tapant son code de 6 caractères.
   liste sur un champ JSON sans index.
 - **Lien `/rejoindre/K7MPQX`** (chemin plutôt que paramètre) : aussi simple côté serveur, mais il faut ensuite
   lire et nettoyer le chemin ; le paramètre se retire de l'adresse avec `history.replaceState` sans changer de page.
-- **Bascule publique/privée au salon** : utile, mais elle demande une route d'écriture de plus (hôte, avant le
-  lancement, `expected_version`). Notée dans `IDEAS.md`.
+- **Bascule publique/privée au salon** : d'abord écartée pour garder la première version petite ; ajoutée ensuite
+  (`POST /api/visibility`, hôte, au salon, avec `expected_version`), sans changer les choix ci-dessus.
 - **Expiration par date** (salons modifiés il y a moins de N minutes) : un hôte qui attend longtemps ses amis
   verrait sa partie disparaître ; la présence de l'hôte reflète mieux un salon vivant.
 
