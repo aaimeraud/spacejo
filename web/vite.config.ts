@@ -5,6 +5,10 @@ import react from "@vitejs/plugin-react";
 // les types complets de Node au projet.
 declare const process: { env: Record<string, string | undefined> };
 
+// Adresse publique du site, préfixée aux images d'aperçu (index.html, %VITE_SITE_URL%). Vide par défaut :
+// les adresses restent relatives, ce qui suffit en local.
+process.env.VITE_SITE_URL ??= "";
+
 // En développement, Vite (port 5173) renvoie les appels /api vers le serveur Rust local
 // (`cargo run --bin dev_server`, port 3000). En production, Vercel sert les deux sur le même domaine.
 export default defineConfig({

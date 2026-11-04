@@ -2,13 +2,50 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="SpaceJo, jeu de cartes en ligne au tour par tour" />
+    <!-- viewport-fit=cover : l'application installée occupe tout l'écran, encoche comprise (marges dans styles.css). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>SpaceJo</title>
+    <meta name="description" content="SpaceJo, jeu de cartes en ligne au tour par tour, de 2 à 10 joueurs." />
+    <meta name="application-name" content="SpaceJo" />
+    <!-- Couleur de la barre du navigateur ; theme.ts la met à jour quand on change de thème. -->
     <meta name="theme-color" content="#000000" />
+
+    <!-- Icônes : SVG pour les navigateurs récents, ICO (16 et 32 px) et PNG pour les autres. -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/icons/favicon-96.png" type="image/png" sizes="96x96" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
+
+    <!-- Application installable (PWA) : manifeste, et réglages propres à iOS. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="SpaceJo" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+    <!-- Aperçu des liens partagés (Open Graph, X/Twitter). Les robots exigent une adresse absolue :
+         VITE_SITE_URL (voir .env.example) la préfixe au moment de la construction. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="SpaceJo" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:title" content="SpaceJo" />
+    <meta property="og:description" content="Jeu de cartes en ligne au tour par tour, de 2 à 10 joueurs." />
+    <meta property="og:url" content="%VITE_SITE_URL%/" />
+    <meta property="og:image" content="%VITE_SITE_URL%/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="SpaceJo — The less you have, the more you win." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="SpaceJo" />
+    <meta name="twitter:description" content="Jeu de cartes en ligne au tour par tour, de 2 à 10 joueurs." />
+    <meta name="twitter:image" content="%VITE_SITE_URL%/og-image.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
-    <title>SpaceJo</title>
   </head>
   <body>
     <div id="root"></div>

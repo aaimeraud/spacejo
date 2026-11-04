@@ -125,8 +125,9 @@ Le déploiement n'a pas encore été essayé (le runtime Rust de Vercel est en b
    DATABASE_URL="<url de la base>" cargo run --bin migrate
    ```
 
-3. Importer le dépôt dans Vercel, puis définir la variable d'environnement `DATABASE_URL` (l'URL « poolée »
-   du fournisseur, avec `sslmode=require`) dans Settings → Environment Variables.
+3. Importer le dépôt dans Vercel, puis définir dans Settings → Environment Variables : `DATABASE_URL` (l'URL
+   « poolée » du fournisseur, avec `sslmode=require`) et `VITE_SITE_URL` (l'adresse publique du site, sans
+   « / » final, pour les aperçus des liens partagés).
 4. Déployer. Vercel compile une fonction par fichier de `api/` (déclarés en `[[bin]]` dans `Cargo.toml`)
    et construit l'interface avec la commande de `vercel.json` (`web/dist`).
 5. À chaque nouvelle migration, relancer l'étape 2 avant de déployer.

@@ -98,7 +98,11 @@ p { margin: 0; }
 .num, .badge-meta, .scoreboard, .ranking, .end-score-value, .pile-label, .stage-info { font-variant-numeric: tabular-nums; }
 
 /* ===== Cadre de l'application ===== */
-.app { height: 100dvh; display: flex; flex-direction: column; }
+/* Marges de sécurité : dans l'application installée, l'écran va jusque sous l'encoche et la barre d'accueil. */
+.app {
+  height: 100dvh; display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
 .app-main { flex: 1; min-height: 0; position: relative; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
 

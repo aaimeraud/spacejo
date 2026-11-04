@@ -163,6 +163,7 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/rulesInfo.ts` | explications, exemples, étiquettes « officiel » / « variante », préréglages (raccourcis de l'interface) et résumé des réglages |
 | `src/game/focus.ts` | en portrait, quel adversaire montrer en grand (choisi à la main, sinon celui qui joue, sinon celui qui vient de jouer) |
 | `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, classement (simple tri des totaux) |
+| `public/` | fichiers servis tels quels : icônes (`favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icons/`), image d'aperçu `og-image.png`, manifeste `manifest.webmanifest` et service worker `sw.js` de l'application installable (voir la décision « application installable ») |
 | `src/theme.ts` | thème clair ou sombre : celui du système par défaut, ou le choix gardé dans `localStorage` ; appliqué par `data-theme` sur `<html>` |
 | `src/session.ts` | session de l'onglet (code, jeton, identifiant) dans `sessionStorage`, et parties mémorisées dans `localStorage` pour la reprise |
 | `src/config.ts` | constantes : `POLL_INTERVAL_MS` (2000), bornes, longueurs |

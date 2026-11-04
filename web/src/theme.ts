@@ -32,7 +32,12 @@ export function saveTheme(storage: KeyValueStorage, theme: Theme): void {
 /** Applique le thème à la page (lu par styles.css). */
 export function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
+  // Barre du navigateur (et barre d'état de l'application installée) de la couleur du fond.
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", THEME_BACKGROUND[theme]);
 }
+
+/** Couleur du fond de chaque thème (mêmes valeurs que `--bg` dans styles.css). */
+const THEME_BACKGROUND: Record<Theme, string> = { dark: "#000000", light: "#ebebeb" };
 
 /** Thème affiché en ce moment (celui appliqué à <html>). */
 export function currentTheme(): Theme {
