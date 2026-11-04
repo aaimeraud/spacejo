@@ -1,9 +1,10 @@
-// Salon : code à partager, joueurs (jusqu'à 10), règles actives. L'hôte modifie les règles avec le même
+// Salon : code et lien d'invitation à partager, visibilité (privée ou publique), joueurs (jusqu'à 10), règles actives. L'hôte modifie les règles avec le même
 // parcours pas à pas qu'à la création (dans une fenêtre), puis lance la partie. Tout tient sur un écran.
-import { BookOpen, Copy, Crown, LogOut, Pencil, Play, Users, WifiOff } from "lucide-react";
+import { BookOpen, Copy, Crown, Globe, Lock, LogOut, Pencil, Play, Share2, Users, WifiOff } from "lucide-react";
 import { useState } from "react";
 import type { GameView, PresenceEntry, Rules } from "../api/types";
 import { MAX_PLAYERS } from "../config";
+import { inviteLink } from "../invite";
 import { FitStage } from "./FitStage";
 import { Modal } from "./Modal";
 import { ThemeToggle } from "./ThemeToggle";
@@ -12,6 +13,8 @@ import { RuleStepBody, RulesRecap, WizardFrame, ruleStepTitle, useRulesFlow } fr
 interface Props {
   view: GameView;
   code: string;
+  /** Partie publique (listée sur l'accueil) ou privée. */
+  isPublic: boolean;
   busy: boolean;
   presence: PresenceEntry[];
   onRulesChange: (rules: Rules) => void;
@@ -69,10 +72,29 @@ function RulesWizardModal({
   );
 }
 
-export function Lobby({ view, code, busy, presence, onRulesChange, onStart, onLeave }: Props) {
+/** Partage le lien d'invitation : feuille de partage du système quand elle existe (téléphone), sinon copie
+ * dans le presse-papiers. Renvoie le message à afficher, ou `null` si l'utilisateur a annulé. */
+async function shareInvite(link: string): Promise<string | null> {
+  if (typeof navigator.share === "function") {
+    try {
+      await navigator.share({ title: "SpaceJo", text: "Rejoignez ma partie de SpaceJo !", url: link });
+      return "Lien partagé !";
+    } catch (error) {
+      // Partage annulé par l'utilisateur : rien à signaler. Autre échec : on se rabat sur la copie.
+      if (error instanceof DOMException && error.name === "AbortError") return null;
+    }
+  }
+  if (navigator.clipboard === undefined) return `Lien : ${link}`;
+  await navigator.clipboard.writeText(link);
+  return "Lien d'invitation copié !";
+}
+
+export function Lobby({ view, code, isPublic, busy, presence, onRulesChange, onStart, onLeave }: Props) {
   const [editing, setEditing] = useState(false);
   const [explaining, setExplaining] = useState(false);
-  const [copied, setCopied] = useState(false);
+  // Message après une copie ou un partage (`null` : consigne par défaut).
+  const [copied, setCopied] = useState<string | null>(null);
+  const link = inviteLink(window.location.origin, code);
   const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const isHost = view.me === view.host;
   const enoughPlayers = view.players.length >= 2;
@@ -93,14 +115,35 @@ export function Lobby({ view, code, busy, presence, onRulesChange, onStart, onLe
                   className="icon-button"
                   aria-label="Copier le code"
                   onClick={() => {
-                    void navigator.clipboard?.writeText(code).then(() => setCopied(true));
+                    void navigator.clipboard?.writeText(code).then(() => setCopied("Code copié !"));
                   }}
                 >
                   <Copy aria-hidden="true" />
                 </button>
+                <span className="pill pill-visibility">
+                  {isPublic ? <Globe aria-hidden="true" /> : <Lock aria-hidden="true" />}
+                  {isPublic ? "publique" : "privée"}
+                </span>
+              </div>
+              <div className="invite-row">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void shareInvite(link)
+                      .then((message) => {
+                        if (message !== null) setCopied(message);
+                      })
+                      .catch(() => setCopied(`Lien : ${link}`));
+                  }}
+                >
+                  <Share2 aria-hidden="true" /> Inviter avec un lien
+                </button>
               </div>
               <p className="note" role="status">
-                {copied ? "Code copié !" : "Partagez ce code avec les autres joueurs."}
+                {copied ??
+                  (isPublic
+                    ? "Partie publique : visible sur l'accueil de tous jusqu'au lancement."
+                    : "Partie privée : partagez le lien ou le code avec les autres joueurs.")}
               </p>
               <h2 id="players-title">
                 <Users aria-hidden="true" /> Joueurs ({view.players.length} / {MAX_PLAYERS})

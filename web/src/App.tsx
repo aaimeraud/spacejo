@@ -5,6 +5,7 @@ import { ApiError, SpaceJoApi } from "./api/client";
 import { listenGameEvents } from "./api/events";
 import { pollInterval } from "./polling";
 import type { Action, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
+import { codeFromSearch } from "./invite";
 import { GameBoard } from "./components/GameBoard";
 import { Home } from "./components/Home";
 import { Lobby } from "./components/Lobby";
@@ -21,8 +22,31 @@ import {
 
 const api = new SpaceJoApi();
 
+/** Code d'un lien d'invitation (`/?code=…`), lu une fois au chargement de la page. */
+const inviteCode = codeFromSearch(window.location.search);
+
+/** Session de départ : celle de l'onglet ; sinon, si le lien d'invitation mène à une partie déjà rejointe sur
+ * cet appareil (l'hôte qui ouvre son propre lien, par exemple), on la reprend au lieu de la rejoindre à nouveau. */
+function initialSession(): Session | null {
+  const current = loadSession(window.sessionStorage);
+  if (current !== null || inviteCode === null) return current;
+  const known = knownSessions(window.localStorage).find((s) => s.code === inviteCode);
+  if (known === undefined) return null;
+  const resumed = { code: known.code, token: known.token, playerId: known.playerId };
+  saveSession(window.sessionStorage, resumed);
+  return resumed;
+}
+
 export function App() {
-  const [session, setSession] = useState<Session | null>(() => loadSession(window.sessionStorage));
+  const [session, setSession] = useState<Session | null>(initialSession);
+  // Le code d'invitation ne sert qu'une fois : on le retire de l'adresse, pour qu'un rechargement ou un
+  // retour à l'accueil ne rouvre pas la jonction.
+  useEffect(() => {
+    if (inviteCode !== null) window.history.replaceState(null, "", window.location.pathname);
+  }, []);
+  // Code d'invitation pas encore utilisé : oublié dès qu'on entre dans une partie ou qu'on la quitte.
+  const [pendingInvite, setPendingInvite] = useState<string | null>(inviteCode);
+  const [isPublic, setIsPublic] = useState(false);
   const [view, setView] = useState<GameView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,6 +73,7 @@ export function App() {
     const current = loadSession(window.sessionStorage);
     if (forget && current !== null) forgetSession(window.localStorage, current.code);
     clearSession(window.sessionStorage);
+    setPendingInvite(null);
     versionRef.current = null;
     setSession(null);
     setView(null);
@@ -61,6 +86,7 @@ export function App() {
   const applyPresence = useCallback((info: PresenceInfo) => {
     setPresence(info.presence);
     setWaiting(info.waiting);
+    setIsPublic(info.public);
   }, []);
 
   const applyResponse = useCallback(
@@ -191,13 +217,16 @@ export function App() {
     // Mémorisée sur l'appareil : on pourra revenir dans la partie après avoir fermé l'onglet.
     rememberSession(window.localStorage, created, name, Date.now());
     applyResponse(r.version, r.view, r);
+    setPendingInvite(null);
     setSession(created);
   };
 
-  const onCreate = (name: string, rules: Rules) =>
+  const onCreate = (name: string, rules: Rules, publicGame: boolean) =>
     void run(async () => {
-      startSession(name.trim(), await api.create(name, rules));
+      startSession(name.trim(), await api.create(name, rules, publicGame));
     });
+
+  const loadPublicGames = useCallback(async () => (await api.publicGames()).games, []);
 
   const onJoin = (code: string, name: string) =>
     void run(async () => {
@@ -243,7 +272,15 @@ export function App() {
           </p>
         )}
         {session === null && (
-          <Home busy={busy} resumable={resumable} onCreate={onCreate} onJoin={onJoin} onResume={onResume} />
+          <Home
+            busy={busy}
+            resumable={resumable}
+            initialCode={pendingInvite}
+            loadPublicGames={loadPublicGames}
+            onCreate={onCreate}
+            onJoin={onJoin}
+            onResume={onResume}
+          />
         )}
         {session !== null && view === null && (
           <p className="loading" role="status">
@@ -254,6 +291,7 @@ export function App() {
           <Lobby
             view={view}
             code={session.code}
+            isPublic={isPublic}
             busy={busy}
             presence={presence}
             onRulesChange={onRulesChange}

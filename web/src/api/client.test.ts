@@ -61,6 +61,23 @@ describe("SpaceJoApi", () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ name: "Alice" });
   });
 
+  it("demande une partie publique seulement quand on le choisit", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(201, {}, calls));
+    await api.create("Alice", undefined, true);
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ name: "Alice", public: true });
+  });
+
+  it("liste les parties publiques sans jeton", async () => {
+    const calls: Call[] = [];
+    const games = [{ code: "K7MPQX", host: "Alice", players: 2, max_players: 10 }];
+    const api = new SpaceJoApi(fakeFetch(200, { games }, calls));
+    expect(await api.publicGames()).toEqual({ games });
+    expect(calls[0]?.url).toBe("/api/public-games");
+    expect(calls[0]?.init?.method).toBe("GET");
+    expect((calls[0]?.init?.headers as Record<string, string>)[TOKEN_HEADER]).toBeUndefined();
+  });
+
   it("transforme une réponse d'erreur en ApiError", async () => {
     const api = new SpaceJoApi(
       fakeFetch(409, { error: { code: "version_conflict", message: "La partie a changé" } }, []),

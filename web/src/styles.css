@@ -162,6 +162,7 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 /* ===== Tuiles (préréglages, choix, menu) ===== */
 .tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; }
 .tile-grid.two { grid-template-columns: 1fr 1fr; }
+.tile-grid.three { grid-template-columns: repeat(3, 1fr); }
 .big-tile {
   flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 8px; text-align: left;
   padding: 20px; border-radius: 16px; background: var(--bg-raised); border: 2px solid transparent;
@@ -246,7 +247,7 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 
 /* Portrait : tuiles en colonne, plus compactes. */
 .is-portrait .home-card { padding: 4px 0; }
-.is-portrait .tile-grid, .is-portrait .tile-grid.two { grid-template-columns: 1fr; gap: 10px; }
+.is-portrait .tile-grid, .is-portrait .tile-grid.two, .is-portrait .tile-grid.three { grid-template-columns: 1fr; gap: 10px; }
 .is-portrait .big-tile { padding: 12px 14px; gap: 4px; }
 .is-portrait .home-menu .big-tile { min-height: 0; }
 .is-portrait .wizard-title { font-size: 1.35rem; }
@@ -569,3 +570,16 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* Parties publiques (accueil) */
+.public-games { display: flex; flex-direction: column; gap: 12px; }
+.public-games-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.public-games-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
+.public-game { width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 14px; text-align: left; }
+.public-game-host { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.public-game-count { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.public-game-count svg { width: 16px; height: 16px; }
+
+/* Visibilité de la partie (salon) */
+.pill-visibility { background: var(--hover); color: var(--text); }
+.invite-row { display: flex; flex-wrap: wrap; gap: 8px; }

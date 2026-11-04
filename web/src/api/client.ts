@@ -4,6 +4,7 @@ import type {
   Action,
   ErrorBody,
   JoinedResponse,
+  PublicGamesResponse,
   Rules,
   StateResponse,
   WriteResponse,
@@ -73,9 +74,18 @@ export class SpaceJoApi {
     return body as T;
   }
 
-  create(name: string, rules?: Rules): Promise<JoinedResponse> {
-    const body = rules === undefined ? { name } : { name, rules };
+  /** Crée une partie ; `isPublic` : elle sera listée sur l'accueil de tous (privée sinon). */
+  create(name: string, rules?: Rules, isPublic = false): Promise<JoinedResponse> {
+    // Champs facultatifs omis quand ils valent leur défaut côté serveur (règles officielles, partie privée).
+    const body: { name: string; rules?: Rules; public?: boolean } = { name };
+    if (rules !== undefined) body.rules = rules;
+    if (isPublic) body.public = true;
     return this.request("/api/create", { method: "POST", body: JSON.stringify(body) });
+  }
+
+  /** Parties publiques que l'on peut rejoindre (sans jeton). */
+  publicGames(): Promise<PublicGamesResponse> {
+    return this.request("/api/public-games", { method: "GET" });
   }
 
   join(code: string, name: string): Promise<JoinedResponse> {
