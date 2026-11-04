@@ -249,3 +249,16 @@ Demandée par le propriétaire du dépôt, pour une release mineure (v1.3.0).
 4. [x] Documentation, vérifications, essai dans le navigateur à plusieurs joueurs.
 
 Aucune nouvelle dépendance.
+
+## Évolution en cours : version et dernier commit sur l'accueil (branche `claude/repo-trackers`)
+
+Demandée par le propriétaire du dépôt.
+
+1. [x] `web/src/github.ts` (tests d'abord) : lit le dernier commit de `main` et la dernière release du dépôt public
+   sur l'API REST de GitHub (sans jeton), vérifie la forme des réponses, et garde le résultat 10 minutes dans
+   `localStorage` (l'API publique n'autorise que 60 requêtes par heure et par adresse).
+2. [x] Accueil : en bas, « Version v1.3.0 » (lien vers la release) et « Dernier commit 0ceeadf » (lien vers le
+   commit, avec son titre) ; rien ne s'affiche si GitHub ne répond pas.
+3. [x] Documentation (décision : appel direct du navigateur à GitHub), vérifications, essai dans le navigateur.
+
+Aucune nouvelle dépendance. Service externe : `api.github.com`, appelé par le navigateur du visiteur.
