@@ -2,6 +2,16 @@
 
 Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.
 
+## 1.5.0 - 2026-11-04
+
+### Nouveautés
+
+- **web** : Add a beginner tutorial and a legal notice page (8bf70dc)
+
+### Corrections
+
+- **web** : Keep lobby buttons and dialogs clear of screen edges on phones (2fed5a5)
+
 ## 1.4.1 - 2026-11-04
 
 ### Corrections
