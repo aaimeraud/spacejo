@@ -1,13 +1,15 @@
 // Écran de partie, figé comme un jeu : une scène de taille fixe mise à l'échelle de l'écran (FitStage).
 // - Paysage : table ovale inclinée, adversaires assis autour (grilles posées à plat et tournées vers eux,
 //   étiquettes redressées face à moi), pioche et défausse au centre, ma grille devant moi sur le bord de la table.
-// - Portrait : table à plat, adversaires en mosaïque, ma grille en bas.
+// - Portrait : une bande d'adversaires (un bouton chacun), le jeu de l'un d'eux en grand (celui qui joue, ou
+//   celui qu'on a choisi), pioche et défausse, puis ma grille en bas.
 // La disposition vient de `game/seats.ts`, le relief du CSS (styles.css, « Table »). Le tableau des scores
 // s'ouvre dans une fenêtre (il s'ouvre tout seul en fin de manche).
 import { CircleCheck, Crown, Hourglass, ListOrdered, LogOut, Play, Repeat, RotateCcw, SkipForward, Trophy, UserX, Users, WifiOff } from "lucide-react";
 import { useEffect, useState, type CSSProperties } from "react";
 import type { Action, GameView, PlayerView, PresenceEntry, Waiting } from "../api/types";
 import { hint, isMyTurn, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
+import { focusedOpponent } from "../game/focus";
 import { hiddenCount, seatPlayers } from "../game/seats";
 import { ValueCard } from "./Card";
 import { FitStage, type Orientation } from "./FitStage";
@@ -150,6 +152,21 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
   const myTurn = isMyTurn(view);
   const canTake = myTurn && view.held === null && !busy;
   const heldFromPile = myTurn && view.held?.source === "Pile";
+  // Portrait : un seul adversaire en grand. `pinned` = choisi à la main (jusqu'au tour suivant),
+  // `lastActive` = dernier adversaire qui a joué (voir game/focus.ts).
+  const [pinned, setPinned] = useState<number | null>(null);
+  const [lastActive, setLastActive] = useState<number | null>(null);
+  useEffect(() => {
+    setPinned(null);
+    if (view.current_player !== null && view.current_player !== view.me) setLastActive(view.current_player);
+  }, [view.current_player, view.me]);
+  const focusId = focusedOpponent(
+    opponents.map((seat) => seat.player),
+    view.current_player,
+    pinned,
+    lastActive,
+  );
+  const focused = opponents.find((seat) => seat.player.id === focusId)?.player;
 
   // En fin de manche, le tableau des scores s'ouvre tout seul.
   useEffect(() => {
@@ -276,6 +293,7 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
     </div>
   );
 
+  // Paysage : chaque adversaire assis autour de la table.
   const opponentSeats = (orientation: Orientation) =>
     opponents.map((seat) => (
       <section
@@ -306,6 +324,52 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
         </div>
       </section>
     ));
+
+  // Portrait : la bande des adversaires (un bouton par adversaire pour voir son jeu), puis le jeu choisi en grand.
+  const opponentStrip = opponents.length > 1 && (
+    <nav className="opponent-strip" aria-label="Adversaires">
+      {opponents.map(({ player }) => {
+        const playing = view.current_player === player.id;
+        const absent = !player.eliminated && !connected(player.id);
+        const status = [playing && "joue", absent && "absent", player.eliminated && "éliminé"].filter(Boolean).join(", ");
+        return (
+          <button
+            key={player.id}
+            type="button"
+            className={`opponent-chip${playing ? " is-playing" : ""}${player.eliminated ? " is-eliminated" : ""}`}
+            aria-pressed={player.id === focusId}
+            aria-label={`Voir le jeu de ${player.name}, ${player.total_score} points${status ? `, ${status}` : ""}`}
+            onClick={() => setPinned(player.id)}
+          >
+            <span className="opponent-chip-avatar" aria-hidden="true">
+              {player.name.slice(0, 1).toUpperCase()}
+              {playing && <Play className="opponent-chip-mark" />}
+              {absent && <WifiOff className="opponent-chip-mark is-absent" />}
+              {player.eliminated && <UserX className="opponent-chip-mark is-absent" />}
+            </span>
+            <span className="opponent-chip-name" aria-hidden="true">
+              {player.name}
+            </span>
+            <span className="opponent-chip-score" aria-hidden="true">
+              {player.total_score} pts
+            </span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+
+  const focusSeat = focused !== undefined && (
+    // `key` : changer d'adversaire rejoue la petite animation d'apparition.
+    <section
+      key={focused.id}
+      className={`focus-seat${view.current_player === focused.id ? " is-active" : ""}${focused.eliminated ? " is-eliminated" : ""}`}
+      aria-label={`Jeu de ${focused.name}`}
+    >
+      <PlayerBadge view={view} player={focused} connected={connected(focused.id)} />
+      <GridView player={focused} size="md" />
+    </section>
+  );
 
   const mySeat = me !== undefined && (
     <section className={`my-seat${myTurn ? " is-active" : ""}`} aria-labelledby="my-grid-title">
@@ -401,7 +465,8 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
               </div>
             ) : (
               <div className="flat-table" aria-label="Table de jeu" role="region">
-                <div className="flat-seats">{opponentSeats(orientation)}</div>
+                {opponentStrip}
+                {focusSeat}
                 {center}
               </div>
             )}

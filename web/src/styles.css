@@ -391,32 +391,42 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .is-portrait .has-waiting .hint { visibility: hidden; }
 .is-portrait .waiting-consequence, .is-portrait .waiting-skip-more { display: none; }
 .flat-table {
-  position: absolute; top: 104px; left: 0; right: 0; height: 490px; padding: 10px; border-radius: 24px;
+  position: absolute; top: 104px; left: 0; right: 0; height: 534px; padding: 10px; border-radius: 24px;
   display: flex; flex-direction: column; gap: 6px;
   background: var(--table); border: 8px solid var(--table-rim);
 }
-.flat-seats { flex: 1; min-height: 0; display: flex; flex-wrap: wrap; justify-content: center; align-content: flex-start; gap: 4px 6px; overflow: hidden; }
-.is-portrait .seat, .is-portrait .seat.is-active { position: static; display: flex; flex-direction: column; align-items: center; transform: none; padding: 3px; gap: 2px; min-width: 0; }
-/* Portrait : l'étiquette reprend sa place normale, au-dessus des cartes. */
-.is-portrait .seat-label { position: static; order: -1; transform: none; max-width: 100%; }
-.is-portrait .seat-grid, .is-portrait .seat.is-active .seat-grid { padding: 0; background: none; box-shadow: none; }
-/* Largeur fixe : 2, 3 ou 5 sièges par ligne selon le nombre de joueurs. */
-.is-portrait .crowd-few .seat { width: calc(33.3% - 6px); }
-.is-portrait .crowd-some .seat { width: calc(33.3% - 6px); }
-.is-portrait .crowd-many .seat { width: calc(20% - 5px); }
-.is-portrait .seat .badge { max-width: 100%; flex-wrap: wrap; justify-content: center; border-radius: 10px; row-gap: 2px; }
-.is-portrait .seat .badge-text { flex-basis: 100%; text-align: center; }
-.is-portrait .seat .badge-text { min-width: 0; }
-.is-portrait .seat .badge-name, .is-portrait .seat .badge-meta { overflow: hidden; text-overflow: ellipsis; }
-/* Étiquettes réduites à leur icône (le texte reste lu par les lecteurs d'écran). */
-.is-portrait .seat .pill { font-size: 0; padding: 2px 4px; gap: 0; }
-.is-portrait .seat .pill .lucide { width: 11px; height: 11px; }
-.is-portrait .seat { border-radius: 12px; }
-.is-portrait .seat.is-active { background: var(--seat-active); box-shadow: 0 0 0 2px var(--accent-line); }
-.is-portrait .seat .badge { padding: 2px 8px; }
-.is-portrait .seat .badge-avatar { display: none; }
-.is-portrait .seat .badge-name { font-size: 0.75rem; }
-.is-portrait .seat .badge-meta { font-size: 0.65rem; }
+/* Portrait : la bande des adversaires. Un bouton par adversaire (initiale, nom, total), en une ligne jusqu'à
+   9 adversaires ; celui qu'on regarde est entouré, celui qui joue a son initiale sur l'accent. */
+.opponent-strip { flex: none; display: flex; justify-content: center; gap: 4px; }
+.opponent-chip {
+  flex: 1 1 0; min-width: 0; max-width: 96px; min-height: 0; padding: 4px 2px; border-radius: 14px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  background: transparent; border: 2px solid transparent;
+}
+.opponent-chip:hover:not(:disabled) { background: var(--bg-raised); }
+.opponent-chip[aria-pressed="true"] { background: var(--bg-raised); border-color: var(--text); }
+.opponent-chip-avatar {
+  position: relative; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-weight: 600; background: var(--bg-nested); color: var(--text);
+}
+.opponent-chip.is-playing .opponent-chip-avatar { background: var(--accent); color: var(--accent-ink); }
+.opponent-chip.is-eliminated { opacity: 0.45; }
+.opponent-chip-mark {
+  position: absolute; right: -4px; bottom: -3px; width: 14px; height: 14px; padding: 2px; border-radius: 50%;
+  background: var(--text); color: var(--bg-panel);
+}
+.opponent-chip-mark.is-absent { background: var(--danger); color: #ffffff; }
+.opponent-chip-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.75rem; font-weight: 600; }
+.opponent-chip-score { font-size: 0.68rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* Portrait : le jeu de l'adversaire regardé, en grand, au milieu de la table. */
+.focus-seat {
+  flex: 1; min-height: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  animation: fade-in 0.25s ease-out;
+}
+.focus-seat .grid { padding: 6px; border-radius: 14px; }
+.focus-seat.is-active .grid { background: var(--seat-active); box-shadow: 0 0 0 2px var(--accent-line); }
+.focus-seat.is-eliminated .grid { opacity: 0.35; filter: grayscale(1); }
+.is-portrait .focus-seat .card3d-md, .is-portrait .focus-seat .grid-md { --card-w: 50px; --card-h: 70px; --card-font: 1.4rem; --grid-gap: 6px; }
 
 .is-portrait .table-center { position: static; transform: none; justify-content: center; gap: 16px; }
 .is-portrait .my-seat { left: 0; right: 0; bottom: 4px; transform: none; flex-direction: column; gap: 10px; padding: 10px 12px; }
@@ -483,9 +493,6 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .card3d-lg { --card-w: 80px; --card-h: 112px; --card-font: 2.2rem; }
 .is-portrait .card3d-md, .is-portrait .grid-md { --card-w: 62px; --card-h: 88px; --card-font: 1.7rem; --grid-gap: 10px; }
 .is-portrait .card3d-lg { --card-w: 58px; --card-h: 82px; --card-font: 1.6rem; }
-.is-portrait .crowd-few .card3d-sm, .is-portrait .crowd-few .grid-sm { --card-w: 30px; --card-h: 42px; --card-font: 0.85rem; --grid-gap: 4px; }
-.is-portrait .crowd-some .card3d-sm, .is-portrait .crowd-some .grid-sm { --card-w: 24px; --card-h: 34px; --card-font: 0.72rem; --grid-gap: 3px; }
-.is-portrait .crowd-many .card3d-sm, .is-portrait .crowd-many .grid-sm { --card-w: 17px; --card-h: 24px; --card-font: 0.55rem; --grid-gap: 2px; }
 
 .card3d {
   display: block; width: var(--card-w); height: var(--card-h); perspective: 600px; border-radius: var(--radius-card);

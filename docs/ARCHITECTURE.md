@@ -161,6 +161,7 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/components/wizard/RuleSteps.tsx` | étapes du parcours de réglages (type de partie, un réglage par écran, score de fin, récapitulatif), partagées par l'accueil et le salon |
 | `src/game/seats.ts` | place de chaque joueur autour de la table (moi en bas, puis l'ordre du tour, dans le sens des aiguilles d'une montre) |
 | `src/rulesInfo.ts` | explications, exemples, étiquettes « officiel » / « variante », préréglages (raccourcis de l'interface) et résumé des réglages |
+| `src/game/focus.ts` | en portrait, quel adversaire montrer en grand (choisi à la main, sinon celui qui joue, sinon celui qui vient de jouer) |
 | `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, classement (simple tri des totaux) |
 | `src/theme.ts` | thème clair ou sombre : celui du système par défaut, ou le choix gardé dans `localStorage` ; appliqué par `data-theme` sur `<html>` |
 | `src/session.ts` | session de l'onglet (code, jeton, identifiant) dans `sessionStorage`, et parties mémorisées dans `localStorage` pour la reprise |
@@ -182,8 +183,11 @@ La grille de l'adversaire dont c'est le tour est agrandie, vers le centre de la 
 faces dos à dos : la retourner, c'est la faire pivoter de 180° (`rotateY`). Une carte posée et la défausse ont
 une petite animation d'apparition. Quand une colonne de trois cartes identiques est retirée, ses cartes
 s'illuminent, s'envolent et disparaissent avec le message « Colonne identique ! » : `game/columns.ts` repère ces
-colonnes en comparant la vue précédente et la nouvelle. En portrait, la table est à
-plat et les adversaires en mosaïque (3 ou 5 par ligne), étiquettes réduites à leur icône. Avec la préférence système « réduire les animations », il n'y a aucune
+colonnes en comparant la vue précédente et la nouvelle. En portrait (téléphone), on ne
+montre qu'un adversaire à la fois, en grand : celui qui joue, ou, pendant mon tour, celui qui vient de jouer
+(`game/focus.ts`). Une bande en haut de la table donne un bouton par adversaire (initiale, nom, total ; pastille
+« joue », « absent » ou « éliminé ») pour regarder le jeu d'un autre, jusqu'au changement de tour. À 2 joueurs,
+la bande disparaît. Avec la préférence système « réduire les animations », il n'y a aucune
 animation. Le choix du CSS 3D plutôt que WebGL est expliqué dans
 [decisions/2026-11-03-vue-table-css-3d.md](decisions/2026-11-03-vue-table-css-3d.md).
 
