@@ -2,6 +2,16 @@
 
 Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.
 
+## 1.2.0 - 2026-11-04
+
+### Nouveautés
+
+- **api** : Let the host switch a lobby between private and public (8b2b078)
+- **web** : Switch visibility and show the invite link as a QR code (aff864b)
+- **api** : Let players leave a game and let the host kick from the lobby (62539a6)
+- **api** : Rate-limit game creation, joining and the public games list per IP (4244895)
+- **web** : Show departures to everyone, kick from the lobby, retry flips (9816ea7)
+
 ## 1.1.0 - 2026-11-04
 
 ### Nouveautés
