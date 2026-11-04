@@ -289,7 +289,7 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .stage-code { white-space: pre; }
 .stage-code strong { color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.08em; }
 .stage-actions { flex: none; display: flex; gap: 8px; }
-.hint { flex: 1; font-size: 0.95rem; font-weight: 500; background: var(--bg-panel); padding: 10px 16px; border-radius: 999px; }
+.hint { flex: 1; text-align: center; font-size: 0.95rem; font-weight: 500; background: var(--bg-panel); padding: 10px 16px; border-radius: 999px; }
 .waiting-banner {
   position: absolute; z-index: 6; top: 62px; left: 50%; transform: translateX(-50%); width: 920px;
   display: flex; align-items: center; gap: 10px;
