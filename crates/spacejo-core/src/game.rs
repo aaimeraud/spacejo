@@ -39,8 +39,11 @@ pub struct Player {
     pub initial_reveals: usize,
     /// Tours passés d'affilée parce que le joueur était absent (remis à zéro dès qu'il joue).
     pub missed_turns: u32,
-    /// Éliminé après `MAX_MISSED_TURNS` tours manqués : il ne joue plus et ne compte plus.
+    /// Éliminé après `MAX_MISSED_TURNS` tours manqués, ou parce qu'il a abandonné : il ne joue plus et ne
+    /// compte plus.
     pub eliminated: bool,
+    /// A quitté la partie de lui-même (« Quitter ») : il est aussi éliminé, et tout le monde le voit.
+    pub abandoned: bool,
 }
 
 /// Résultat d'un tour passé pour cause d'absence.
@@ -172,6 +175,7 @@ impl Game {
             initial_reveals: 0,
             missed_turns: 0,
             eliminated: false,
+            abandoned: false,
         };
         Ok(Game {
             rules,
@@ -204,6 +208,7 @@ impl Game {
             initial_reveals: 0,
             missed_turns: 0,
             eliminated: false,
+            abandoned: false,
         });
         Ok(self.players.len() - 1)
     }
@@ -246,6 +251,69 @@ impl Game {
         self.apply_action(player, action)?;
         // Le joueur est là et vient de jouer : ses tours manqués ne comptent plus.
         self.players[player].missed_turns = 0;
+        Ok(())
+    }
+
+    /// Un joueur quitte le salon : il est retiré, et les joueurs arrivés après lui avancent d'une place
+    /// (leur identifiant baisse de 1). Si c'est l'hôte, le joueur arrivé ensuite devient l'hôte, puisque l'hôte
+    /// est toujours le joueur 0. Le dernier joueur ne peut pas partir : un salon n'est jamais vide.
+    pub fn leave_lobby(&mut self, player: PlayerId) -> Result<(), GameError> {
+        self.check_player(player)?;
+        if self.phase != Phase::Lobby {
+            return Err(GameError::WrongPhase);
+        }
+        if self.players.len() <= 1 {
+            return Err(GameError::LastPlayer);
+        }
+        self.players.remove(player);
+        Ok(())
+    }
+
+    /// L'hôte retire un joueur du salon (même effet que si ce joueur quittait le salon). L'hôte ne peut pas se
+    /// retirer lui-même : pour partir, il quitte le salon.
+    pub fn kick(&mut self, by: PlayerId, player: PlayerId) -> Result<(), GameError> {
+        self.check_player(by)?;
+        if by != HOST {
+            return Err(GameError::NotHost);
+        }
+        if self.phase != Phase::Lobby {
+            return Err(GameError::WrongPhase);
+        }
+        self.check_player(player)?;
+        if player == HOST {
+            return Err(GameError::CannotKickHost);
+        }
+        self.leave_lobby(player)
+    }
+
+    /// Un joueur quitte une partie lancée : il abandonne. Il est marqué `abandoned` (tout le monde le voit) et
+    /// éliminé tout de suite, avec les mêmes conséquences qu'une élimination pour absence : s'il tenait une
+    /// carte, elle va sur la défausse et le tour passe ; il ne compte plus ; s'il ne reste qu'un joueur, il gagne.
+    pub fn abandon(&mut self, player: PlayerId) -> Result<(), GameError> {
+        self.check_player(player)?;
+        if matches!(self.phase, Phase::Lobby | Phase::GameOver) {
+            return Err(GameError::WrongPhase);
+        }
+        if self.players[player].eliminated {
+            return Err(GameError::Eliminated);
+        }
+        self.players[player].abandoned = true;
+        // Pendant son tour : la carte en main retourne sur la défausse (aucune carte ne disparaît).
+        let turn = match &mut self.phase {
+            Phase::Playing(turn) if turn.current == player => {
+                if let Some(held) = turn.held.take() {
+                    self.discard.push(held.value);
+                }
+                Some(*turn)
+            }
+            _ => None,
+        };
+        self.eliminate(player);
+        if let Some(turn) = turn
+            && self.phase != Phase::GameOver
+        {
+            self.pass_turn(turn);
+        }
         Ok(())
     }
 
@@ -622,6 +690,13 @@ impl Game {
             }
             return SkipOutcome::Skipped;
         }
+        self.eliminate(player);
+        SkipOutcome::Eliminated
+    }
+
+    /// Élimine un joueur (trop de tours manqués, ou abandon) : s'il ne reste qu'un joueur en jeu, il gagne ;
+    /// pendant la mise en place, la manche commence si tous les autres ont retourné leurs cartes.
+    fn eliminate(&mut self, player: PlayerId) {
         self.players[player].eliminated = true;
         let active = self.active_players();
         if active.len() <= 1 {
@@ -631,7 +706,6 @@ impl Game {
         } else if self.phase == Phase::InitialReveal {
             self.finish_initial_reveal_if_done();
         }
-        SkipOutcome::Eliminated
     }
 
     /// Remélange la défausse, sauf sa carte du dessus qui reste visible, pour former la pioche.

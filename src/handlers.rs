@@ -1,4 +1,4 @@
-//! Les neuf opérations de l'API (docs/CONTRACT.md), indépendantes du serveur HTTP (voir `server`).
+//! Les onze opérations de l'API (docs/CONTRACT.md), indépendantes du serveur HTTP (voir `server`).
 //!
 //! Chaque opération suit le même parcours (serverless : rien n'est gardé en mémoire) :
 //! valider la requête → charger la partie → identifier le joueur par son jeton → vérifier
@@ -47,6 +47,8 @@ pub enum Endpoint {
     State,
     PublicGames,
     Visibility,
+    Leave,
+    Kick,
 }
 
 impl Endpoint {
@@ -62,6 +64,8 @@ impl Endpoint {
             "/api/state" => Some(Endpoint::State),
             "/api/public-games" => Some(Endpoint::PublicGames),
             "/api/visibility" => Some(Endpoint::Visibility),
+            "/api/leave" => Some(Endpoint::Leave),
+            "/api/kick" => Some(Endpoint::Kick),
             _ => None,
         }
     }
@@ -164,6 +168,20 @@ struct VisibilityRequest {
     public: bool,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LeaveRequest {
+    code: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct KickRequest {
+    code: String,
+    expected_version: i32,
+    player: PlayerId,
+}
+
 /// Point d'entrée : traite une requête et renvoie toujours une réponse (succès ou erreur).
 pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> ApiResponse {
     let result = if request.method != endpoint.method() {
@@ -179,6 +197,8 @@ pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> A
             Endpoint::State => state(store, &request).await,
             Endpoint::PublicGames => public_games(store, &request).await,
             Endpoint::Visibility => visibility(store, &request).await,
+            Endpoint::Leave => leave(store, &request).await,
+            Endpoint::Kick => kick(store, &request).await,
         }
     };
     match result {
@@ -398,6 +418,71 @@ async fn visibility(store: &Store, request: &ApiRequest) -> Result<ApiResponse, 
     Ok(ApiResponse::ok(game_payload(
         &saved, &stored, player, &presence,
     )))
+}
+
+/// Un joueur quitte la partie. Au salon, il en est retiré (les joueurs suivants avancent d'une place) ;
+/// pendant la partie, il abandonne (éliminé, et signalé à tous). Une partie finie, ou un salon où il est seul,
+/// n'est pas modifié. Pas d'`expected_version` : un départ ne doit jamais être refusé parce que la partie vient
+/// de changer, donc le serveur relit et réessaie en cas d'écriture concurrente (comme pour la jonction).
+async fn leave(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: LeaveRequest = parse_body(&request.body)?;
+    let code = auth::normalize_code(&body.code)?;
+    let token = require_token(request)?;
+    for _ in 0..MAX_WRITE_ATTEMPTS {
+        let (record, mut stored) = load(store, &code).await?;
+        let player = identify(&stored, token)?;
+        let in_lobby = stored.game.phase == Phase::Lobby;
+        let nothing_to_do =
+            stored.game.phase == Phase::GameOver || (in_lobby && stored.game.players.len() <= 1);
+        if nothing_to_do {
+            return Ok(ApiResponse::ok(json!({ "version": record.version })));
+        }
+        if in_lobby {
+            stored.game.leave_lobby(player)?;
+            stored.token_hashes.remove(player);
+        } else {
+            stored.game.abandon(player)?;
+        }
+        match store
+            .save(record.id, &encode(&stored)?, record.version)
+            .await
+        {
+            Ok(version) => {
+                if in_lobby {
+                    store
+                        .remove_player_presence(record.id, player)
+                        .await
+                        .map_err(storage_error)?;
+                }
+                return Ok(ApiResponse::ok(json!({ "version": version })));
+            }
+            Err(StoreError::Conflict) => continue,
+            Err(error) => return Err(storage_error(error)),
+        }
+    }
+    Err(ApiError::version_conflict())
+}
+
+/// L'hôte retire un joueur du salon : son jeton et sa présence sont effacés, les joueurs suivants avancent
+/// d'une place. Le joueur retiré découvrira au prochain polling que son jeton n'est plus reconnu.
+async fn kick(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: KickRequest = parse_body(&request.body)?;
+    let code = auth::normalize_code(&body.code)?;
+    let token = require_token(request)?;
+    let (record, mut stored) = load(store, &code).await?;
+    let host = identify(&stored, token)?;
+    if body.expected_version != record.version {
+        return Err(ApiError::version_conflict());
+    }
+    stored.game.kick(host, body.player)?;
+    stored.token_hashes.remove(body.player);
+    let id = record.id;
+    let response = save_as_player(store, record, &stored, host).await?;
+    store
+        .remove_player_presence(id, body.player)
+        .await
+        .map_err(storage_error)?;
+    Ok(response)
 }
 
 /// Parties publiques que l'on peut rejoindre, pour l'accueil. Sans jeton : on n'y donne que le code, le nom

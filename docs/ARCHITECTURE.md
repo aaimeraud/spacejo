@@ -289,6 +289,17 @@ Le serveur ne garde rien en mémoire et ne lance aucune tâche de fond : tout se
    dans le bandeau « X est parti·e », avec, pour l'hôte, un bouton « Passer son tour » (« Éliminer » au dernier
    tour manqué). En portrait, ce bandeau tient sur une ligne et remplace l'indication du tour.
 
+**Quitter la partie** (`POST /api/leave`, bouton « Quitter ») :
+- au salon, `Game::leave_lobby` retire le joueur ; comme un joueur est identifié par sa place, les suivants avancent
+  d'une place : l'API retire aussi son hachage de jeton (même indice) et décale leur présence
+  (`Store::remove_player_presence`). L'hôte est toujours le joueur 0 : s'il part, le suivant devient l'hôte. L'hôte
+  peut aussi retirer un joueur (`POST /api/kick`, `Game::kick`, même mécanisme) ; le joueur retiré découvre au
+  polling suivant que son jeton n'est plus reconnu et revient à l'accueil avec un message ;
+- pendant la partie, `Game::abandon` marque le joueur `abandoned` et l'élimine aussitôt (mêmes conséquences qu'une
+  élimination pour absence). Les places ne bougent pas. Chaque navigateur compare la vue précédente et la nouvelle
+  (`web/src/game/departures.ts`) et affiche « X a abandonné la partie » ; la pastille « a abandonné » remplace
+  « éliminé ». L'interface demande confirmation avant d'abandonner.
+
 Le core ne connaît que les tours manqués ; l'heure est mesurée par PostgreSQL (`now()`), ou par le stockage en
 mémoire, dont l'horloge peut être avancée dans les tests (`MemoryStore::advance`).
 
@@ -315,10 +326,10 @@ avec la partie), `player_id`, `last_seen` ; clé primaire (`game_id`, `player_id
 Le schéma n'évolue que par de nouveaux fichiers dans `migrations/` (jamais à la main) ; `cargo run --bin migrate`
 les applique, et `sqlx` note celles déjà appliquées dans `_sqlx_migrations`.
 
-Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 2 ; la v1 est migrée à la lecture). Si le format de `Game`
+Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 3 ; les v1 et v2 sont migrées à la lecture). Si le format de `Game`
 change, il faut incrémenter `STATE_VERSION` et écrire la migration dans `StoredGame::decode` ; un état
 illisible est refusé avec l'erreur `unsupported_state_version`. Le test `tests/state_version.rs` relit un
-exemple figé (`tests/fixtures/state_v1.json`) pour détecter tout changement de format oublié.
+exemple figé de chaque version (`tests/fixtures/state_v1.json` à `state_v3.json`) pour détecter tout changement de format oublié.
 
 ## Journaux
 

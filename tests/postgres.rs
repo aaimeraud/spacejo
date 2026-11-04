@@ -362,3 +362,33 @@ async fn switching_visibility_uses_the_optimistic_lock() {
     assert!(store.load("K7MPQX").await.unwrap().unwrap().public);
     db.drop().await;
 }
+
+#[tokio::test]
+async fn removing_a_player_shifts_the_presence_of_the_next_ones() {
+    let Some(db) = TestDb::create().await else {
+        return;
+    };
+    run_migrations(db.store.pool()).await.unwrap();
+    let store = Store::Postgres(db.store.clone());
+    let record = store
+        .insert("K7MPQX", &json!({ "n": 0 }), false)
+        .await
+        .unwrap();
+    for player in 0..4 {
+        store.touch(record.id, player).await.unwrap();
+    }
+    store.remove_player_presence(record.id, 1).await.unwrap();
+    let mut players: Vec<usize> = store
+        .presence(record.id)
+        .await
+        .unwrap()
+        .into_keys()
+        .collect();
+    players.sort_unstable();
+    assert_eq!(
+        players,
+        vec![0, 1, 2],
+        "les joueurs 2 et 3 deviennent 1 et 2"
+    );
+    db.drop().await;
+}

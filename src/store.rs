@@ -162,6 +162,15 @@ impl Store {
         }
     }
 
+    /// Un joueur a été retiré du salon : sa présence est effacée, et celle des joueurs suivants descend d'une
+    /// place, comme leur identifiant (`Game::leave_lobby`).
+    pub async fn remove_player_presence(&self, id: i64, player: usize) -> Result<(), StoreError> {
+        match self {
+            Store::Memory(store) => store.remove_player_presence(id, player),
+            Store::Postgres(store) => store.remove_player_presence(id, player).await,
+        }
+    }
+
     /// Secondes écoulées depuis la dernière requête de chaque joueur vu (les autres sont absents).
     pub async fn presence(&self, id: i64) -> Result<HashMap<usize, f64>, StoreError> {
         match self {
@@ -324,6 +333,25 @@ impl MemoryStore {
         let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
         let now = tables.now();
         tables.presence.insert((id, player), now);
+        Ok(())
+    }
+
+    fn remove_player_presence(&self, id: i64, player: usize) -> Result<(), StoreError> {
+        let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        // On retire toutes les lignes de la partie, puis on remet celles des autres joueurs à leur nouvelle place.
+        let rows: Vec<(usize, Instant)> = tables
+            .presence
+            .iter()
+            .filter(|((game, _), _)| *game == id)
+            .map(|((_, p), seen)| (*p, *seen))
+            .collect();
+        tables.presence.retain(|(game, _), _| *game != id);
+        for (p, seen) in rows {
+            if p != player {
+                let shifted = if p > player { p - 1 } else { p };
+                tables.presence.insert((id, shifted), seen);
+            }
+        }
         Ok(())
     }
 
@@ -565,6 +593,25 @@ impl PgStore {
             .into_iter()
             .filter_map(|(player, idle)| usize::try_from(player).ok().map(|p| (p, idle)))
             .collect())
+    }
+
+    async fn remove_player_presence(&self, id: i64, player: usize) -> Result<(), StoreError> {
+        // Une seule requête : on efface les lignes de la partie et on réinsère celles des autres joueurs, décalées.
+        // (Un `UPDATE ... SET player_id = player_id - 1` pourrait heurter la clé primaire en cours de route.)
+        sqlx::query(
+            "WITH removed AS ( \
+               DELETE FROM presence WHERE game_id = $1 RETURNING player_id, last_seen \
+             ) \
+             INSERT INTO presence (game_id, player_id, last_seen) \
+             SELECT $1, CASE WHEN player_id > $2 THEN player_id - 1 ELSE player_id END, last_seen \
+             FROM removed WHERE player_id <> $2",
+        )
+        .bind(id)
+        .bind(player as i32)
+        .execute(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        Ok(())
     }
 
     async fn presence(&self, id: i64) -> Result<HashMap<usize, f64>, StoreError> {
