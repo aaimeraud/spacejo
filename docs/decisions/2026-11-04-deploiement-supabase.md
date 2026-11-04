@@ -25,7 +25,9 @@ Deux contraintes en ressortent :
 - **Polling adaptatif** (`web/src/polling.ts`) : 2 s pendant une partie, 3 s au salon, 10 s quand l'onglet est
   caché ou la partie terminée, et une lecture immédiate quand on revient sur l'onglet. 10 s reste sous le délai
   d'absence du serveur (15 s) : changer d'onglet ne rend pas absent.
-- **Région** : base Supabase à Paris (AWS `eu-west-3`), comme les fonctions (`cdg1` dans `vercel.json`).
+- **Région** : l'offre gratuite de Supabase ne propose que « Europe », c'est-à-dire l'Irlande (AWS
+  `eu-west-1`). Les fonctions sont donc placées à Dublin (`dub1` dans `vercel.json`) plutôt qu'à Paris : chaque
+  requête du jeu fait environ trois allers-retours vers la base, qui doivent rester courts.
 
 ## Alternatives écartées
 

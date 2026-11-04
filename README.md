@@ -117,8 +117,10 @@ tests/scripts/release.test.sh
 Le déploiement n'a pas encore été essayé (le runtime Rust de Vercel est en bêta : voir
 [docs/decisions/2026-11-03-structure-vercel.md](docs/decisions/2026-11-03-structure-vercel.md)).
 
-1. **Supabase** : créer un projet dans la région **Paris (AWS `eu-west-3`)**, la même que les fonctions
-   (`cdg1` dans `vercel.json`). Garder le mot de passe de la base. Dans « Connect », relever les deux adresses
+1. **Supabase** : créer un projet dans la région **Europe**, qui place la base en Irlande (AWS `eu-west-1`,
+   seul choix européen de l'offre gratuite), à côté des fonctions (`dub1`, Dublin, dans `vercel.json`). Si la
+   base est ailleurs, changer `regions` dans `vercel.json` pour la région Vercel la plus proche. Garder le mot
+   de passe de la base. Dans « Connect », relever les deux adresses
    du pooler partagé (IPv4, l'adresse directe n'est qu'en IPv6 sur l'offre gratuite) :
    - mode **session**, port `5432` : pour les migrations, depuis sa machine ;
    - mode **transaction**, port `6543` : pour Vercel (sqlx est réglé pour ce mode, voir
@@ -127,7 +129,7 @@ Le déploiement n'a pas encore été essayé (le runtime Rust de Vercel est en b
 2. Appliquer les migrations depuis sa machine, avec l'adresse en mode session :
 
    ```bash
-   DATABASE_URL="postgres://postgres.<ref>:<mot de passe>@aws-0-eu-west-3.pooler.supabase.com:5432/postgres?sslmode=require" cargo run --bin migrate
+   DATABASE_URL="postgres://postgres.<ref>:<mot de passe>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require" cargo run --bin migrate
    ```
 
 3. **Vercel** : importer le dépôt GitHub, puis définir dans Settings → Environment Variables :
