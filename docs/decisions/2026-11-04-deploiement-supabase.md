@@ -29,6 +29,11 @@ Deux contraintes en ressortent :
   `eu-west-1`). Les fonctions sont donc placées à Dublin (`dub1` dans `vercel.json`) plutôt qu'à Paris : chaque
   requête du jeu fait environ trois allers-retours vers la base, qui doivent rester courts.
 
+- **Version de Rust épinglée** (`rust-toolchain.toml`, 1.98.0) : la machine de build de Vercel fournissait Rust
+  1.92, alors que sqlx 0.9 en demande 1.94 (`rust-version` du `Cargo.toml` corrigé en conséquence). rustup lit
+  ce fichier et installe la bonne version, en local, dans la CI et sur Vercel si son build passe par rustup. À
+  défaut, il faudrait revenir à sqlx 0.8.
+
 ## Alternatives écartées
 
 - **Pooler en mode session** (port 5432) en production : marche sans rien changer, mais garde une connexion
