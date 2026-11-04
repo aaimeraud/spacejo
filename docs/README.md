@@ -10,7 +10,7 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
 - [CONCEPTS.md](CONCEPTS.md) : notions Rust rencontrées dans le code, avec le fichier où elles apparaissent.
 - [decisions/](decisions/) : une page par décision importante (contexte, décision, alternatives, conséquences) :
   - [générateur aléatoire](decisions/2026-11-03-generateur-aleatoire.md) : SplitMix64 écrit dans le core ;
-  - [structure Vercel](decisions/2026-11-03-structure-vercel.md) : un fichier par fonction dans `api/` ;
+  - [structure Vercel](decisions/2026-11-03-structure-vercel.md) : un fichier par fonction dans `api/` (remplacée) ;
   - [PostgreSQL et sqlx](decisions/2026-11-03-postgresql-sqlx.md) : driver, verrou optimiste, migrations ;
   - [contrôle des commits](decisions/2026-11-03-controle-des-commits.md) : hook, CI et GitButler ;
   - [releases avec git-cliff](decisions/2026-11-03-releases-git-cliff.md) : changelog et règle de version en 0.x ;
@@ -18,5 +18,6 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
   - [écran figé](decisions/2026-11-03-ecran-fige.md) : aucune page ne défile, chaque écran est mis à l'échelle ;
   - [thème « nuit »](decisions/2026-11-04-theme-nuit.md) : fond noir, une couleur d'accent, police Inter, et son pendant clair ;
   - [application installable](decisions/2026-11-04-application-installable.md) : PWA, icônes, aperçus des liens ;
-  - [déploiement Supabase](decisions/2026-11-04-deploiement-supabase.md) : pooler en mode transaction, polling adaptatif.
+  - [déploiement Supabase](decisions/2026-11-04-deploiement-supabase.md) : pooler, polling adaptatif, version de Rust ;
+  - [serveur unique sur Render](decisions/2026-11-04-serveur-unique-render.md) : axum, Docker, l'API et l'interface sur une même adresse.
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).

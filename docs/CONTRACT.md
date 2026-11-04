@@ -80,6 +80,11 @@ fin de `waiting.seconds_left`. Les conséquences sont celles d'un passage automa
 élimination au `max_missed_turns`-ième. Refus : `not_host` si l'appelant n'est pas l'hôte, `player_not_absent` si
 `player` est présent ou n'est pas celui que l'on attend. Réponse `200` : `{ "version": 7, "view": { ... } }`.
 
+### `GET /api/health`
+
+Contrôle de santé, pour l'hébergeur (et pour réveiller le serveur) : ne lit ni la base ni de jeton.
+Réponse `200` : `{ "status": "ok" }`.
+
 ### `GET /api/state?code=K7MPQX&known_version=6`
 
 En-tête `X-Player-Token`. `known_version` est facultatif.

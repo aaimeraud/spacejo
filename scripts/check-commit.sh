@@ -19,9 +19,9 @@ type=$(printf '%s' "$header" | sed -E 's/^([a-z]+).*/\1/')
 case "$type" in docs|test|ci|chore|style) exit 0 ;; esac
 
 # Chemins du code source : à adapter à l'arborescence réelle, UNE seule fois, ici.
-# api/ : fonctions Vercel ; src/ : bibliothèque de l'API ; crates/ : spacejo-core ;
+# src/ : API et serveur ; crates/ : spacejo-core ;
 # web/src/ : interface ; migrations/ : schéma de la base.
-if printf '%s\n' "$changed" | grep -Eq '^(api/|src/|crates/|web/src/|migrations/)'; then
+if printf '%s\n' "$changed" | grep -Eq '^(src/|crates/|web/src/|migrations/)'; then
   if ! printf '%s\n' "$changed" | grep -q '^docs/' && ! grep -Eq '^Docs: n/a' "$msg_file"; then
     echo "Commit refusé : ce changement touche le code sans toucher docs/." >&2
     echo "Mets la documentation à jour, ou ajoute en pied de message : « Docs: n/a — raison »." >&2

@@ -1,9 +1,10 @@
 //! Applique les migrations SQL de `migrations/` sur la base désignée par `DATABASE_URL`.
-//! À lancer avant chaque déploiement qui ajoute une migration : `cargo run --bin migrate`.
+//! Le serveur les applique aussi à son démarrage ; cet outil sert à les appliquer sans le lancer :
+//! `cargo run --bin migrate`.
 
 use spacejo_api::PgStore;
+use spacejo_api::server::DATABASE_URL_VAR;
 use spacejo_api::store::run_migrations;
-use spacejo_api::vercel::DATABASE_URL_VAR;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

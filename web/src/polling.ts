@@ -1,6 +1,5 @@
-// Rythme du polling : rapide quand il se passe quelque chose à l'écran, lent sinon. Chaque requête est un
-// appel de fonction Vercel (facturé, et limité sur l'offre gratuite) : voir
-// docs/decisions/2026-11-04-deploiement-supabase.md.
+// Rythme du polling : rapide quand il se passe quelque chose à l'écran, lent sinon, pour ménager le serveur
+// et la base (offres gratuites de Render et Supabase). Voir docs/decisions/2026-11-04-deploiement-supabase.md.
 import type { GameView } from "./api/types";
 import { POLL_IDLE_INTERVAL_MS, POLL_INTERVAL_MS, POLL_LOBBY_INTERVAL_MS } from "./config";
 

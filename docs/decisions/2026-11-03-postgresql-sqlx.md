@@ -10,8 +10,8 @@ Les parties doivent survivre entre deux requêtes (fonctions sans état), être 
 - Driver **`sqlx` 0.9** (fonctions `sqlx::query`, sans les macros vérifiées à la compilation), TLS par
   `rustls` + `ring` (aucune bibliothèque système à installer), migrations par `sqlx::migrate!`, qui embarque
   `migrations/` dans les binaires.
-- Les migrations ne sont PAS appliquées par les fonctions Vercel : on lance `cargo run --bin migrate` avant
-  un déploiement qui en ajoute une. Le serveur local, lui, les applique à son démarrage.
+- Le serveur applique les migrations à son démarrage, en local comme en production (voir la décision
+  « serveur unique sur Render ») ; `cargo run --bin migrate` les applique sans lancer le serveur.
 - Le stockage est un `enum Store { Memory, Postgres }` plutôt qu'un trait : plus simple à lire, et la
   variante mémoire sert aux tests et au développement sans base.
 - Verrou optimiste : `UPDATE ... WHERE id = $1 AND version = $2`, et refus (409) si `expected_version`

@@ -21,7 +21,7 @@ ses visuels : une icône iOS (PNG 1024 px), l'icône et l'image d'aperçu en SVG
   `vite-plugin-pwa` : « réseau d'abord » pour les fichiers du site (copie en cache seulement si le réseau ne
   répond pas), et **jamais de cache pour `/api/`** : l'état d'une partie vient toujours du serveur. Il n'est
   enregistré que sur le site construit (`main.tsx`, `import.meta.env.PROD`), pas avec le serveur de
-  développement. `vercel.json` le sert sans cache.
+  développement. Le serveur le sert sans cache (`src/server.rs`).
 - **iOS** : `apple-mobile-web-app-capable`, titre, barre d'état translucide ; l'écran va donc sous l'encoche,
   et `.app` garde des marges `env(safe-area-inset-*)`.
 - **Couleur de la barre** (`theme-color`) : celle du fond du thème affiché, mise à jour par `theme.ts`.

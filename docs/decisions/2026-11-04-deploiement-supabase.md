@@ -1,4 +1,8 @@
-# Déploiement : Supabase pour PostgreSQL, Vercel pour le reste
+# Déploiement : Supabase pour PostgreSQL
+
+> L'hébergement de l'API est passé de Vercel à Render le même jour : voir
+> [un seul serveur Rust, hébergé sur Render](2026-11-04-serveur-unique-render.md). Ce qui suit sur le pooler,
+> le polling et la version de Rust reste valable ; le quota d'appels de Vercel ne s'applique plus.
 
 ## Contexte
 
@@ -26,8 +30,8 @@ Deux contraintes en ressortent :
   caché ou la partie terminée, et une lecture immédiate quand on revient sur l'onglet. 10 s reste sous le délai
   d'absence du serveur (15 s) : changer d'onglet ne rend pas absent.
 - **Région** : l'offre gratuite de Supabase ne propose que « Europe », c'est-à-dire l'Irlande (AWS
-  `eu-west-1`). Les fonctions sont donc placées à Dublin (`dub1` dans `vercel.json`) plutôt qu'à Paris : chaque
-  requête du jeu fait environ trois allers-retours vers la base, qui doivent rester courts.
+  `eu-west-1`). Le serveur doit en être proche : chaque requête du jeu fait environ trois allers-retours vers la
+  base (sur Render : Francfort, la région la plus proche).
 
 - **Version de Rust épinglée** (`rust-toolchain.toml`, 1.98.0) : la machine de build de Vercel fournissait Rust
   1.92, alors que sqlx 0.9 en demande 1.94 (`rust-version` du `Cargo.toml` corrigé en conséquence). rustup lit

@@ -9,25 +9,25 @@ SpaceJo est un jeu de cartes au tour par tour (2 à 10 joueurs) qui reprend les 
 ([RULES.md](RULES.md)). Trois composants :
 
 ```
- Navigateur (web/, React)                Vercel                              PostgreSQL
-┌──────────────────────┐   HTTPS/JSON   ┌───────────────────────────────┐   SQL   ┌──────────────┐
-│ écrans, polling 2 s   │ ─────────────▶ │ api/*.rs : une fonction Rust  │ ──────▶ │ table games  │
-│ envoie des Action     │ ◀───────────── │ par route, sans état          │ ◀────── │ (state JSONB,│
-│ affiche la vue reçue  │   vue filtrée  │ src/ : HTTP, jetons, stockage │         │  version)    │
-└──────────────────────┘                │ crates/spacejo-core : le jeu  │         └──────────────┘
-                                        └───────────────────────────────┘
+ Navigateur (web/, React)            Serveur Rust (Render, Docker)               PostgreSQL (Supabase)
+┌──────────────────────┐   HTTPS    ┌────────────────────────────────────┐   SQL   ┌──────────────┐
+│ écrans, polling 2 s   │ ─────────▶ │ src/server.rs (axum) :             │ ──────▶ │ table games  │
+│ envoie des Action     │ ◀───────── │  /api/* → src/handlers.rs          │ ◀────── │ (state JSONB,│
+│ affiche la vue reçue  │ vue filtrée│  le reste → web/dist (l'interface) │         │  version)    │
+└──────────────────────┘            │ crates/spacejo-core : le jeu       │         └──────────────┘
+                                    └────────────────────────────────────┘
 ```
 
 | Dossier | Rôle |
 |---|---|
 | `crates/spacejo-core/` | logique du jeu (Rust pur, sans réseau, sans base, sans horloge) |
-| `src/` | bibliothèque `spacejo-api` : routes, jetons, format enregistré, stockage, adaptateur Vercel |
-| `api/` | une fonction Vercel par fichier (quelques lignes : elles appellent `spacejo_api::vercel::serve`) |
-| `src/bin/` | `dev_server` (toutes les routes dans un processus, pour le développement) et `migrate` |
+| `src/` | bibliothèque `spacejo-api` : routes, jetons, format enregistré, stockage, serveur HTTP |
+| `src/bin/` | `server` (l'API et l'interface, en local comme en production) et `migrate` |
 | `migrations/` | migrations SQL versionnées, appliquées par `sqlx::migrate!` |
 | `tests/` | tests de l'API (mémoire et PostgreSQL), exemple figé du format enregistré, tests des scripts |
 | `web/` | interface React + TypeScript + Vite |
 | `scripts/` | contrôle des commits, release, aperçu du changelog |
+| `Dockerfile`, `render.yaml` | image de production (interface puis serveur) et déploiement sur Render |
 
 ## Le core : `crates/spacejo-core`
 
@@ -90,17 +90,17 @@ pioche n'est donnée que par son nombre de cartes ; la carte en main n'est montr
 (une carte prise sur la défausse était déjà publique). Le test `crates/spacejo-core/tests/view.rs` vérifie que
 deux parties qui ne diffèrent que par UNE carte cachée donnent exactement la même vue.
 
-## L'API : `src/` et `api/`
+## L'API : `src/`
 
 Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
 
 | Fichier | Rôle |
 |---|---|
-| `src/handlers.rs` | les sept opérations, indépendantes de Vercel (`handle(store, endpoint, request)`) |
+| `src/handlers.rs` | les sept opérations, indépendantes du serveur HTTP (`handle(store, endpoint, request)`) |
 | `src/auth.rs` | jetons (256 bits, hachage SHA-256, comparaison en temps constant), codes de partie, graines |
 | `src/stored.rs` | `StoredGame` (ce qui est dans `games.state`) et `STATE_VERSION` |
 | `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste |
-| `src/vercel.rs` | conversion entre les requêtes de `vercel_runtime` (hyper) et `handlers` |
+| `src/server.rs` | serveur `axum` : `/api/health`, `/api/*` vers `handlers` (réponses compressées), fichiers de l'interface par `tower-http` (version gzip, règles de cache, retour à `index.html` pour une page de l'application) |
 | `src/error.rs` | `ApiError` (statut, code, message) et conversion depuis `GameError` |
 
 ### Parcours d'une action, du clic à la réponse
@@ -108,8 +108,8 @@ Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
 1. Le joueur clique sur une carte. L'interface envoie `POST /api/action` avec
    `{ code, expected_version, action }` et l'en-tête `X-Player-Token`. Elle envoie une intention
    (`Action`), jamais un état.
-2. Vercel lance la fonction `api/action.rs`, qui appelle `vercel::serve(Endpoint::Action)`. Le corps est
-   lu avec une taille maximale (16 Kio), puis `handlers::handle` prend le relais.
+2. Le serveur (`server.rs`) reconnaît la route `Endpoint::Action` d'après le chemin. Le corps est lu avec une
+   taille maximale (16 Kio), puis `handlers::handle` prend le relais.
 3. Le corps est validé (`serde` refuse champ inconnu, valeur inconnue, type incorrect → 400).
 4. La partie est chargée par son code : `SELECT id, state, version FROM games WHERE code = $1`. Le JSON
    est relu par `StoredGame::decode`, qui vérifie `state_version`.
@@ -121,7 +121,8 @@ Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
    autres joueurs la verront à leur prochain polling (`GET /api/state`, toutes les 2 secondes).
 
 Aucune donnée de partie n'est gardée en mémoire entre deux requêtes : chaque requête recharge tout. Seul
-le pool de connexions PostgreSQL survit d'une requête à l'autre dans une même instance.
+le pool de connexions PostgreSQL survit d'une requête à l'autre. On pourrait donc lancer plusieurs serveurs
+côte à côte : le verrou optimiste suffit à les départager.
 
 ### Verrou optimiste
 
@@ -234,7 +235,8 @@ joueur éliminé est grisée. Quand on attend un absent, un bandeau donne le com
 couleur n'est qu'un repère) ; les étiquettes de réglage sont textuelles ; la consigne et les erreurs sont
 annoncées (`role="status"`, `role="alert"`).
 
-En développement, Vite (port 5173) renvoie `/api` vers `cargo run --bin dev_server` (port 3000).
+En développement, Vite (port 5173) renvoie `/api` vers `cargo run` (le serveur, port 3000). En production,
+le même serveur sert l'API et l'interface construite (`web/dist`) sur une seule adresse : pas de CORS.
 
 ## Présence, absence et élimination
 
@@ -295,11 +297,10 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
   (Supabase Realtime, par exemple).
 - **Expiration des parties** : les anciennes parties ne sont jamais supprimées (`updated_at` permettra un
   nettoyage périodique).
-- **Connexions PostgreSQL** : chaque instance de fonction ouvre ses propres connexions (5 au plus) ; en
-  production, passer par le pooler du fournisseur en mode transaction (sqlx est réglé pour : voir la
-  décision « déploiement Supabase »).
-- **Déploiement non vérifié** : le runtime Rust de Vercel est en bêta ; l'espace de travail Cargo (core à
-  part) n'a pas été testé par un vrai déploiement.
+- **Connexions PostgreSQL** : le serveur garde au plus 5 connexions, par le pooler de Supabase (mode session ;
+  le mode transaction marche aussi, sqlx est réglé pour).
+- **Hébergement gratuit** : sur l'offre gratuite de Render, le serveur s'endort après 15 minutes sans requête et
+  met environ une minute à se réveiller ; l'interface le réveille dès l'ouverture de l'accueil.
 - **Limitation de débit** : aucune limite sur la création et la jonction de parties.
 - **Comptes utilisateurs** : aucun ; l'identité est un jeton secret par partie.
 - **Nombre de joueurs** : de 2 à 10 (`MAX_PLAYERS`) ; le core n'en dépend pas ailleurs.

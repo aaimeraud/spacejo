@@ -1,4 +1,4 @@
-//! Les sept opérations de l'API (docs/CONTRACT.md), indépendantes de Vercel.
+//! Les sept opérations de l'API (docs/CONTRACT.md), indépendantes du serveur HTTP (voir `server`).
 //!
 //! Chaque opération suit le même parcours (serverless : rien n'est gardé en mémoire) :
 //! valider la requête → charger la partie → identifier le joueur par son jeton → vérifier

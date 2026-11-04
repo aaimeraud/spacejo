@@ -46,36 +46,34 @@ Piste choisie par le propriétaire du dépôt parmi deux propositions : prérég
 
 ## Structure des dossiers
 
-La documentation Vercel du runtime Rust (lue le 2026-11-03,
-https://vercel.com/docs/functions/runtimes/rust) demande un `Cargo.toml` à la racine du projet, un fichier
-Rust par fonction dans `api/`, et une entrée `[[bin]]` par fonction. On en déduit :
+Un seul serveur Rust sert l'API et l'interface (voir `docs/decisions/2026-11-04-serveur-unique-render.md` ;
+la première structure, une fonction Vercel par route, est décrite dans `docs/decisions/2026-11-03-structure-vercel.md`).
 
 ```
-Cargo.toml            espace de travail Cargo + paquet `spacejo-api` (les [[bin]] des fonctions)
-api/*.rs              une fonction Vercel par fichier, quelques lignes chacune : elles appellent la bibliothèque
-src/                  bibliothèque `spacejo-api` : HTTP, jetons, stockage, migrations du format d'état
-src/bin/dev_server.rs serveur local qui regroupe toutes les routes (développement uniquement)
+Cargo.toml            espace de travail Cargo + paquet `spacejo-api`
+src/                  bibliothèque `spacejo-api` : routes, jetons, stockage, serveur HTTP (axum)
+src/bin/server.rs     le serveur : l'API et l'interface construite, en local comme en production
 src/bin/migrate.rs    applique les migrations SQL sur la base désignée par DATABASE_URL
 crates/spacejo-core/  logique du jeu, sans réseau, sans base, sans horloge
 migrations/           migrations SQL versionnées (seul moyen de faire évoluer le schéma)
-tests/                tests d'intégration de l'API (+ tests/scripts/ pour les scripts shell)
+tests/                tests d'intégration de l'API et du serveur (+ tests/scripts/ pour les scripts shell)
 web/                  interface React + TypeScript + Vite
 docs/                 documentation vivante
 scripts/              check-commit.sh, release.sh, changelog.sh
+Dockerfile            image de production (interface puis serveur) ; render.yaml : le service Render
 .github/workflows/    ci.yml, release.yml
 ```
 
-Routes (une par fichier de `api/`, donc sans route dynamique, que la documentation ne décrit pas) :
-`/api/create`, `/api/join`, `/api/rules`, `/api/start`, `/api/action`, `/api/skip`, `/api/state`.
-Sept fonctions, sous la limite de 12 fonctions par déploiement du plan gratuit.
+Routes : `/api/health`, `/api/create`, `/api/join`, `/api/rules`, `/api/start`, `/api/action`, `/api/skip`,
+`/api/state` ; toute autre adresse reçoit l'interface.
 
 ## Base de données et driver
 
-- **PostgreSQL** hébergé (par exemple Neon ou Supabase), dans la même région que les fonctions
-  (`iad1` par défaut chez Vercel). En local : PostgreSQL via `docker-compose.yml`.
+- **PostgreSQL** hébergé (Supabase), dans une région proche du serveur (Irlande pour la base, Francfort pour
+  le serveur Render). En local : PostgreSQL via `docker-compose.yml`.
 - **Driver : `sqlx` 0.9** (fonctions `sqlx::query`, sans les macros vérifiées à la compilation, qui
-  exigeraient une base pendant la compilation). Raisons : asynchrone sur `tokio` (déjà imposé par
-  `vercel_runtime`), TLS intégré (`rustls`, sans OpenSSL à installer, obligatoire pour une base hébergée),
+  exigeraient une base pendant la compilation). Raisons : asynchrone sur `tokio` (le moteur du serveur
+  axum), TLS intégré (`rustls`, sans OpenSSL à installer, obligatoire pour une base hébergée),
   et un système de migrations versionnées (`sqlx::migrate!`) qui embarque le dossier `migrations/` dans le
   binaire et note les migrations appliquées dans la table `_sqlx_migrations`.
 - Alternative écartée : `tokio-postgres` + `refinery` + une caisse TLS : trois dépendances au lieu
@@ -89,9 +87,10 @@ Sept fonctions, sous la limite de 12 fonctions par déploiement du plan gratuit.
 |---|---|---|
 | `serde` (+ `derive`) | core, api | sérialiser l'état en JSON (JSONB) et les vues |
 | `serde_json` | core (tests), api | lire et écrire le JSON |
-| `vercel_runtime` 2 | api | imposé par le runtime Rust de Vercel |
-| `tokio` | api | moteur asynchrone exigé par `vercel_runtime` et `sqlx` |
-| `http-body-util` | api | lire le corps d'une requête avec une taille maximale (déjà tiré par `vercel_runtime`) |
+| `axum` 0.8 | api | serveur HTTP (routes, extraction des requêtes), de l'écosystème tokio |
+| `tower-http` 0.7 | api | fichiers de l'interface (`ServeDir`, versions gzip) et compression des réponses de l'API |
+| `tower` 0.5 | api | appeler ces services depuis une route axum, et le serveur dans les tests sans ouvrir de port |
+| `tokio` | api | moteur asynchrone d'axum et de `sqlx` (réseau, fichiers, signaux d'arrêt) |
 | `sqlx` 0.9 | api | driver PostgreSQL + migrations (voir ci-dessus) |
 | `getrandom` | api | entropie du système : jetons, codes de partie, graines |
 | `sha2` | api | hachage SHA-256 des jetons (seul le hachage est stocké) |
@@ -109,10 +108,8 @@ Outils (hors dépendances du code) : `git-cliff` pour le changelog et les versio
 
 ## Risques
 
-- **Runtime Rust de Vercel en bêta** : la documentation ne parle ni d'espace de travail Cargo ni de
-  routes dynamiques. Le paquet racine contient les `[[bin]]` comme dans l'exemple officiel ; le core est
-  un membre de l'espace de travail. Non vérifié par un déploiement (interdit ici) : à confirmer au premier
-  déploiement.
+- **Hébergement gratuit (Render)** : mise en veille après 15 minutes sans visite (réveil d'environ une
+  minute), 512 Mo de mémoire ; l'image a été testée en local, pas encore sur la plateforme.
 - **Connexions PostgreSQL** : une connexion par requête coûte une poignée de main TLS ; acceptable
   avec un polling toutes les 2 s et 4 joueurs, à revoir au-delà.
 - **Polling** : charge proportionnelle au nombre de joueurs connectés ; la réponse est minimale quand
@@ -151,3 +148,25 @@ Demandée par le propriétaire du dépôt. Les durées sont des constantes nomm�
 3. [x] Icônes `lucide-react` 1.59.0 (licence ISC, aucune dépendance) : seule dépendance ajoutée, pour des icônes
    cohérentes et accessibles sans dessiner chaque pictogramme.
 
+
+## Évolution en cours : un seul serveur Rust, hébergé sur Render (branche `claude/render`)
+
+Demandée par le propriétaire du dépôt : le runtime Rust de Vercel (bêta) est trop lent à construire et son quota
+d'appels convient mal au polling. Un serveur unique, toujours démarré, sert l'API et l'interface. Décision :
+`docs/decisions/2026-11-04-serveur-unique-render.md`.
+
+1. [x] Serveur `axum` (`src/server.rs`, binaire `server`, remplace `dev_server`) : `/api/*` vers `handlers`,
+   `/api/health` pour la plateforme, fichiers de `web/dist` avec retour à `index.html`, compression gzip,
+   en-têtes de cache, arrêt propre sur SIGTERM ; migrations appliquées au démarrage. Port : `PORT`.
+2. [x] Suppression de ce qui ne servait qu'à Vercel : `api/*.rs`, `src/vercel.rs`, `vercel_runtime`,
+   `vercel.json`, `.vercelignore`.
+3. [x] `Dockerfile` (interface puis serveur, image finale minimale), `.dockerignore`, `render.yaml` (offre
+   gratuite, Francfort, contrôle de santé, variable `DATABASE_URL`).
+4. [x] Interface : réveil du serveur dès l'ouverture de l'accueil (l'offre gratuite de Render l'endort après
+   15 minutes sans requête).
+5. [x] Vérifications : tests, image Docker construite et lancée en local avec PostgreSQL, partie jouée dans le
+   navigateur ; documentation et guide de déploiement pas à pas.
+
+Dépendances ajoutées : `axum` (serveur HTTP de l'écosystème tokio, le plus courant en Rust), `tower-http`
+(fichiers de l'interface, compression) et `tower` (pour appeler ces services). `vercel_runtime` et
+`http-body-util` sont retirées.

@@ -19,7 +19,8 @@ use serde_json::Value;
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
-/// Nombre maximal de connexions d'un processus (une fonction Vercel en traite peu à la fois).
+/// Nombre maximal de connexions à PostgreSQL du serveur (largement assez pour quelques dizaines de joueurs,
+/// et sous la limite du pooler de l'offre gratuite de Supabase).
 pub const MAX_DB_CONNECTIONS: u32 = 5;
 /// Délai maximal pour obtenir une connexion.
 pub const DB_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(5);

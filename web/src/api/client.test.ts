@@ -37,6 +37,14 @@ describe("SpaceJoApi", () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ code: "K7MPQX", expected_version: 8, player: 2 });
   });
 
+  it("interroge le contrôle de santé sans jeton", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(200, { status: "ok" }, calls));
+    expect(await api.health()).toEqual({ status: "ok" });
+    expect(calls[0]?.url).toBe("/api/health");
+    expect((calls[0]?.init?.headers as Record<string, string>)[TOKEN_HEADER]).toBeUndefined();
+  });
+
   it("ne met pas le jeton dans l'URL de lecture de l'état", async () => {
     const calls: Call[] = [];
     const api = new SpaceJoApi(fakeFetch(200, { changed: false, version: 3 }, calls));

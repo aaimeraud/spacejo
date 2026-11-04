@@ -16,7 +16,7 @@ Chaque ligne : la notion, le fichier où elle apparaît, et le chapitre du livre
 | Dérivation de traits avec `#[derive]` (serde `Serialize`/`Deserialize`) | `crates/spacejo-core/src/*.rs` | [annexe C](https://doc.rust-lang.org/stable/book/appendix-03-derivable-traits.html) |
 | Tests d'intégration (`tests/`, module `common` partagé) | `crates/spacejo-core/tests/` | [ch11-03](https://doc.rust-lang.org/stable/book/ch11-03-test-organization.html) |
 | `async`/`await` et `#[tokio::main]` (code asynchrone) | `src/handlers.rs`, `api/*.rs` | [ch17](https://doc.rust-lang.org/stable/book/ch17-00-async-await.html) |
-| Fermetures (closures), `FnOnce`, mot-clé `move` | `src/handlers.rs` (`write_as_player`), `src/vercel.rs` | [ch13-01](https://doc.rust-lang.org/stable/book/ch13-01-closures.html) |
+| Fermetures (closures), `FnOnce`, mot-clé `move` | `src/handlers.rs` (`write_as_player`), `src/server.rs` | [ch13-01](https://doc.rust-lang.org/stable/book/ch13-01-closures.html) |
 | État partagé : `Arc<Mutex<…>>` | `src/store.rs` (`MemoryStore`) | [ch16-03](https://doc.rust-lang.org/stable/book/ch16-03-shared-state.html) |
 | Trait `From` et conversion d'erreurs par `?` | `src/error.rs` | [ch09-02](https://doc.rust-lang.org/stable/book/ch09-02-recoverable-errors-with-result.html#a-shortcut-for-propagating-errors-the--operator) |
 | Généricité avec contraintes de trait (`T: DeserializeOwned`, `F: FnOnce(...)`) | `src/handlers.rs` | [ch10-01](https://doc.rust-lang.org/stable/book/ch10-01-syntax.html) |

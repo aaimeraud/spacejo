@@ -115,6 +115,11 @@ export class SpaceJoApi {
     );
   }
 
+  /** Contrôle de santé : ne touche pas à la base. Sert aussi à réveiller le serveur (voir App.tsx). */
+  health(): Promise<{ status: string }> {
+    return this.request("/api/health", { method: "GET" });
+  }
+
   state(code: string, token: string, knownVersion?: number): Promise<StateResponse> {
     const params = new URLSearchParams({ code });
     if (knownVersion !== undefined) params.set("known_version", String(knownVersion));

@@ -8,7 +8,7 @@ export const POLL_LOBBY_INTERVAL_MS = 3000;
 
 /** Intervalle quand l'onglet est caché (autre onglet, téléphone en veille) ou la partie finie. Il reste sous
  * le délai d'absence du serveur (`PRESENCE_TIMEOUT_SECS`, 15 s) : un joueur qui change d'onglet n'est pas
- * compté absent. Chaque requête est un appel de fonction facturé : ralentir ici réduit nettement le coût. */
+ * compté absent. Ralentir ici ménage le serveur et la base. */
 export const POLL_IDLE_INTERVAL_MS = 10000;
 
 /** Bornes de `end_score` (mêmes valeurs que `END_SCORE_MIN` / `END_SCORE_MAX` du core ; le serveur

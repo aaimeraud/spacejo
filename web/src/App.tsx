@@ -36,6 +36,13 @@ export function App() {
   const phaseRef = useRef<GameView["phase"] | null>(null);
   phaseRef.current = view?.phase ?? null;
 
+  // Réveil du serveur dès l'ouverture : l'hébergement gratuit (Render) l'endort après 15 minutes sans
+  // requête, et le réveil prend environ une minute. Ainsi, il démarre pendant qu'on lit l'accueil et qu'on
+  // tape son nom, plutôt qu'au clic sur « Créer la partie ». Un échec ici est sans importance.
+  useEffect(() => {
+    api.health().catch(() => undefined);
+  }, []);
+
   /** Revient à l'accueil. `forget` : la partie n'est plus proposée à la reprise. */
   const leave = useCallback((forget: boolean) => {
     const current = loadSession(window.sessionStorage);

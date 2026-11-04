@@ -1,8 +1,8 @@
 # Espace de travail Cargo : un seul Cargo.lock et une seule version pour tous les paquets.
 # https://doc.rust-lang.org/stable/book/ch14-03-cargo-workspaces.html
 #
-# Le paquet racine `spacejo-api` contient les fonctions Vercel : la documentation du runtime
-# Rust demande un Cargo.toml à la racine et une entrée [[bin]] par fichier de `api/`.
+# Le paquet racine `spacejo-api` contient l'API, le serveur HTTP et le stockage ; la logique du jeu est
+# dans `crates/spacejo-core`.
 [workspace]
 members = ["crates/spacejo-core"]
 resolver = "3"
@@ -14,72 +14,45 @@ rust-version = "1.94"
 
 [package]
 name = "spacejo-api"
-description = "API HTTP de SpaceJo (fonctions Vercel) et stockage PostgreSQL."
+description = "API HTTP de SpaceJo, serveur (axum) et stockage PostgreSQL."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 publish = false
-default-run = "dev_server"
+default-run = "server"
 
 [dependencies]
 spacejo-core = { path = "crates/spacejo-core" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = "1.0.154"
-# Runtime Rust de Vercel (bêta) : https://vercel.com/docs/functions/runtimes/rust
-vercel_runtime = "2.4.1"
-tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "sync"] }
-# Lecture du corps des requêtes avec une taille maximale (déjà tirée par vercel_runtime).
-http-body-util = "0.1.5"
+tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "sync", "net", "fs", "signal"] }
 # PostgreSQL : pas de fonctionnalités par défaut ; `macros` sert uniquement à `sqlx::migrate!`.
 sqlx = { version = "0.9.0", default-features = false, features = ["postgres", "runtime-tokio", "tls-rustls-ring-webpki", "migrate", "macros", "json"] }
 # Entropie du système pour les jetons, les codes de partie et les graines.
 getrandom = "0.4.3"
 # Hachage des jetons (seul le hachage est stocké).
 sha2 = "0.11.1"
+# Serveur HTTP (routes, extraction des requêtes), de l'écosystème tokio.
+axum = "0.8.9"
+# Fichiers de l'interface (avec leur version gzip préparée au build) et compression des réponses de l'API.
+tower-http = { version = "0.7.1", features = ["fs", "compression-gzip"] }
+# Pour appeler ces services depuis une route axum (`ServiceExt::oneshot`) ; aussi utilisé par les tests.
+tower = { version = "0.5.3", features = ["util"] }
 
-# Une entrée par fonction Vercel (noms uniques).
+# Le serveur (API et interface) et l'outil de migration.
 [[bin]]
-name = "create"
-path = "api/create.rs"
-
-[[bin]]
-name = "join"
-path = "api/join.rs"
-
-[[bin]]
-name = "rules"
-path = "api/rules.rs"
-
-[[bin]]
-name = "start"
-path = "api/start.rs"
-
-[[bin]]
-name = "action"
-path = "api/action.rs"
-
-[[bin]]
-name = "skip"
-path = "api/skip.rs"
-
-[[bin]]
-name = "state"
-path = "api/state.rs"
-
-# Outils de développement (hors Vercel) : serveur local et migrations.
-[[bin]]
-name = "dev_server"
-path = "src/bin/dev_server.rs"
+name = "server"
+path = "src/bin/server.rs"
 
 [[bin]]
 name = "migrate"
 path = "src/bin/migrate.rs"
 
-# Compilation pour la production. La documentation Vercel suggère `lto = "fat"` et `codegen-units = 1`
-# (binaires un peu plus petits et rapides), mais l'édition des liens se fait alors sur un seul cœur, pour
-# chacune des fonctions : le build sur Vercel (2 cœurs, sans cache) dépassait 4 minutes. Nos fonctions passent
-# leur temps à attendre la base de données : la différence de vitesse est imperceptible.
+# Compilation pour la production : optimisée, mais sans `lto = "fat"` ni `codegen-units = 1`, qui feraient
+# l'édition des liens sur un seul cœur (build bien plus long pour un gain imperceptible : le serveur passe
+# son temps à attendre la base de données).
 [profile.release]
 opt-level = 3
 lto = false
 codegen-units = 16
+

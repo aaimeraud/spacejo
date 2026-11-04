@@ -1,5 +1,7 @@
 # Structure du projet pour le runtime Rust de Vercel
 
+> **Remplacée** le 2026-11-04 par [un seul serveur Rust, hébergé sur Render](2026-11-04-serveur-unique-render.md).
+
 ## Contexte
 
 La documentation du runtime Rust de Vercel (bêta, lue le 2026-11-03 :
