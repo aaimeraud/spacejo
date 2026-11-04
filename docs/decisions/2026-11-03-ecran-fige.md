@@ -13,6 +13,9 @@ vrai jeu, sur ordinateur comme sur téléphone, et jusqu'à 10 joueurs.
 - Deux dispositions seulement, choisies par classe (`.is-landscape`, `.is-portrait`) et non par requêtes média,
   puisque c'est la scène, et non la fenêtre, qui a une taille fixe.
 - Le nombre de joueurs règle la taille des sièges (`crowd-few`, `crowd-some`, `crowd-many`).
+- **Pas de barre de navigation** : il n'y a nulle part où aller. Chaque écran occupe toute la fenêtre, avec la
+  même marge des quatre côtés (24 px, 12 px sur téléphone). Le code de la partie et « Quitter » sont sur l'écran
+  du salon et dans la barre de la partie ; l'accueil est posé directement sur le fond, sans panneau.
 - Ce qui peut être long (tableau des scores, explications des règles) s'ouvre dans une fenêtre dont seul le
   contenu défile.
 

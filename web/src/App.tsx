@@ -1,6 +1,5 @@
 // Application : choisit l'écran selon la session et la phase, et tient l'état reçu du serveur.
 // Le serveur est autoritaire : on n'envoie que des intentions et on affiche la vue renvoyée.
-import { LogOut, Rocket } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, SpaceJoApi } from "./api/client";
 import type { Action, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
@@ -170,24 +169,10 @@ export function App() {
   const onSkip = (player: number) => write((s, version) => api.skip(s.code, s.token, version, player));
 
   return (
-    // L'application occupe exactement l'écran : un en-tête fin, puis l'écran courant, mis à l'échelle pour
-    // tenir dans la place restante (aucun défilement de la page).
+    // L'application occupe exactement l'écran : l'écran courant, mis à l'échelle pour tenir dans la place
+    // disponible (aucun défilement de la page). Pas de barre de navigation : il n'y a nulle part où aller ;
+    // le code de la partie et « Quitter » sont sur l'écran du salon et de la partie.
     <div className="app">
-      <header className="app-header">
-        <h1>
-          <Rocket aria-hidden="true" /> SpaceJo
-        </h1>
-        {session !== null && (
-          <div className="session-info">
-            <span className="code-chip">
-              Partie <strong>{session.code}</strong>
-            </span>
-            <button type="button" className="ghost-button" onClick={() => leave(true)}>
-              <LogOut aria-hidden="true" /> Quitter
-            </button>
-          </div>
-        )}
-      </header>
 
       <main className="app-main">
         {error !== null && (
@@ -214,11 +199,13 @@ export function App() {
             presence={presence}
             onRulesChange={onRulesChange}
             onStart={onStart}
+            onLeave={() => leave(true)}
           />
         )}
         {session !== null && view !== null && view.phase !== "Lobby" && (
           <GameBoard
             view={view}
+            code={session.code}
             busy={busy}
             presence={presence}
             waiting={waiting}

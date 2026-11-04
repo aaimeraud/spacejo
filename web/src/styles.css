@@ -59,19 +59,12 @@ p { margin: 0; }
 
 /* ===== Cadre de l'application ===== */
 .app { height: 100dvh; display: flex; flex-direction: column; }
-.app-header {
-  flex: none; height: 52px; padding: 0 16px;
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  background: var(--bg);
-}
-.app-header h1 { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 1.1rem; }
-.session-info { display: flex; align-items: center; gap: 10px; }
-.code-chip { font-size: 0.9rem; color: var(--muted); }
-.code-chip strong { color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.08em; }
 .app-main { flex: 1; min-height: 0; position: relative; }
 .loading { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); }
 
-.fit-host { position: absolute; inset: 0; overflow: hidden; }
+/* Même marge des quatre côtés autour de chaque écran. */
+.fit-host { position: absolute; inset: var(--screen-margin, 24px); overflow: hidden; }
+@media (max-width: 600px) { .fit-host { --screen-margin: 12px; } }
 .fit-stage { position: absolute; left: 50%; top: 50%; transform-origin: center center; }
 
 /* ===== Éléments communs ===== */
@@ -139,8 +132,8 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 
 /* ===== Accueil et parcours pas à pas ===== */
 .home-card {
-  width: 100%; height: 100%; padding: 32px 36px; border-radius: var(--radius-panel);
-  background: var(--bg-panel);
+  /* Posé directement sur le fond, sans panneau : rien ne « flotte ». */
+  width: 100%; height: 100%; padding: 8px 0;
   display: flex; flex-direction: column;
 }
 .home-menu { height: 100%; display: flex; flex-direction: column; gap: 24px; }
@@ -158,7 +151,7 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .is-portrait .home-cards { align-self: center; padding: 12px 0 0 22px; }
 .home-brand p { color: var(--muted); margin-top: 6px; font-size: 1.05rem; }
 /* Les deux grandes tuiles prennent la hauteur libre : l'écran d'accueil reste plein, sans vide en bas. */
-.home-menu > .tile-grid { flex: 1; max-height: 300px; }
+.home-menu > .tile-grid { flex: 1; max-height: 380px; }
 .home-menu .big-tile { min-height: 170px; padding: 24px; }
 .home-menu .tile-title { margin-top: auto; font-size: 1.4rem; letter-spacing: -0.01em; }
 .home-menu .tile-description { font-size: 1rem; }
@@ -202,7 +195,7 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .recap-detail { font-size: 0.85rem; color: var(--muted); margin-top: 2px; }
 
 /* Portrait : tuiles en colonne, plus compactes. */
-.is-portrait .home-card { padding: 22px 20px; }
+.is-portrait .home-card { padding: 4px 0; }
 .is-portrait .tile-grid, .is-portrait .tile-grid.two { grid-template-columns: 1fr; gap: 10px; }
 .is-portrait .big-tile { padding: 12px 14px; gap: 4px; }
 .is-portrait .home-menu .big-tile { min-height: 0; }
@@ -247,6 +240,9 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .game-stage { position: relative; width: 100%; height: 100%; }
 .stage-bar { position: absolute; top: 0; left: 0; right: 0; height: 56px; display: flex; align-items: center; gap: 16px; }
 .stage-info { flex: none; display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 0.9rem; }
+.stage-code { white-space: pre; }
+.stage-code strong { color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.08em; }
+.stage-actions { flex: none; display: flex; gap: 8px; }
 .hint { flex: 1; font-size: 1.05rem; font-weight: 500; background: var(--bg-panel); padding: 10px 16px; border-radius: 999px; }
 .waiting-banner {
   position: absolute; z-index: 6; top: 62px; left: 50%; transform: translateX(-50%); width: 920px;
@@ -340,7 +336,8 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 /* Portrait : table à plat, adversaires en mosaïque, ma grille en bas. */
 .is-portrait .stage-bar { height: 96px; flex-wrap: wrap; align-content: center; gap: 8px; }
 .is-portrait .stage-info { order: 1; }
-.is-portrait .stage-bar .ghost-button { order: 2; margin-left: auto; }
+.is-portrait .stage-actions { order: 2; margin-left: auto; }
+.is-portrait .stage-code, .is-portrait .stage-action-label { display: none; }
 .is-portrait .hint { order: 3; flex-basis: 100%; font-size: 0.95rem; padding: 8px 10px; }
 /* Portrait : le bandeau d'attente prend la place de l'indication (« C'est au tour de… », redondante), sur une
    seule ligne, pour ne pas réduire la table. */

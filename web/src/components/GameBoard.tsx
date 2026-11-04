@@ -17,6 +17,8 @@ import { Scoreboard } from "./Scoreboard";
 
 interface Props {
   view: GameView;
+  /** Code de la partie, rappelé dans la barre du haut. */
+  code: string;
   busy: boolean;
   presence: PresenceEntry[];
   waiting: Waiting | null;
@@ -137,7 +139,7 @@ function WaitingBanner({
   );
 }
 
-export function GameBoard({ view, busy, presence, waiting, onAction, onSkip, onLeave }: Props) {
+export function GameBoard({ view, code, busy, presence, waiting, onAction, onSkip, onLeave }: Props) {
   const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const [mode, setMode] = useState<HeldMode>("swap");
   const [scoresOpen, setScoresOpen] = useState(false);
@@ -363,6 +365,9 @@ export function GameBoard({ view, busy, presence, waiting, onAction, onSkip, onL
           <div className={`game-stage ${crowdClass(view.players.length)}${waiting !== null ? " has-waiting" : ""}`}>
             <header className="stage-bar">
               <p className="stage-info">
+                <span className="stage-code">
+                  Partie <strong>{code}</strong> ·{" "}
+                </span>
                 <Users aria-hidden="true" /> {view.players.length} joueurs · Manche {view.round} · fin à{" "}
                 {view.rules.end_score} pts
               </p>
@@ -371,9 +376,16 @@ export function GameBoard({ view, busy, presence, waiting, onAction, onSkip, onL
                   ? "Vous avez été éliminé·e : vous pouvez regarder la suite de la partie."
                   : hint(view, mode)}
               </p>
-              <button type="button" className="ghost-button" onClick={() => setScoresOpen(true)}>
-                <ListOrdered aria-hidden="true" /> Scores
-              </button>
+              <div className="stage-actions">
+                <button type="button" className="ghost-button" onClick={() => setScoresOpen(true)}>
+                  <ListOrdered aria-hidden="true" /> Scores
+                </button>
+                {/* En portrait, l'icône seule (le libellé reste lu par les lecteurs d'écran). */}
+                <button type="button" className="ghost-button" onClick={onLeave} aria-label="Quitter la partie">
+                  <LogOut aria-hidden="true" />
+                  <span className="stage-action-label">Quitter</span>
+                </button>
+              </div>
             </header>
             {waiting !== null && <WaitingBanner view={view} waiting={waiting} busy={busy} onSkip={onSkip} />}
 

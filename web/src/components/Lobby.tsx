@@ -1,6 +1,6 @@
 // Salon : code à partager, joueurs (jusqu'à 10), règles actives. L'hôte modifie les règles avec le même
 // parcours pas à pas qu'à la création (dans une fenêtre), puis lance la partie. Tout tient sur un écran.
-import { BookOpen, Copy, Crown, Pencil, Play, Users, WifiOff } from "lucide-react";
+import { BookOpen, Copy, Crown, LogOut, Pencil, Play, Users, WifiOff } from "lucide-react";
 import { useState } from "react";
 import type { GameView, PresenceEntry, Rules } from "../api/types";
 import { MAX_PLAYERS } from "../config";
@@ -15,6 +15,7 @@ interface Props {
   presence: PresenceEntry[];
   onRulesChange: (rules: Rules) => void;
   onStart: () => void;
+  onLeave: () => void;
 }
 
 /** Parcours de modification des règles (hôte), dans une fenêtre. */
@@ -67,7 +68,7 @@ function RulesWizardModal({
   );
 }
 
-export function Lobby({ view, code, busy, presence, onRulesChange, onStart }: Props) {
+export function Lobby({ view, code, busy, presence, onRulesChange, onStart, onLeave }: Props) {
   const [editing, setEditing] = useState(false);
   const [explaining, setExplaining] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -137,6 +138,9 @@ export function Lobby({ view, code, busy, presence, onRulesChange, onStart }: Pr
                 ) : (
                   <p className="note">En attente du lancement par l'hôte.</p>
                 )}
+                <button type="button" className="ghost-button" onClick={onLeave}>
+                  <LogOut aria-hidden="true" /> Quitter la partie
+                </button>
               </div>
             </section>
 
