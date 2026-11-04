@@ -1,0 +1,19 @@
+# Blueprint Render : un service web gratuit, construit depuis le Dockerfile, à Francfort.
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: spacejo
+    runtime: docker
+    plan: free
+    # Francfort : la région Render la plus proche de la base Supabase « Europe » (Irlande).
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeployTrigger: commit
+    envVars:
+      # Valeurs demandées une fois, à la création du Blueprint (jamais écrites ici).
+      - key: DATABASE_URL
+        sync: false
+      - key: VITE_SITE_URL
+        sync: false

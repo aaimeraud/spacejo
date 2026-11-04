@@ -1,0 +1,12 @@
+# Hors de l'image : artefacts locaux, dépendances, historique et secrets.
+target
+web/node_modules
+web/dist
+.git
+.github
+.env
+.env.*
+!.env.example
+.claude
+.taste-skill
+docs

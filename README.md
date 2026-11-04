@@ -8,7 +8,8 @@ Jeu de cartes en ligne, au tour par tour, de 2 à 10 joueurs. Il reprend les rè
 > d'origine. Les visuels sont originaux : aucune carte officielle n'est reproduite.
 
 - Logique du jeu en Rust (`crates/spacejo-core`), sans réseau ni base de données.
-- API en fonctions Rust sur Vercel (`api/`, `src/`), état dans PostgreSQL.
+- Un serveur Rust (`src/`, axum) qui sert l'API et l'interface, état dans PostgreSQL ; déployé sur Render
+  (Docker), base chez Supabase.
 - Interface React + TypeScript + Vite (`web/`), mise à jour par polling toutes les 2 secondes.
 
 Documentation : [docs/README.md](docs/README.md) (architecture, contrat d'API, règles, notions Rust,
@@ -16,7 +17,7 @@ décisions). Plan et hypothèses : [PLAN.md](PLAN.md), [ASSUMPTIONS.md](ASSUMPTI
 
 ## Prérequis
 
-- Rust stable (1.88 ou plus récent) : https://rustup.rs
+- Rust : https://rustup.rs (la version, 1.98.0, est fixée par `rust-toolchain.toml` et installée toute seule)
 - Node.js 24 ou plus récent, avec npm
 - PostgreSQL : Docker (`docker compose`) ou une installation locale. Facultatif pour jouer en local
   (le serveur sait garder les parties en mémoire), nécessaire pour les tests PostgreSQL.
@@ -42,10 +43,10 @@ git config core.hooksPath .githooks
 
    Sans `DATABASE_URL`, le serveur local garde les parties en mémoire (perdues à l'arrêt).
 
-2. API (port 3000 ; applique les migrations au démarrage si `DATABASE_URL` est définie) :
+2. Serveur (port 3000 ; applique les migrations au démarrage si `DATABASE_URL` est définie) :
 
    ```bash
-   cargo run --bin dev_server
+   cargo run
    ```
 
 3. Interface, dans un autre terminal (http://localhost:5173, qui renvoie `/api` vers le port 3000) :
@@ -112,36 +113,60 @@ tests/scripts/release.test.sh
    son tour, un bandeau compte 45 s, puis son tour est passé ; au deuxième tour manqué, il est éliminé. Rouvrir le
    site : l'accueil propose « Reprendre une partie ».
 
-## Déployer sur Vercel
+## Déployer (Supabase + Render, offres gratuites)
 
-Le déploiement n'a pas encore été essayé (le runtime Rust de Vercel est en bêta : voir
-[docs/decisions/2026-11-03-structure-vercel.md](docs/decisions/2026-11-03-structure-vercel.md)).
+Un seul service Render, construit depuis le [Dockerfile](Dockerfile), sert l'API et l'interface ; la base est
+chez Supabase. Choix et limites : [docs/decisions/2026-11-04-serveur-unique-render.md](docs/decisions/2026-11-04-serveur-unique-render.md).
 
-1. **Supabase** : créer un projet dans la région **Europe**, qui place la base en Irlande (AWS `eu-west-1`,
-   seul choix européen de l'offre gratuite), à côté des fonctions (`dub1`, Dublin, dans `vercel.json`). Si la
-   base est ailleurs, changer `regions` dans `vercel.json` pour la région Vercel la plus proche. Garder le mot
-   de passe de la base. Dans « Connect », relever les deux adresses
-   du pooler partagé (IPv4, l'adresse directe n'est qu'en IPv6 sur l'offre gratuite) :
-   - mode **session**, port `5432` : pour les migrations, depuis sa machine ;
-   - mode **transaction**, port `6543` : pour Vercel (sqlx est réglé pour ce mode, voir
-     [docs/decisions/2026-11-04-deploiement-supabase.md](docs/decisions/2026-11-04-deploiement-supabase.md)).
-   Ajouter `?sslmode=require` à la fin de chacune.
-2. Appliquer les migrations depuis sa machine, avec l'adresse en mode session :
+### 1. La base (Supabase)
 
-   ```bash
-   DATABASE_URL="postgres://postgres.<ref>:<mot de passe>@aws-0-eu-west-1.pooler.supabase.com:5432/postgres?sslmode=require" cargo run --bin migrate
+1. Créer un projet sur https://supabase.com, région **Europe** (Irlande), et noter le mot de passe de la base.
+2. Bouton **Connect** → onglet de connexion par URL : copier l'adresse du **Session pooler** (hôte
+   `aws-0-eu-west-1.pooler.supabase.com`, port **5432**). Elle ressemble à :
+
+   ```
+   postgresql://postgres.<ref>:[YOUR-PASSWORD]@aws-0-eu-west-1.pooler.supabase.com:5432/postgres
    ```
 
-3. **Vercel** : importer le dépôt GitHub, puis définir dans Settings → Environment Variables :
-   - `DATABASE_URL` : l'adresse en mode transaction (port `6543`, avec `?sslmode=require`) ;
-   - `VITE_SITE_URL` : l'adresse publique du site, sans « / » final (aperçus des liens partagés).
-4. Déployer. Vercel compile une fonction par fichier de `api/` (déclarés en `[[bin]]` dans `Cargo.toml`)
-   et construit l'interface avec la commande de `vercel.json` (`web/dist`).
-5. À chaque nouvelle migration, relancer l'étape 2 avant de déployer.
+3. Remplacer `[YOUR-PASSWORD]` par le mot de passe (caractères spéciaux encodés : `@` → `%40`, `#` → `%23`,
+   `/` → `%2F`…) et ajouter `?sslmode=require` à la fin. C'est la valeur de `DATABASE_URL`.
 
-Coût : sur l'offre gratuite Hobby de Vercel (usage non commercial seulement), 1 000 000 d'appels de fonctions
-par mois sont inclus ; un joueur en partie en fait environ 1 800 par heure (polling toutes les 2 s), soit
-environ 550 heures-joueur par mois. Au-delà, Vercel bloque jusqu'à 30 jours : surveiller l'onglet « Usage ».
+Rien d'autre à faire côté base : le serveur crée les tables à son premier démarrage (migrations).
+
+### 2. Le serveur (Render)
+
+1. Sur https://render.com, se connecter avec GitHub et autoriser l'accès au dépôt `spacejo`.
+2. **New → Blueprint**, choisir le dépôt : Render lit [render.yaml](render.yaml) (service web gratuit, Docker,
+   Francfort, contrôle de santé `/api/health`, déploiement à chaque commit sur `main`).
+3. Render demande deux valeurs :
+   - `DATABASE_URL` : l'adresse de l'étape 1 ;
+   - `VITE_SITE_URL` : l'adresse publique du service, par exemple `https://spacejo.onrender.com` (sans « / »
+     final). Si on ne la connaît pas encore, laisser vide, puis la remplir dans Environment une fois le service
+     créé et relancer un déploiement (elle ne sert qu'aux aperçus des liens partagés).
+4. Valider : le premier build compile tout le Rust (comptez plusieurs minutes). Dans les journaux du service,
+   le démarrage affiche `Stockage : PostgreSQL (migrations appliquées)` puis `SpaceJo écoute sur le port 10000`.
+5. Ouvrir l'adresse du service : l'accueil s'affiche, créer une partie pour vérifier la base.
+
+### 3. Ensuite
+
+- Chaque commit poussé sur `main` redéploie le service ; une nouvelle migration s'applique au démarrage.
+- Offre gratuite de Render : le service s'endort après 15 minutes sans visite et met environ une minute à se
+  réveiller (l'accueil le réveille dès son ouverture) ; 750 heures par mois, assez pour un service allumé en
+  permanence.
+- Supabase (offre gratuite) peut mettre en pause un projet resté longtemps inutilisé : le réactiver depuis son
+  tableau de bord.
+
+Essayer l'image en local avant de pousser (avec la base de `docker compose`) :
+
+```bash
+docker build -t spacejo .
+```
+
+```bash
+docker run --rm -p 8080:10000 -e DATABASE_URL=postgres://spacejo:spacejo@host.docker.internal:5433/spacejo spacejo
+```
+
+puis ouvrir http://localhost:8080.
 
 ## Releases
 
@@ -174,7 +199,8 @@ release GitHub avec les notes de cette version.
 
 Voir aussi « Limites connues » dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-- Jamais déployé sur Vercel : la structure suit la documentation, sans vérification réelle.
+- Pas encore déployé sur Render : l'image Docker a été construite et testée en local (partie jouée, base
+  PostgreSQL), mais pas sur la plateforme.
 - Pendant la mise en place, les retournements simultanés provoquent souvent un conflit de version (409) :
   le joueur doit refaire son geste.
 - Pas d'expiration des anciennes parties, ni de limitation de débit sur la création et la jonction.
