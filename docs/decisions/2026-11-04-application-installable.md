@@ -26,6 +26,8 @@ ses visuels : une icône iOS (PNG 1024 px), l'icône et l'image d'aperçu en SVG
   et `.app` garde des marges `env(safe-area-inset-*)`. En portrait, l'application installée sur iPhone ajoute 16 px
   sous la zone sûre (au moins 50 px au total sous le haut de l'écran) : iOS floute une bande sous la barre d'état,
   plus haute que la zone sûre, et certaines versions d'iOS 26 annoncent une zone sûre nulle.
+  Cette marge du haut vit dans la variable CSS `--safe-top`, reprise par les fenêtres (`.modal-backdrop`), qui
+  couvrent tout l'écran ; le chat, posé en bas, respecte la zone sûre du bas.
 - **Couleur de la barre** (`theme-color`) : celle du fond du thème affiché, mise à jour par `theme.ts`.
 - **Aperçus Open Graph et X/Twitter** dans `index.html`. Les robots exigent une adresse absolue : elle est
   préfixée au moment de la construction par la variable `VITE_SITE_URL` (vide par défaut, adresses relatives).
