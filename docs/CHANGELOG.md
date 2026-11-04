@@ -2,6 +2,14 @@
 
 Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.
 
+## 1.4.0 - 2026-11-04
+
+### Nouveautés
+
+- **web** : Show the latest release and commit from GitHub on the home screen (444beb3)
+- **core** : Add a reduced deck option proportional to the number of players (988ae32)
+- **web** : Offer the reduced deck and animate the discard reshuffle (715ac77)
+
 ## 1.3.0 - 2026-11-04
 
 ### Nouveautés
