@@ -34,6 +34,11 @@ Deux contraintes en ressortent :
   ce fichier et installe la bonne version, en local, dans la CI et sur Vercel si son build passe par rustup. À
   défaut, il faudrait revenir à sqlx 0.8.
 
+- **Profil « release » allégé** (`Cargo.toml`) : sans `lto = "fat"` ni `codegen-units = 1`, la compilation
+  complète passe de 1 min 32 à 53 s sur un ordinateur portable, et bien davantage sur la machine de build de
+  Vercel (2 cœurs), où le premier build dépassait 4 minutes. Les fonctions attendent surtout la base de données :
+  le gain de vitesse de ces réglages ne se verrait pas.
+
 ## Alternatives écartées
 
 - **Pooler en mode session** (port 5432) en production : marche sans rien changer, mais garde une connexion

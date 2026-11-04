@@ -75,8 +75,11 @@ path = "src/bin/dev_server.rs"
 name = "migrate"
 path = "src/bin/migrate.rs"
 
-# Réglages de compilation recommandés par la documentation Vercel.
+# Compilation pour la production. La documentation Vercel suggère `lto = "fat"` et `codegen-units = 1`
+# (binaires un peu plus petits et rapides), mais l'édition des liens se fait alors sur un seul cœur, pour
+# chacune des fonctions : le build sur Vercel (2 cœurs, sans cache) dépassait 4 minutes. Nos fonctions passent
+# leur temps à attendre la base de données : la différence de vitesse est imperceptible.
 [profile.release]
-codegen-units = 1
-lto = "fat"
 opt-level = 3
+lto = false
+codegen-units = 16
