@@ -2,11 +2,11 @@
 // Le serveur est autoritaire : on n'envoie que des intentions et on affiche la vue renvoyée.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, SpaceJoApi } from "./api/client";
+import { pollInterval } from "./polling";
 import type { Action, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
 import { GameBoard } from "./components/GameBoard";
 import { Home } from "./components/Home";
 import { Lobby } from "./components/Lobby";
-import { POLL_INTERVAL_MS } from "./config";
 import {
   clearSession,
   forgetSession,
@@ -32,6 +32,9 @@ export function App() {
   // La version connue est lue par le polling et par les actions : une référence évite de
   // relancer le polling à chaque changement.
   const versionRef = useRef<number | null>(null);
+  // Phase connue, pour régler le rythme du polling sans le relancer à chaque changement de vue.
+  const phaseRef = useRef<GameView["phase"] | null>(null);
+  phaseRef.current = view?.phase ?? null;
 
   /** Revient à l'accueil. `forget` : la partie n'est plus proposée à la reprise. */
   const leave = useCallback((forget: boolean) => {
@@ -72,10 +75,16 @@ export function App() {
     [applyResponse, applyPresence],
   );
 
-  // Polling toutes les POLL_INTERVAL_MS tant qu'une session est ouverte.
+  // Polling tant qu'une session est ouverte, à un rythme qui dépend de la phase et de la visibilité de
+  // l'onglet (polling.ts). Chaque lecture programme la suivante ; revenir sur l'onglet relit aussitôt.
   useEffect(() => {
     if (session === null) return;
     let stopped = false;
+    let timer: number | undefined;
+    const schedule = () => {
+      window.clearTimeout(timer);
+      if (!stopped) timer = window.setTimeout(() => void tick(), pollInterval(document.hidden, phaseRef.current));
+    };
     const tick = async () => {
       try {
         await refresh(session);
@@ -89,13 +98,22 @@ export function App() {
         } else if (caught instanceof ApiError) {
           setError(`Connexion : ${caught.message}`);
         }
+      } finally {
+        schedule();
       }
     };
+    const onVisibility = () => {
+      if (!document.hidden) {
+        window.clearTimeout(timer);
+        void tick();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     void tick();
-    const timer = window.setInterval(() => void tick(), POLL_INTERVAL_MS);
     return () => {
       stopped = true;
-      window.clearInterval(timer);
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [session, refresh, leave]);
 

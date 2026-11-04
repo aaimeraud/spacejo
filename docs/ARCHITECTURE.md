@@ -166,7 +166,8 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `public/` | fichiers servis tels quels : icônes (`favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icons/`), image d'aperçu `og-image.png`, manifeste `manifest.webmanifest` et service worker `sw.js` de l'application installable (voir la décision « application installable ») |
 | `src/theme.ts` | thème clair ou sombre : celui du système par défaut, ou le choix gardé dans `localStorage` ; appliqué par `data-theme` sur `<html>` |
 | `src/session.ts` | session de l'onglet (code, jeton, identifiant) dans `sessionStorage`, et parties mémorisées dans `localStorage` pour la reprise |
-| `src/config.ts` | constantes : `POLL_INTERVAL_MS` (2000), bornes, longueurs |
+| `src/config.ts` | constantes : `POLL_INTERVAL_MS` (2000), `POLL_LOBBY_INTERVAL_MS` (3000), `POLL_IDLE_INTERVAL_MS` (10000), bornes, longueurs |
+| `src/polling.ts` | rythme du polling selon la phase et la visibilité de l'onglet |
 
 **Table de jeu (CSS 3D)** : la partie se joue sur une table ovale inclinée en perspective (`rotateX`). Les
 adversaires sont assis autour, à la place calculée par `seats.ts` (un angle sur une ellipse, pour n'importe
@@ -210,7 +211,9 @@ reçoit toujours les 7 réglages.
 **Icônes** : `lucide-react` (licence ISC). Elles sont décoratives (`aria-hidden`) : un texte, visible ou réservé
 aux lecteurs d'écran, porte toujours l'information.
 
-**Polling** : toutes les 2 secondes, `GET /api/state?code=…&known_version=…`. Si la version n'a pas changé,
+**Polling** : `GET /api/state?code=…&known_version=…`, toutes les 2 secondes pendant une partie, 3 au salon,
+10 quand l'onglet est caché ou la partie finie (`polling.ts`), et aussitôt quand on revient sur l'onglet. Si la
+version n'a pas changé,
 la réponse est minimale (`changed: false`) et rien n'est redessiné.
 
 **Conflits** : chaque écriture envoie la version connue. En cas de 409 (un autre joueur a joué entre-temps,
@@ -287,12 +290,14 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
 
 ## Limites connues et évolutions prévues
 
-- **Polling** : l'interface interroge le serveur toutes les 2 secondes. Évolution prévue : SSE ou service
-  temps réel.
+- **Polling** : l'interface interroge le serveur toutes les 2 secondes pendant une partie (moins souvent
+  sinon) ; chaque requête est un appel de fonction facturé. Évolution prévue : SSE ou service temps réel
+  (Supabase Realtime, par exemple).
 - **Expiration des parties** : les anciennes parties ne sont jamais supprimées (`updated_at` permettra un
   nettoyage périodique).
 - **Connexions PostgreSQL** : chaque instance de fonction ouvre ses propres connexions (5 au plus) ; en
-  production, utiliser l'URL « poolée » du fournisseur.
+  production, passer par le pooler du fournisseur en mode transaction (sqlx est réglé pour : voir la
+  décision « déploiement Supabase »).
 - **Déploiement non vérifié** : le runtime Rust de Vercel est en bêta ; l'espace de travail Cargo (core à
   part) n'a pas été testé par un vrai déploiement.
 - **Limitation de débit** : aucune limite sur la création et la jonction de parties.
