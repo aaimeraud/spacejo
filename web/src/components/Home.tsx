@@ -1,14 +1,16 @@
-// Accueil, en parcours pas à pas : créer une partie (nom, type de partie, réglages si « Personnalisée »,
-// récapitulatif), rejoindre une partie (code, nom), ou reprendre une partie mémorisée. On peut toujours
-// revenir à l'étape précédente.
-import { History, LogIn, Plus } from "lucide-react";
+// Accueil, en parcours pas à pas : créer une partie (nom, privée ou publique, type de partie, réglages si
+// « Personnalisée », récapitulatif), rejoindre une partie (code, nom), choisir une partie publique, ou reprendre
+// une partie mémorisée. On peut toujours revenir à l'étape précédente. Un lien d'invitation (`initialCode`)
+// ouvre directement l'étape du nom, code rempli.
+import { Globe, History, Lock, LogIn, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
-import type { Rules } from "../api/types";
+import type { PublicGame, Rules } from "../api/types";
 import { GAME_CODE_LENGTH, MAX_NAME_CHARS } from "../config";
 import { OFFICIAL_RULES } from "../rulesInfo";
 import type { KnownSession } from "../session";
 import { ValueCard } from "./Card";
 import { FitStage } from "./FitStage";
+import { PublicGames } from "./PublicGames";
 import { ThemeToggle } from "./ThemeToggle";
 import { RuleStepBody, WizardFrame, ruleStepTitle, useRulesFlow } from "./wizard/RuleSteps";
 
@@ -16,24 +18,30 @@ interface Props {
   busy: boolean;
   /** Parties rejointes sur cet appareil, qu'on peut reprendre. */
   resumable: KnownSession[];
-  onCreate: (name: string, rules: Rules) => void;
+  /** Code venu d'un lien d'invitation : on ouvre la jonction à l'étape du nom. */
+  initialCode: string | null;
+  loadPublicGames: () => Promise<PublicGame[]>;
+  onCreate: (name: string, rules: Rules, isPublic: boolean) => void;
   onJoin: (code: string, name: string) => void;
   onResume: (session: KnownSession) => void;
 }
 
-type Mode = "menu" | "create" | "join";
+type Mode = "menu" | "create" | "join" | "public";
+/** Étapes de la création avant les réglages : le nom, puis la visibilité. */
+type CreateStep = "name" | "visibility" | "rules";
 
 /** Cartes montrées sur l'accueil : une de chaque famille de couleur. */
 const HOME_CARDS = [-2, 0, 3, 7, 12];
 
-export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
-  const [mode, setMode] = useState<Mode>("menu");
+export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, onJoin, onResume }: Props) {
+  const [mode, setMode] = useState<Mode>(initialCode === null ? "menu" : "join");
   const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  // Création : étape du nom, puis étapes de réglage (`flow`).
-  const [onNameStep, setOnNameStep] = useState(true);
+  const [code, setCode] = useState(initialCode ?? "");
+  // Création : nom, visibilité, puis étapes de réglage (`flow`). Privée par défaut.
+  const [createStep, setCreateStep] = useState<CreateStep>("name");
+  const [isPublic, setIsPublic] = useState(false);
   // Jonction : 0 = code, 1 = nom.
-  const [joinStep, setJoinStep] = useState(0);
+  const [joinStep, setJoinStep] = useState(initialCode === null ? 0 : 1);
   const flow = useRulesFlow(OFFICIAL_RULES);
 
   const nameValid = name.trim().length > 0;
@@ -41,7 +49,7 @@ export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
 
   const reset = (next: Mode) => {
     setMode(next);
-    setOnNameStep(true);
+    setCreateStep("name");
     setJoinStep(0);
     flow.setPosition(0);
   };
@@ -80,16 +88,21 @@ export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
               ))}
             </div>
           </div>
-          <div className="tile-grid two">
+          <div className="tile-grid three">
             <button type="button" className="big-tile" onClick={() => reset("create")}>
               <Plus className="tile-icon" aria-hidden="true" />
               <span className="tile-title">Créer une partie</span>
-              <span className="tile-description">Choisissez les règles, puis partagez le code.</span>
+              <span className="tile-description">Choisissez les règles, puis partagez le lien.</span>
             </button>
             <button type="button" className="big-tile" onClick={() => reset("join")}>
               <LogIn className="tile-icon" aria-hidden="true" />
-              <span className="tile-title">Rejoindre une partie</span>
+              <span className="tile-title">Rejoindre avec un code</span>
               <span className="tile-description">Avec le code donné par l'hôte.</span>
+            </button>
+            <button type="button" className="big-tile" onClick={() => reset("public")}>
+              <Globe className="tile-icon" aria-hidden="true" />
+              <span className="tile-title">Parties publiques</span>
+              <span className="tile-description">Rejoindre une partie ouverte à tous.</span>
             </button>
           </div>
           {resumable.length > 0 && (
@@ -115,6 +128,21 @@ export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
             <ThemeToggle />
           </div>
         </div>
+      );
+    }
+
+    if (mode === "public") {
+      return (
+        <WizardFrame index={0} total={2} title="Parties publiques" onBack={() => reset("menu")}>
+          <PublicGames
+            load={loadPublicGames}
+            onPick={(picked) => {
+              setCode(picked);
+              setMode("join");
+              setJoinStep(1);
+            }}
+          />
+        </WizardFrame>
       );
     }
 
@@ -149,6 +177,7 @@ export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
           index={1}
           total={total}
           title="Comment vous appelez-vous ?"
+          subtitle={`Vous rejoignez la partie ${code.trim().toUpperCase()}.`}
           onBack={() => setJoinStep(0)}
           onNext={() => onJoin(code, name)}
           nextLabel="Rejoindre"
@@ -161,8 +190,8 @@ export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
     }
 
     // Création
-    const total = 1 + flow.steps.length;
-    if (onNameStep) {
+    const total = 2 + flow.steps.length;
+    if (createStep === "name") {
       return (
         <WizardFrame
           index={0}
@@ -170,21 +199,59 @@ export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
           title="Comment vous appelez-vous ?"
           subtitle="Vous serez l'hôte : vous choisirez les règles et lancerez la partie."
           onBack={() => reset("menu")}
-          onNext={() => setOnNameStep(false)}
+          onNext={() => setCreateStep("visibility")}
           nextDisabled={!nameValid}
         >
           {nameField}
         </WizardFrame>
       );
     }
+    if (createStep === "visibility") {
+      return (
+        <WizardFrame
+          index={1}
+          total={total}
+          title="Qui peut rejoindre ?"
+          onBack={() => setCreateStep("name")}
+          onNext={() => setCreateStep("rules")}
+        >
+          <div className="tile-grid two" role="group" aria-label="Visibilité de la partie">
+            <button
+              type="button"
+              className={`big-tile${isPublic ? "" : " is-selected"}`}
+              aria-pressed={!isPublic}
+              onClick={() => setIsPublic(false)}
+            >
+              <Lock className="tile-icon" aria-hidden="true" />
+              <span className="tile-title">Partie privée</span>
+              <span className="tile-description">
+                Seules les personnes qui ont le code ou le lien d'invitation peuvent rejoindre.
+              </span>
+            </button>
+            <button
+              type="button"
+              className={`big-tile${isPublic ? " is-selected" : ""}`}
+              aria-pressed={isPublic}
+              onClick={() => setIsPublic(true)}
+            >
+              <Globe className="tile-icon" aria-hidden="true" />
+              <span className="tile-title">Partie publique</span>
+              <span className="tile-description">
+                Visible par tous dans « Parties publiques » jusqu'au lancement.
+              </span>
+            </button>
+          </div>
+        </WizardFrame>
+      );
+    }
     const isRecap = flow.stepKey === "recap";
     const goBack = () => {
-      if (flow.position === 0) setOnNameStep(true);
+      if (flow.position === 0) setCreateStep("visibility");
       else if (isRecap && !flow.custom) flow.setPosition(0);
       else flow.setPosition(flow.position - 1);
     };
     const goNext = () => {
-      if (isRecap) onCreate(name, flow.rules);
+      if (isRecap) onCreate(name, flow.rules, isPublic);
       else if (flow.stepKey === "preset") {
         if (flow.custom) flow.setPosition(1);
         else flow.pickPreset(flow.rules);
@@ -192,7 +259,7 @@ export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
     };
     return (
       <WizardFrame
-        index={1 + flow.position}
+        index={2 + flow.position}
         total={total}
         title={ruleStepTitle(flow.stepKey)}
         onBack={goBack}

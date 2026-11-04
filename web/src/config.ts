@@ -26,6 +26,15 @@ export const MAX_NAME_CHARS = 20;
 /** Longueur d'un code de partie (même valeur que `GAME_CODE_LENGTH` de l'API). */
 export const GAME_CODE_LENGTH = 6;
 
+/** Alphabet des codes de partie, sans caractères ambigus (ni 0/O ni 1/I) : même valeur que l'API. */
+export const GAME_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+/** Paramètre d'adresse du lien d'invitation (`/?code=K7MPQX`). */
+export const INVITE_CODE_PARAM = "code";
+
+/** Rafraîchissement de la liste des parties publiques sur l'accueil (en millisecondes). */
+export const PUBLIC_GAMES_REFRESH_MS = 5000;
+
 /** Clé de `sessionStorage` où l'on garde la session (code, jeton, identifiant). `sessionStorage`
  * est propre à chaque onglet : on peut jouer à deux dans deux onglets du même navigateur. */
 export const SESSION_STORAGE_KEY = "spacejo.session";

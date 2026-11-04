@@ -59,6 +59,8 @@ export interface Waiting {
 export interface PresenceInfo {
   presence: PresenceEntry[];
   waiting: Waiting | null;
+  /** Partie publique (listée sur l'accueil tant qu'elle est au salon) ou privée. */
+  public: boolean;
 }
 
 export type Phase = "Lobby" | "InitialReveal" | "Playing" | "RoundOver" | "GameOver";
@@ -120,4 +122,18 @@ export type StateResponse =
 
 export interface ErrorBody {
   error: { code: string; message: string };
+}
+
+/** Une partie publique au salon, telle que listée par `GET /api/public-games`. */
+export interface PublicGame {
+  code: string;
+  /** Nom de l'hôte. */
+  host: string;
+  players: number;
+  max_players: number;
+}
+
+/** Réponse de `public-games`. */
+export interface PublicGamesResponse {
+  games: PublicGame[];
 }
