@@ -17,5 +17,6 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
   - [vue table en CSS 3D](decisions/2026-11-03-vue-table-css-3d.md) : table inclinée et cartes qui se retournent, sans WebGL ;
   - [écran figé](decisions/2026-11-03-ecran-fige.md) : aucune page ne défile, chaque écran est mis à l'échelle ;
   - [thème « nuit »](decisions/2026-11-04-theme-nuit.md) : fond noir, une couleur d'accent, police Inter, et son pendant clair ;
-  - [application installable](decisions/2026-11-04-application-installable.md) : PWA, icônes, aperçus des liens.
+  - [application installable](decisions/2026-11-04-application-installable.md) : PWA, icônes, aperçus des liens ;
+  - [déploiement Supabase](decisions/2026-11-04-deploiement-supabase.md) : pooler en mode transaction, polling adaptatif.
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).

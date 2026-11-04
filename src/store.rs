@@ -17,7 +17,7 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use sqlx::PgPool;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
 /// Nombre maximal de connexions d'un processus (une fonction Vercel en traite peu à la fois).
 pub const MAX_DB_CONNECTIONS: u32 = 5;
@@ -254,14 +254,22 @@ pub struct PgStore {
 }
 
 impl PgStore {
-    /// Prépare le pool sans se connecter tout de suite (`connect_lazy`) : la première requête
+    /// Prépare le pool sans se connecter tout de suite (`connect_lazy_with`) : la première requête
     /// ouvrira la connexion. L'URL vient de la variable d'environnement `DATABASE_URL`.
+    ///
+    /// Le cache de requêtes préparées est désactivé (`statement_cache_capacity(0)`) : en production, on
+    /// passe par un « pooler » en mode transaction (Supabase, port 6543), qui partage les connexions entre
+    /// clients et ne garde pas les requêtes préparées nommées d'une transaction à l'autre. Voir
+    /// docs/decisions/2026-11-04-deploiement-supabase.md.
     pub fn connect_lazy(database_url: &str) -> Result<Self, StoreError> {
+        let options = database_url
+            .parse::<PgConnectOptions>()
+            .map_err(StoreError::Database)?
+            .statement_cache_capacity(0);
         let pool = PgPoolOptions::new()
             .max_connections(MAX_DB_CONNECTIONS)
             .acquire_timeout(DB_ACQUIRE_TIMEOUT)
-            .connect_lazy(database_url)
-            .map_err(StoreError::Database)?;
+            .connect_lazy_with(options);
         Ok(Self { pool })
     }
 

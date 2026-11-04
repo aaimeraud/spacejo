@@ -1,0 +1,42 @@
+# Déploiement : Supabase pour PostgreSQL, Vercel pour le reste
+
+## Contexte
+
+Le propriétaire du dépôt déploie sur Vercel (offre gratuite Hobby au départ) avec une base PostgreSQL chez
+Supabase. Documentation lue le 2026-11-04 : https://supabase.com/docs/guides/database/connecting-to-postgres,
+https://vercel.com/docs/functions/runtimes/rust, https://vercel.com/docs/plans/hobby.
+
+Deux contraintes en ressortent :
+
+- **Connexions** : sur l'offre gratuite, la connexion directe à Supabase n'existe qu'en IPv6, que Vercel ne
+  sait pas joindre. Il faut passer par le « pooler » partagé (IPv4), qui met les connexions en commun. Supabase
+  recommande son mode transaction (port 6543) pour les fonctions serverless, mais « The shared pooler doesn't
+  support prepared statements in transaction mode ».
+- **Coût du polling** : l'offre Hobby inclut 1 000 000 d'appels de fonctions par mois ; un joueur qui interroge
+  le serveur toutes les 2 s en fait 1 800 par heure de jeu. Au-delà du quota, Vercel bloque la fonctionnalité
+  jusqu'à 30 jours.
+
+## Décision
+
+- **sqlx sans cache de requêtes préparées** (`statement_cache_capacity(0)` dans `PgStore::connect_lazy`) :
+  sqlx n'utilise alors que des requêtes préparées sans nom, valables le temps d'une requête, ce que le mode
+  transaction accepte. `DATABASE_URL` en production = adresse du pooler en mode transaction (port 6543).
+  Les migrations, elles, se lancent depuis une machine avec l'adresse en mode session (port 5432).
+- **Polling adaptatif** (`web/src/polling.ts`) : 2 s pendant une partie, 3 s au salon, 10 s quand l'onglet est
+  caché ou la partie terminée, et une lecture immédiate quand on revient sur l'onglet. 10 s reste sous le délai
+  d'absence du serveur (15 s) : changer d'onglet ne rend pas absent.
+- **Région** : base Supabase à Paris (AWS `eu-west-3`), comme les fonctions (`cdg1` dans `vercel.json`).
+
+## Alternatives écartées
+
+- **Pooler en mode session** (port 5432) en production : marche sans rien changer, mais garde une connexion
+  réservée par client ; avec beaucoup d'instances de fonctions, on atteint vite la limite du pooler.
+- **Supabase Realtime à la place du polling** : le serveur préviendrait les joueurs à chaque changement, au lieu
+  d'être interrogé ; bien plus économe, mais c'est un chantier à part (voir `IDEAS.md`).
+
+## Conséquences
+
+- Un peu plus de travail par requête côté PostgreSQL (la requête est analysée à chaque fois) : négligeable pour
+  nos requêtes, toutes très courtes.
+- À l'échelle de quelques dizaines de joueurs, l'offre Hobby suffit si les parties restent occasionnelles ;
+  au-delà, ou pour un usage commercial (interdit sur Hobby), il faut l'offre Pro.
