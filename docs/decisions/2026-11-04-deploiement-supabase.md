@@ -22,7 +22,9 @@ Deux contraintes en ressortent :
 
 ## Décision
 
-- **sqlx sans cache de requêtes préparées** (`statement_cache_capacity(0)` dans `PgStore::connect_lazy`) :
+- *Remplacé depuis par le mode session et le cache réactivé (voir
+  [mises à jour instantanées](2026-11-04-mises-a-jour-instantanees.md)) :* **sqlx sans cache de requêtes
+  préparées** (`statement_cache_capacity(0)` dans `PgStore::connect_lazy`) :
   sqlx n'utilise alors que des requêtes préparées sans nom, valables le temps d'une requête, ce que le mode
   transaction accepte. `DATABASE_URL` en production = adresse du pooler en mode transaction (port 6543).
   Les migrations, elles, se lancent depuis une machine avec l'adresse en mode session (port 5432).

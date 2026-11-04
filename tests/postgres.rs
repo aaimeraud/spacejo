@@ -236,3 +236,33 @@ async fn presence_is_recorded_without_touching_the_game() {
     assert!(loaded.idle_seconds >= 0.0);
     db.drop().await;
 }
+
+#[tokio::test]
+async fn touch_presence_records_and_reads_in_one_query() {
+    let Some(db) = TestDb::create().await else {
+        return;
+    };
+    run_migrations(db.store.pool()).await.unwrap();
+    let store = Store::Postgres(db.store.clone());
+    let record = store.insert("K7MPQX", &json!({ "n": 0 })).await.unwrap();
+
+    // Premier passage : seul le joueur lui-même, à 0 seconde.
+    let presence = store.touch_presence(record.id, 2).await.unwrap();
+    assert_eq!(presence.len(), 1);
+    assert_eq!(presence.get(&2), Some(&0.0));
+
+    // Un autre joueur : il voit le premier, et lui-même à 0.
+    let presence = store.touch_presence(record.id, 0).await.unwrap();
+    assert_eq!(presence.len(), 2);
+    assert_eq!(presence.get(&0), Some(&0.0));
+    assert!(
+        presence
+            .get(&2)
+            .is_some_and(|&idle| (0.0..5.0).contains(&idle))
+    );
+
+    // Repasser ne crée pas de doublon, et la lecture séparée donne les mêmes joueurs.
+    store.touch_presence(record.id, 2).await.unwrap();
+    assert_eq!(store.presence(record.id).await.unwrap().len(), 2);
+    db.drop().await;
+}

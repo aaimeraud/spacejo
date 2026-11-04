@@ -31,7 +31,8 @@ https://render.com/docs/docker, https://render.com/docs/web-services.
   Supabase en Irlande), contrôle de santé `/api/health`, déploiement à chaque commit sur `main`.
 - **Base** : pooler Supabase en **mode session** (port 5432). Un serveur toujours démarré garde un petit pool de
   connexions (5), ce que le mode session gère bien ; les migrations au démarrage en ont besoin (elles prennent un
-  verrou de session). Le réglage de sqlx pour le mode transaction est gardé : il ne gêne pas.
+  verrou de session). Le cache de requêtes préparées de sqlx a ensuite été réactivé (voir « mises à jour
+  instantanées »), ce qui exclut le mode transaction.
 - **Réveil** : l'offre gratuite endort le service après 15 minutes sans requête (réveil d'environ une minute).
   L'interface appelle `/api/health` dès l'ouverture, pour que le serveur se réveille pendant qu'on lit l'accueil.
 - Supprimés : `api/*.rs`, `src/vercel.rs`, `vercel_runtime`, `vercel.json`, `.vercelignore`.

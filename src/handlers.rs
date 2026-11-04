@@ -185,8 +185,11 @@ async fn create(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiE
         let code = auth::generate_code()?;
         match store.insert(&code, &state).await {
             Ok(record) => {
-                store.touch(record.id, 0).await.map_err(storage_error)?;
-                let mut body = game_payload(store, &record, &stored, 0).await?;
+                let presence = store
+                    .touch_presence(record.id, 0)
+                    .await
+                    .map_err(storage_error)?;
+                let mut body = game_payload(&record, &stored, 0, &presence);
                 body["code"] = json!(code);
                 body["token"] = json!(token);
                 body["player_id"] = json!(0);
@@ -214,8 +217,8 @@ async fn join(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiErr
             .await
         {
             Ok(version) => {
-                store
-                    .touch(record.id, player)
+                let presence = store
+                    .touch_presence(record.id, player)
                     .await
                     .map_err(storage_error)?;
                 let saved = Record {
@@ -223,7 +226,7 @@ async fn join(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiErr
                     idle_seconds: 0.0,
                     ..record
                 };
-                let mut body = game_payload(store, &saved, &stored, player).await?;
+                let mut body = game_payload(&saved, &stored, player, &presence);
                 body["code"] = json!(code);
                 body["token"] = json!(token);
                 body["player_id"] = json!(player);
@@ -319,13 +322,13 @@ async fn state(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiEr
     let token = require_token(request)?;
     let (record, stored) = load(store, &code).await?;
     let player = identify(&stored, token)?;
-    store
-        .touch(record.id, player)
+    let presence = store
+        .touch_presence(record.id, player)
         .await
         .map_err(storage_error)?;
     // Le polling des joueurs présents fait avancer la partie quand un absent bloque son tour.
-    let (record, stored) = skip_absent_player(store, &code, record, stored).await?;
-    let mut body = game_payload(store, &record, &stored, player).await?;
+    let (record, stored) = skip_absent_player(store, &code, record, stored, &presence).await?;
+    let mut body = game_payload(&record, &stored, player, &presence);
     // Rien n'a changé depuis la dernière lecture du client : réponse minimale (sans la vue), mais
     // avec la présence, qui change sans modifier la partie.
     let changed = known_version != Some(record.version);
@@ -380,8 +383,8 @@ async fn save_as_player(
         Err(StoreError::Conflict) => return Err(ApiError::version_conflict()),
         Err(error) => return Err(storage_error(error)),
     };
-    store
-        .touch(record.id, player)
+    let presence = store
+        .touch_presence(record.id, player)
         .await
         .map_err(storage_error)?;
     let saved = Record {
@@ -389,9 +392,9 @@ async fn save_as_player(
         idle_seconds: 0.0,
         ..record
     };
-    Ok(ApiResponse::ok(
-        game_payload(store, &saved, stored, player).await?,
-    ))
+    Ok(ApiResponse::ok(game_payload(
+        &saved, stored, player, &presence,
+    )))
 }
 
 // ----- Présence et joueurs absents -----
@@ -424,12 +427,12 @@ async fn skip_absent_player(
     code: &str,
     record: Record,
     stored: StoredGame,
+    presence: &HashMap<usize, f64>,
 ) -> Result<(Record, StoredGame), ApiError> {
     if record.idle_seconds < ABSENT_TURN_WAIT_SECS {
         return Ok((record, stored));
     }
-    let presence = store.presence(record.id).await.map_err(storage_error)?;
-    let Some(absent) = blocking_absent_player(&stored.game, &presence) else {
+    let Some(absent) = blocking_absent_player(&stored.game, presence) else {
         return Ok((record, stored));
     };
     let mut next = stored.clone();
@@ -451,18 +454,18 @@ async fn skip_absent_player(
 }
 
 /// Corps commun des réponses qui donnent l'état : version, vue filtrée, présence de chaque joueur et
-/// compte à rebours si l'on attend un joueur absent (format : docs/CONTRACT.md).
-async fn game_payload(
-    store: &Store,
+/// compte à rebours si l'on attend un joueur absent (format : docs/CONTRACT.md). `presence` vient de
+/// `Store::touch_presence`, lue avec la présence du joueur lui-même (un seul aller-retour vers la base).
+fn game_payload(
     record: &Record,
     stored: &StoredGame,
     player: PlayerId,
-) -> Result<Value, ApiError> {
-    let presence = store.presence(record.id).await.map_err(storage_error)?;
+    presence: &HashMap<usize, f64>,
+) -> Value {
     let connected: Vec<Value> = (0..stored.game.players.len())
-        .map(|p| json!({ "player": p, "connected": !is_absent(&presence, p) }))
+        .map(|p| json!({ "player": p, "connected": !is_absent(presence, p) }))
         .collect();
-    let waiting = blocking_absent_player(&stored.game, &presence).map(|absent| {
+    let waiting = blocking_absent_player(&stored.game, presence).map(|absent| {
         let left = (ABSENT_TURN_WAIT_SECS - record.idle_seconds)
             .max(0.0)
             .ceil();
@@ -473,12 +476,12 @@ async fn game_payload(
             "max_missed_turns": MAX_MISSED_TURNS,
         })
     });
-    Ok(json!({
+    json!({
         "version": record.version,
         "view": view_for(&stored.game, player),
         "presence": connected,
         "waiting": waiting,
-    }))
+    })
 }
 
 /// Lit un corps JSON dans le type attendu ; toute erreur (JSON invalide, champ inconnu ou

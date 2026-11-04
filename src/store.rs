@@ -95,6 +95,22 @@ impl Store {
         }
     }
 
+    /// `touch` puis `presence` en une seule requête (un seul aller-retour vers la base) : c'est ce que
+    /// fait chaque requête d'un joueur identifié. Le joueur qui vient d'être noté a 0 seconde d'inactivité.
+    pub async fn touch_presence(
+        &self,
+        id: i64,
+        player: usize,
+    ) -> Result<HashMap<usize, f64>, StoreError> {
+        match self {
+            Store::Memory(store) => {
+                store.touch(id, player)?;
+                store.presence(id)
+            }
+            Store::Postgres(store) => store.touch_presence(id, player).await,
+        }
+    }
+
     /// Secondes écoulées depuis la dernière requête de chaque joueur vu (les autres sont absents).
     pub async fn presence(&self, id: i64) -> Result<HashMap<usize, f64>, StoreError> {
         match self {
@@ -258,15 +274,14 @@ impl PgStore {
     /// Prépare le pool sans se connecter tout de suite (`connect_lazy_with`) : la première requête
     /// ouvrira la connexion. L'URL vient de la variable d'environnement `DATABASE_URL`.
     ///
-    /// Le cache de requêtes préparées est désactivé (`statement_cache_capacity(0)`) : en production, on
-    /// passe par un « pooler » en mode transaction (Supabase, port 6543), qui partage les connexions entre
-    /// clients et ne garde pas les requêtes préparées nommées d'une transaction à l'autre. Voir
+    /// sqlx garde les requêtes préparées de chaque connexion en cache : une requête déjà vue part en un
+    /// seul aller-retour. Cela suppose une connexion PostgreSQL à soi : directe, ou par le pooler de
+    /// Supabase en mode **session** (port 5432), pas en mode transaction (port 6543). Voir
     /// docs/decisions/2026-11-04-deploiement-supabase.md.
     pub fn connect_lazy(database_url: &str) -> Result<Self, StoreError> {
         let options = database_url
             .parse::<PgConnectOptions>()
-            .map_err(StoreError::Database)?
-            .statement_cache_capacity(0);
+            .map_err(StoreError::Database)?;
         let pool = PgPoolOptions::new()
             .max_connections(MAX_DB_CONNECTIONS)
             .acquire_timeout(DB_ACQUIRE_TIMEOUT)
@@ -348,6 +363,35 @@ impl PgStore {
         .await
         .map_err(StoreError::Database)?;
         Ok(())
+    }
+
+    async fn touch_presence(
+        &self,
+        id: i64,
+        player: usize,
+    ) -> Result<HashMap<usize, f64>, StoreError> {
+        // Une requête avec une CTE qui écrit (`WITH ... INSERT`) : la mise à jour de la présence et la
+        // lecture de celle des autres partent ensemble. La lecture ne voit pas l'écriture de la même
+        // requête (même instantané) : le joueur noté est donc ajouté à part, avec 0 seconde.
+        let rows = sqlx::query_as::<_, (i32, f64)>(
+            "WITH touched AS ( \
+               INSERT INTO presence (game_id, player_id, last_seen) VALUES ($1, $2, now()) \
+               ON CONFLICT (game_id, player_id) DO UPDATE SET last_seen = now() \
+               RETURNING player_id \
+             ) \
+             SELECT player_id, EXTRACT(EPOCH FROM now() - last_seen)::float8 \
+             FROM presence WHERE game_id = $1 AND player_id <> $2 \
+             UNION ALL SELECT player_id, 0::float8 FROM touched",
+        )
+        .bind(id)
+        .bind(player as i32)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|(player, idle)| usize::try_from(player).ok().map(|p| (p, idle)))
+            .collect())
     }
 
     async fn presence(&self, id: i64) -> Result<HashMap<usize, f64>, StoreError> {
