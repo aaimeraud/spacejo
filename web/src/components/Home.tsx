@@ -2,7 +2,7 @@
 // « Personnalisée », récapitulatif), rejoindre une partie (code, nom), choisir une partie publique, ou reprendre
 // une partie mémorisée. On peut toujours revenir à l'étape précédente. Un lien d'invitation (`initialCode`)
 // ouvre directement l'étape du nom, code rempli.
-import { Globe, History, Lock, LogIn, Plus } from "lucide-react";
+import { GraduationCap, Globe, History, Lock, LogIn, Plus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type { PublicGame, Rules } from "../api/types";
 import { GAME_CODE_LENGTH, MAX_NAME_CHARS } from "../config";
@@ -10,9 +10,11 @@ import { OFFICIAL_RULES } from "../rulesInfo";
 import type { KnownSession } from "../session";
 import { ValueCard } from "./Card";
 import { FitStage } from "./FitStage";
+import { LegalNotice } from "./LegalNotice";
 import { PublicGames } from "./PublicGames";
 import { RepoTrackers } from "./RepoTrackers";
 import { ThemeToggle } from "./ThemeToggle";
+import { Tutorial } from "./Tutorial";
 import { RuleStepBody, WizardFrame, ruleStepTitle, useRulesFlow } from "./wizard/RuleSteps";
 
 interface Props {
@@ -27,7 +29,7 @@ interface Props {
   onResume: (session: KnownSession) => void;
 }
 
-type Mode = "menu" | "create" | "join" | "public";
+type Mode = "menu" | "create" | "join" | "public" | "tutorial" | "legal";
 /** Étapes de la création avant les réglages : le nom, puis la visibilité. */
 type CreateStep = "name" | "visibility" | "rules";
 
@@ -106,6 +108,10 @@ export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, 
               <span className="tile-description">Rejoindre une partie ouverte à tous.</span>
             </button>
           </div>
+          {/* Tutoriel : proposé plus discrètement que les trois choix principaux, sous forme de lien. */}
+          <button type="button" className="link-button tuto-link" onClick={() => reset("tutorial")}>
+            <GraduationCap aria-hidden="true" /> Nouveau ? Apprendre à jouer en 2 minutes
+          </button>
           {resumable.length > 0 && (
             <section className="resume" aria-labelledby="resume-title">
               <h3 id="resume-title">
@@ -125,7 +131,10 @@ export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, 
           <div className="home-foot">
             <div className="home-foot-text">
               <p className="legal">
-                SpaceJo reprend les règles du jeu de cartes Skyjo. Projet indépendant, non affilié à Magilano.
+                SpaceJo reprend les règles du jeu de cartes Skyjo. Projet indépendant, non affilié à Magilano.{" "}
+                <button type="button" className="link-button" onClick={() => reset("legal")}>
+                  Mentions légales
+                </button>
               </p>
               <RepoTrackers />
             </div>
@@ -133,6 +142,14 @@ export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, 
           </div>
         </div>
       );
+    }
+
+    if (mode === "tutorial") {
+      return <Tutorial onClose={() => reset("menu")} onPlay={() => reset("create")} />;
+    }
+
+    if (mode === "legal") {
+      return <LegalNotice onClose={() => reset("menu")} />;
     }
 
     if (mode === "public") {

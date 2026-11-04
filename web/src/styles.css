@@ -675,3 +675,28 @@ button.primary.danger { background: var(--danger); color: #ffffff; }
 .repo-trackers a:hover { color: var(--text); }
 .repo-trackers svg { width: 14px; height: 14px; flex: none; }
 .repo-trackers code { font-size: 0.8rem; }
+
+/* ===== Tutoriel et mentions légales ===== */
+/* Bouton qui a l'air d'un lien : pour les choix secondaires (tutoriel, mentions légales), moins visibles que les tuiles. */
+button.link-button {
+  display: inline-flex; min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; gap: 6px;
+  color: var(--muted); font-weight: 400; text-decoration: underline; text-underline-offset: 2px;
+}
+button.link-button:hover:not(:disabled) { background: none; color: var(--text); }
+.tuto-link { align-self: center; font-size: 0.95rem; }
+.tuto-step { display: flex; flex-direction: column; gap: 12px; line-height: 1.5; }
+.tuto-visual { margin: 6px 0 0; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.tuto-visual figcaption { color: var(--muted); font-size: 0.9rem; text-align: center; }
+.tuto-cards { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.tuto-grid { display: flex; gap: 8px; }
+.tuto-column { display: flex; flex-direction: column; gap: 6px; padding: 4px; border-radius: 10px; border: 2px solid transparent; }
+/* Colonne identique : entourée (pas seulement colorée) pour rester lisible sans la couleur. */
+.tuto-column.is-highlighted { border-color: var(--accent); border-style: dashed; }
+.is-portrait .tuto-cards .card3d-md { --card-w: 52px; --card-h: 74px; --card-font: 1.4rem; }
+.legal-notice { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 16px; padding-right: 6px; line-height: 1.5; }
+.legal-notice section { display: flex; flex-direction: column; gap: 6px; }
+.legal-notice h3 { font-size: 1.05rem; }
+.legal-notice p { color: var(--muted); font-size: 0.92rem; }
+.legal-notice a { color: var(--text); }
+.tuto-grid .card3d-md { --card-w: 56px; --card-h: 78px; --card-font: 1.5rem; }
+.is-portrait .tuto-grid .card3d-md { --card-w: 48px; --card-h: 66px; --card-font: 1.3rem; }
