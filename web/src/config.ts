@@ -38,6 +38,13 @@ export const MAX_REVEAL_RETRIES = 3;
 /** Durée d'affichage d'un message d'information (« X a abandonné la partie »), en millisecondes. */
 export const NOTICE_DURATION_MS = 6000;
 
+/** Longueur maximale d'un message du chat, en caractères (même valeur que `MAX_CHAT_CHARS` de l'API ; le serveur
+ * reste seul juge). */
+export const MAX_CHAT_CHARS = 200;
+
+/** Nombre de messages du chat gardés à l'écran (les plus récents). */
+export const MAX_CHAT_KEPT = 100;
+
 /** Rafraîchissement de la liste des parties publiques sur l'accueil (en millisecondes). */
 export const PUBLIC_GAMES_REFRESH_MS = 5000;
 

@@ -94,6 +94,18 @@ describe("SpaceJoApi", () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ code: "K7MPQX", expected_version: 5, player: 2 });
   });
 
+  it("envoie et relit les messages du chat avec le jeton", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(200, { messages: [] }, calls));
+    await api.say("K7MPQX", "secret", "Salut");
+    await api.messages("K7MPQX", "secret", 12);
+    expect(calls[0]?.url).toBe("/api/chat");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ code: "K7MPQX", text: "Salut" });
+    expect(calls[1]?.url).toBe("/api/messages?code=K7MPQX&after=12");
+    expect(calls[1]?.url).not.toContain("secret");
+    expect((calls[1]?.init?.headers as Record<string, string>)[TOKEN_HEADER]).toBe("secret");
+  });
+
   it("liste les parties publiques sans jeton", async () => {
     const calls: Call[] = [];
     const games = [{ code: "K7MPQX", host: "Alice", players: 2, max_players: 10 }];

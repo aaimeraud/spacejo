@@ -2,6 +2,8 @@
 // l'état affiché vient toujours du serveur.
 import type {
   Action,
+  ChatMessages,
+  ChatSent,
   ErrorBody,
   JoinedResponse,
   PublicGamesResponse,
@@ -104,6 +106,17 @@ export class SpaceJoApi {
       { method: "POST", body: JSON.stringify({ code, expected_version: expectedVersion, player }) },
       token,
     );
+  }
+
+  /** Envoie un message dans le chat de la partie. */
+  say(code: string, token: string, text: string): Promise<ChatSent> {
+    return this.request("/api/chat", { method: "POST", body: JSON.stringify({ code, text }) }, token);
+  }
+
+  /** Messages du chat plus récents que `after` (les derniers si `after` vaut 0). */
+  messages(code: string, token: string, after: number): Promise<ChatMessages> {
+    const params = new URLSearchParams({ code, after: String(after) });
+    return this.request(`/api/messages?${params.toString()}`, { method: "GET" }, token);
   }
 
   /** Parties publiques que l'on peut rejoindre (sans jeton). */

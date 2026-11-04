@@ -139,3 +139,23 @@ export interface PublicGame {
 export interface PublicGamesResponse {
   games: PublicGame[];
 }
+
+/** Un message du chat d'une partie. */
+export interface ChatMessage {
+  /** Numéro croissant, donné par le serveur. */
+  id: number;
+  player: number;
+  /** Nom du joueur au moment de l'envoi. */
+  name: string;
+  text: string;
+}
+
+/** Réponse de `chat` (envoi). */
+export interface ChatSent {
+  message: ChatMessage;
+}
+
+/** Réponse de `messages` (lecture). */
+export interface ChatMessages {
+  messages: ChatMessage[];
+}
