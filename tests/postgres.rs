@@ -392,3 +392,62 @@ async fn removing_a_player_shifts_the_presence_of_the_next_ones() {
     );
     db.drop().await;
 }
+
+#[tokio::test]
+async fn chat_messages_are_stored_in_order_and_deleted_with_their_game() {
+    let Some(db) = TestDb::create().await else {
+        return;
+    };
+    run_migrations(db.store.pool()).await.unwrap();
+    let store = Store::Postgres(db.store.clone());
+    let game = store
+        .insert("K7MPQX", &json!({ "n": 0 }), false)
+        .await
+        .unwrap();
+    let other = store
+        .insert("ABCDEF", &json!({ "n": 0 }), false)
+        .await
+        .unwrap();
+    let first = store
+        .insert_message(game.id, 0, "Alice", "un")
+        .await
+        .unwrap();
+    store
+        .insert_message(other.id, 0, "Zoé", "ailleurs")
+        .await
+        .unwrap();
+    store
+        .insert_message(game.id, 1, "Bob", "deux")
+        .await
+        .unwrap();
+    store
+        .insert_message(game.id, 0, "Alice", "trois")
+        .await
+        .unwrap();
+
+    let texts = |messages: Vec<spacejo_api::store::ChatMessage>| -> Vec<String> {
+        messages.into_iter().map(|m| m.text).collect()
+    };
+    assert_eq!(
+        texts(store.messages(game.id, 0, 10).await.unwrap()),
+        vec!["un", "deux", "trois"]
+    );
+    // Les deux derniers seulement, toujours dans l'ordre d'envoi.
+    assert_eq!(
+        texts(store.messages(game.id, 0, 2).await.unwrap()),
+        vec!["deux", "trois"]
+    );
+    assert_eq!(
+        texts(store.messages(game.id, first.id, 10).await.unwrap()),
+        vec!["deux", "trois"]
+    );
+
+    // Les messages disparaissent avec leur partie.
+    sqlx::query("DELETE FROM games WHERE id = $1")
+        .bind(game.id)
+        .execute(db.store.pool())
+        .await
+        .unwrap();
+    assert!(store.messages(game.id, 0, 10).await.unwrap().is_empty());
+    db.drop().await;
+}

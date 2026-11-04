@@ -20,8 +20,8 @@ Référence commune du front (`web/src/api/types.ts`) et du back (`src/`, `crate
 - **Code de partie** : 6 caractères de l'alphabet `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (ni `0`/`O` ni
   `1`/`I`). Le serveur accepte les minuscules et les espaces autour, et les convertit.
 - **Nom de joueur** : 1 à 20 caractères après suppression des espaces autour.
-- **Limitation de débit** : `create`, `join` et `public-games` sont limitées par adresse IP et par minute (10, 30
-  et 60 requêtes ; constantes de `src/rate_limit.rs`). Au-delà : `429 rate_limited`, avec l'en-tête `Retry-After`
+- **Limitation de débit** : `create`, `join`, `public-games` et `chat` sont limitées par adresse IP et par minute (10,
+  30, 60 et 30 requêtes ; constantes de `src/rate_limit.rs`). Au-delà : `429 rate_limited`, avec l'en-tête `Retry-After`
   (secondes avant de réessayer). L'adresse est lue dans l'en-tête `CF-Connecting-IP` (écrit par Cloudflare devant
   Render), sinon c'est celle de la connexion.
 
@@ -135,17 +135,38 @@ Aucune carte, aucun jeton : seulement le code, le nom de l'hôte et le nombre de
 Contrôle de santé, pour l'hébergeur (et pour réveiller le serveur) : ne lit ni la base ni de jeton.
 Réponse `200` : `{ "status": "ok" }`.
 
+### `POST /api/chat`
+
+En-tête `X-Player-Token`. Requête : `{ "code": "K7MPQX", "text": "Bien joué !" }`.
+Envoie un message dans le chat de la partie (à n'importe quelle phase). Le texte, sans les espaces autour, fait de
+1 à 200 caractères (`MAX_CHAT_CHARS`, dans `src/handlers.rs`), sur une seule ligne et sans caractère de contrôle ;
+sinon `400 invalid_message`. Les messages ne font pas partie de l'état du jeu : la `version` ne change pas.
+Réponse `200` : `{ "message": { "id": 12, "player": 1, "name": "Bob", "text": "Bien joué !" } }`.
+
+### `GET /api/messages?code=K7MPQX&after=11`
+
+En-tête `X-Player-Token` (un joueur de cette partie). `after` est facultatif (0 par défaut).
+Réponse `200` : `{ "messages": [ { "id": 12, "player": 1, "name": "Bob", "text": "Bien joué !" } ] }` : les
+messages dont `id` est plus grand que `after`, du plus ancien au plus récent, au plus les 50 derniers
+(`MAX_CHAT_HISTORY`). `name` est le nom du joueur au moment de l'envoi. Paramètre inconnu ou `after` non entier :
+`400 invalid_request`.
+
 ### `GET /api/events?code=K7MPQX`
 
-Flux d'avis (server-sent events, `text/event-stream`) : la connexion reste ouverte, et chaque nouvelle version
-de la partie envoie un évènement `version` dont la donnée est le numéro :
+Flux d'avis (server-sent events, `text/event-stream`) : la connexion reste ouverte. Chaque nouvelle version de la
+partie envoie un évènement `version` dont la donnée est le numéro ; chaque nouveau message du chat, un évènement
+`chat` dont la donnée est le numéro du message :
 
 ```
 event: version
 data: 7
+
+event: chat
+data: 12
 ```
 
-Pas de jeton : le flux ne révèle que le numéro de version. Le client relit alors l'état avec `GET /api/state`.
+Pas de jeton : le flux ne révèle que des numéros (jamais le texte d'un message). Le client relit alors l'état avec
+`GET /api/state`, ou les messages avec `GET /api/messages`.
 Des commentaires (`:`) maintiennent la connexion toutes les 15 s. Code mal formé : `400 invalid_code`.
 
 ### `GET /api/state?code=K7MPQX&known_version=6`
@@ -288,6 +309,7 @@ Toute erreur a la forme :
 | 400 | `invalid_name` | nom vide ou trop long |
 | 400 | `invalid_code` | code de partie mal formé |
 | 400 | `invalid_rules` | réglage hors bornes (`end_score` hors de 10 à 500) |
+| 400 | `invalid_message` | message du chat vide, trop long, sur plusieurs lignes ou avec un caractère de contrôle |
 | 401 | `missing_token` | en-tête `X-Player-Token` absent |
 | 401 | `invalid_token` | jeton qui ne correspond à aucun joueur de cette partie |
 | 403 | `not_host` | réglages, visibilité, lancement ou passage d'un tour demandés par un joueur qui n'est pas l'hôte |
@@ -296,7 +318,7 @@ Toute erreur a la forme :
 | 405 | `method_not_allowed` | mauvaise méthode HTTP |
 | 409 | `version_conflict` | `expected_version` périmée, ou écriture concurrente |
 | 413 | `payload_too_large` | corps de requête trop gros |
-| 429 | `rate_limited` | trop de `create`, `join` ou `public-games` depuis la même adresse (en-tête `Retry-After`) |
+| 429 | `rate_limited` | trop de `create`, `join`, `public-games` ou `chat` depuis la même adresse (en-tête `Retry-After`) |
 | 422 | `wrong_phase` | action impossible dans la phase actuelle (dont réglages ou visibilité après lancement) |
 | 422 | `not_your_turn` | action hors de son tour |
 | 422 | `game_full` | déjà 10 joueurs |

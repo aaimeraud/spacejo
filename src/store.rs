@@ -40,6 +40,17 @@ pub struct Record {
     pub public: bool,
 }
 
+/// Un message du chat d'une partie.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChatMessage {
+    /// Numéro croissant (le plus récent a le plus grand).
+    pub id: i64,
+    pub player: usize,
+    /// Nom du joueur au moment de l'envoi.
+    pub name: String,
+    pub text: String,
+}
+
 /// Une partie publique au salon, telle que lue pour la liste de l'accueil.
 #[derive(Clone, Debug, PartialEq)]
 pub struct PublicRow {
@@ -138,6 +149,33 @@ impl Store {
         }
     }
 
+    /// Enregistre un message du chat ; renvoie le message avec son numéro.
+    pub async fn insert_message(
+        &self,
+        game_id: i64,
+        player: usize,
+        name: &str,
+        text: &str,
+    ) -> Result<ChatMessage, StoreError> {
+        match self {
+            Store::Memory(store) => store.insert_message(game_id, player, name, text),
+            Store::Postgres(store) => store.insert_message(game_id, player, name, text).await,
+        }
+    }
+
+    /// Messages d'une partie plus récents que `after` : les `limit` derniers, du plus ancien au plus récent.
+    pub async fn messages(
+        &self,
+        game_id: i64,
+        after: i64,
+        limit: usize,
+    ) -> Result<Vec<ChatMessage>, StoreError> {
+        match self {
+            Store::Memory(store) => store.messages(game_id, after, limit),
+            Store::Postgres(store) => store.messages(game_id, after, limit).await,
+        }
+    }
+
     /// Note qu'un joueur vient de faire une requête. Ne touche ni l'état ni la version de la partie.
     pub async fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {
         match self {
@@ -198,6 +236,8 @@ struct MemoryRow {
 struct MemoryTables {
     games: HashMap<String, MemoryRow>,
     presence: HashMap<(i64, usize), Instant>,
+    /// Messages du chat, toutes parties confondues, dans l'ordre d'envoi (numéro = position + 1).
+    chat: Vec<(i64, ChatMessage)>,
     /// Décalage d'horloge, pour simuler le temps qui passe dans les tests (`advance`).
     skew: Duration,
 }
@@ -327,6 +367,42 @@ impl MemoryStore {
             }
             None => Err(StoreError::Conflict),
         }
+    }
+
+    fn insert_message(
+        &self,
+        game_id: i64,
+        player: usize,
+        name: &str,
+        text: &str,
+    ) -> Result<ChatMessage, StoreError> {
+        let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let message = ChatMessage {
+            id: tables.chat.len() as i64 + 1,
+            player,
+            name: name.to_string(),
+            text: text.to_string(),
+        };
+        tables.chat.push((game_id, message.clone()));
+        Ok(message)
+    }
+
+    fn messages(
+        &self,
+        game_id: i64,
+        after: i64,
+        limit: usize,
+    ) -> Result<Vec<ChatMessage>, StoreError> {
+        let tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let matching: Vec<&ChatMessage> = tables
+            .chat
+            .iter()
+            .filter(|(game, message)| *game == game_id && message.id > after)
+            .map(|(_, message)| message)
+            .collect();
+        // Les `limit` derniers, dans l'ordre d'envoi.
+        let skip = matching.len().saturating_sub(limit);
+        Ok(matching.into_iter().skip(skip).cloned().collect())
     }
 
     fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {
@@ -551,6 +627,63 @@ impl PgStore {
             Some((version,)) => Ok(version),
             None => Err(StoreError::Conflict),
         }
+    }
+
+    async fn insert_message(
+        &self,
+        game_id: i64,
+        player: usize,
+        name: &str,
+        text: &str,
+    ) -> Result<ChatMessage, StoreError> {
+        let (id,) = sqlx::query_as::<_, (i64,)>(
+            "INSERT INTO chat_messages (game_id, player_id, name, body) VALUES ($1, $2, $3, $4) \
+             RETURNING id",
+        )
+        .bind(game_id)
+        .bind(player as i32)
+        .bind(name)
+        .bind(text)
+        .fetch_one(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        Ok(ChatMessage {
+            id,
+            player,
+            name: name.to_string(),
+            text: text.to_string(),
+        })
+    }
+
+    async fn messages(
+        &self,
+        game_id: i64,
+        after: i64,
+        limit: usize,
+    ) -> Result<Vec<ChatMessage>, StoreError> {
+        // Les `limit` plus récents (ordre décroissant), remis ensuite dans l'ordre d'envoi.
+        let rows = sqlx::query_as::<_, (i64, i32, String, String)>(
+            "SELECT id, player_id, name, body FROM chat_messages \
+             WHERE game_id = $1 AND id > $2 ORDER BY id DESC LIMIT $3",
+        )
+        .bind(game_id)
+        .bind(after)
+        .bind(i64::try_from(limit).unwrap_or(i64::MAX))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        Ok(rows
+            .into_iter()
+            .rev()
+            .filter_map(|(id, player, name, text)| {
+                usize::try_from(player).ok().map(|player| ChatMessage {
+                    id,
+                    player,
+                    name,
+                    text,
+                })
+            })
+            .collect())
     }
 
     async fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {

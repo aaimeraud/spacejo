@@ -296,3 +296,33 @@ async fn too_many_creations_from_one_address_are_refused_with_retry_after() {
     let response = send(router, create_from("198.51.100.8")).await;
     assert_eq!(response.status(), StatusCode::CREATED);
 }
+
+#[tokio::test]
+async fn chat_messages_are_pushed_to_subscribers_without_their_text() {
+    let events = Events::default();
+    let router = app(store(), events.clone(), None);
+    let request = Request::post("/api/create")
+        .body(Body::from(json!({ "name": "Alice" }).to_string()))
+        .unwrap();
+    let created = body_json(send(router.clone(), request).await).await;
+    let code = created["code"].as_str().unwrap().to_string();
+    let token = created["token"].as_str().unwrap().to_string();
+
+    let response = send(router.clone(), get(&format!("/api/events?code={code}"))).await;
+    let mut stream = response.into_body().into_data_stream();
+
+    let request = Request::post("/api/chat")
+        .header("X-Player-Token", &token)
+        .body(Body::from(
+            json!({ "code": code, "text": "secret bien gardé" }).to_string(),
+        ))
+        .unwrap();
+    let sent = body_json(send(router, request).await).await;
+    let id = sent["message"]["id"].as_i64().unwrap();
+
+    // L'avis ne porte que le numéro du message, jamais son texte.
+    let event = next_event(&mut stream).await;
+    assert!(event.contains("event: chat"), "{event}");
+    assert!(event.contains(&format!("data: {id}")), "{event}");
+    assert!(!event.contains("secret"), "{event}");
+}

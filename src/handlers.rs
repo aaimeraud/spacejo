@@ -1,4 +1,4 @@
-//! Les onze opérations de l'API (docs/CONTRACT.md), indépendantes du serveur HTTP (voir `server`).
+//! Les treize opérations de l'API (docs/CONTRACT.md), indépendantes du serveur HTTP (voir `server`).
 //!
 //! Chaque opération suit le même parcours (serverless : rien n'est gardé en mémoire) :
 //! valider la requête → charger la partie → identifier le joueur par son jeton → vérifier
@@ -17,7 +17,7 @@ use crate::auth;
 use crate::error::ApiError;
 use std::collections::HashMap;
 
-use crate::store::{Record, Store, StoreError};
+use crate::store::{ChatMessage, Record, Store, StoreError};
 use crate::stored::StoredGame;
 
 /// Taille maximale d'un corps de requête (16 Kio : largement assez pour nos petits JSON).
@@ -32,6 +32,10 @@ pub const PRESENCE_TIMEOUT_SECS: f64 = 15.0;
 /// Attente d'« un tour » pour un joueur absent, depuis la dernière modification de la partie
 /// (secondes). Passé ce délai, son tour est passé (ASSUMPTIONS.md, n° 19).
 pub const ABSENT_TURN_WAIT_SECS: f64 = 45.0;
+/// Longueur maximale d'un message du chat, en caractères (après suppression des espaces autour).
+pub const MAX_CHAT_CHARS: usize = 200;
+/// Nombre maximal de messages renvoyés par `GET /api/messages` (les plus récents).
+pub const MAX_CHAT_HISTORY: usize = 50;
 /// Nombre maximal de parties données par `GET /api/public-games` (les plus récentes).
 pub const PUBLIC_GAMES_LIMIT: usize = 20;
 
@@ -49,6 +53,8 @@ pub enum Endpoint {
     Visibility,
     Leave,
     Kick,
+    Chat,
+    Messages,
 }
 
 impl Endpoint {
@@ -66,13 +72,15 @@ impl Endpoint {
             "/api/visibility" => Some(Endpoint::Visibility),
             "/api/leave" => Some(Endpoint::Leave),
             "/api/kick" => Some(Endpoint::Kick),
+            "/api/chat" => Some(Endpoint::Chat),
+            "/api/messages" => Some(Endpoint::Messages),
             _ => None,
         }
     }
 
     fn method(self) -> &'static str {
         match self {
-            Endpoint::State | Endpoint::PublicGames => "GET",
+            Endpoint::State | Endpoint::PublicGames | Endpoint::Messages => "GET",
             _ => "POST",
         }
     }
@@ -182,6 +190,13 @@ struct KickRequest {
     player: PlayerId,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ChatRequest {
+    code: String,
+    text: String,
+}
+
 /// Point d'entrée : traite une requête et renvoie toujours une réponse (succès ou erreur).
 pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> ApiResponse {
     let result = if request.method != endpoint.method() {
@@ -199,6 +214,8 @@ pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> A
             Endpoint::Visibility => visibility(store, &request).await,
             Endpoint::Leave => leave(store, &request).await,
             Endpoint::Kick => kick(store, &request).await,
+            Endpoint::Chat => chat(store, &request).await,
+            Endpoint::Messages => messages(store, &request).await,
         }
     };
     match result {
@@ -483,6 +500,83 @@ async fn kick(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiErr
         .await
         .map_err(storage_error)?;
     Ok(response)
+}
+
+/// Un joueur envoie un message dans le chat de sa partie. Les messages ne font pas partie de l'état du jeu :
+/// la version de la partie ne change pas. Le texte n'est jamais journalisé.
+async fn chat(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: ChatRequest = parse_body(&request.body)?;
+    let code = auth::normalize_code(&body.code)?;
+    let token = require_token(request)?;
+    let text = clean_message(&body.text)?;
+    let (record, stored) = load(store, &code).await?;
+    let player = identify(&stored, token)?;
+    let name = stored
+        .game
+        .players
+        .get(player)
+        .map(|p| p.name.clone())
+        .ok_or_else(ApiError::invalid_token)?;
+    let message = store
+        .insert_message(record.id, player, &name, &text)
+        .await
+        .map_err(storage_error)?;
+    Ok(ApiResponse::ok(
+        json!({ "message": message_json(&message) }),
+    ))
+}
+
+/// Messages du chat plus récents que `after` (paramètre facultatif, 0 par défaut) : au plus `MAX_CHAT_HISTORY`.
+async fn messages(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let mut code = None;
+    let mut after = 0;
+    for pair in request.query.split('&').filter(|p| !p.is_empty()) {
+        let (key, value) = pair.split_once('=').unwrap_or((pair, ""));
+        match key {
+            "code" => code = Some(auth::normalize_code(value)?),
+            "after" => {
+                after = value
+                    .parse::<i64>()
+                    .map_err(|_| ApiError::invalid_request("after doit être un entier"))?;
+            }
+            other => {
+                return Err(ApiError::invalid_request(format!(
+                    "paramètre inconnu « {other} »"
+                )));
+            }
+        }
+    }
+    let code = code.ok_or_else(|| ApiError::invalid_request("paramètre « code » manquant"))?;
+    let token = require_token(request)?;
+    let (record, stored) = load(store, &code).await?;
+    identify(&stored, token)?;
+    let messages = store
+        .messages(record.id, after, MAX_CHAT_HISTORY)
+        .await
+        .map_err(storage_error)?;
+    let messages: Vec<Value> = messages.iter().map(message_json).collect();
+    Ok(ApiResponse::ok(json!({ "messages": messages })))
+}
+
+/// Texte d'un message, sans les espaces autour : de 1 à `MAX_CHAT_CHARS` caractères, sur une seule ligne et sans
+/// caractère de contrôle (retours à la ligne, sonnerie…), qui pourraient casser l'affichage des autres joueurs.
+fn clean_message(text: &str) -> Result<String, ApiError> {
+    let text = text.trim();
+    let length = text.chars().count();
+    if length == 0 || length > MAX_CHAT_CHARS || text.chars().any(char::is_control) {
+        return Err(ApiError::invalid_message());
+    }
+    Ok(text.to_string())
+}
+
+/// Format JSON d'un message (docs/CONTRACT.md).
+fn message_json(message: &ChatMessage) -> Value {
+    json!({
+        "id": message.id,
+        "player": message.player,
+        "name": message.name,
+        "text": message.text,
+    })
 }
 
 /// Parties publiques que l'on peut rejoindre, pour l'accueil. Sans jeton : on n'y donne que le code, le nom

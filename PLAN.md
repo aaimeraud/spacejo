@@ -65,7 +65,7 @@ Dockerfile            image de production (interface puis serveur) ; render.yaml
 ```
 
 Routes : `/api/health`, `/api/create`, `/api/join`, `/api/rules`, `/api/start`, `/api/action`, `/api/skip`,
-`/api/state`, `/api/events`, `/api/public-games`, `/api/visibility`, `/api/leave`, `/api/kick` ; toute autre adresse reçoit l'interface.
+`/api/state`, `/api/events`, `/api/public-games`, `/api/visibility`, `/api/leave`, `/api/kick`, `/api/chat`, `/api/messages` ; toute autre adresse reçoit l'interface.
 
 ## Base de données et driver
 
@@ -229,5 +229,23 @@ Demandée par le propriétaire du dépôt pour la v1.2.0, avec la bascule de vis
 5. [x] Interface : un retournement de mise en place refusé pour conflit de version (409) est relu puis rejoué
    automatiquement (quelques essais), au lieu d'afficher une erreur.
 6. [x] Documentation, vérifications, essai dans le navigateur.
+
+Aucune nouvelle dépendance.
+
+## Évolution en cours : chat pendant les parties (branche `claude/game-chat`)
+
+Demandée par le propriétaire du dépôt, pour une release mineure (v1.3.0).
+
+1. [x] Base : migration 0004, table `chat_messages` (partie, joueur, nom au moment de l'envoi, texte), effacée avec
+   la partie. Les messages ne font pas partie de l'état du jeu : envoyer un message ne change pas `version` (aucun
+   conflit avec les coups).
+2. [x] API (tests d'abord) : `POST /api/chat` (jeton ; texte de 1 à `MAX_CHAT_CHARS` caractères, sans caractère de
+   contrôle) et `GET /api/messages?code=…&after=…` (jeton ; messages plus récents que `after`, au plus
+   `MAX_CHAT_HISTORY`). Le flux d'avis (`GET /api/events`) envoie un évènement `chat` avec le numéro du nouveau
+   message ; sans flux, le navigateur relit les messages au rythme du polling. Limitation de débit sur l'envoi.
+   Le texte des messages n'est jamais journalisé.
+3. [x] Interface : bouton « Chat » sur l'écran de partie, avec le nombre de messages non lus (en chiffres, pas
+   seulement une couleur) ; panneau avec la liste (annoncée aux lecteurs d'écran) et un champ d'envoi (Entrée).
+4. [x] Documentation, vérifications, essai dans le navigateur à plusieurs joueurs.
 
 Aucune nouvelle dépendance.

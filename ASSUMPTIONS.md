@@ -100,3 +100,14 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
     L'adresse vient de l'en-tête `CF-Connecting-IP` (Cloudflare, devant Render), qu'un navigateur ne peut pas imposer.
 30. **Retournements rejoués** : un retournement de mise en place refusé pour conflit de version est rejoué jusqu'à
     3 fois (`MAX_REVEAL_RETRIES`), après relecture de l'état, seulement si la carte peut encore être retournée.
+
+## Chat (demandé par le propriétaire du dépôt)
+
+31. **Qui écrit** : tout joueur qui a encore son jeton peut écrire dans le chat, à n'importe quelle phase, y compris
+    un joueur éliminé pour absence (il peut regarder la suite de la partie). L'interface ne montre le chat que sur
+    l'écran de partie et de fin de partie (pas au salon).
+32. **Format** : un message tient sur une ligne, de 1 à 200 caractères, sans mise en forme. L'historique affiché à
+    l'ouverture est limité aux 50 derniers messages. À la reprise d'une partie, les messages des autres joueurs de
+    cet historique comptent comme non lus.
+33. **Pas de modération** : aucun filtre de mots, aucun signalement ; la limitation de débit (30 messages par minute
+    et par adresse) empêche seulement d'inonder le chat.

@@ -1,5 +1,6 @@
-//! Limitation de débit par adresse IP sur les routes ouvertes sans jeton ou presque : création, jonction et liste
-//! des parties publiques. Sans elle, un script pourrait créer des milliers de parties ou remplir des salons publics.
+//! Limitation de débit par adresse IP sur les routes ouvertes sans jeton ou presque (création, jonction et liste
+//! des parties publiques), et sur l'envoi de messages du chat. Sans elle, un script pourrait créer des milliers de
+//! parties, remplir des salons publics ou inonder un chat.
 //!
 //! Méthode la plus simple : une **fenêtre fixe** d'une minute. Chaque couple (adresse, route) a un compteur remis
 //! à zéro au début de chaque fenêtre ; au-delà de la limite, la requête est refusée (`429`) avec le nombre de
@@ -23,6 +24,8 @@ pub const JOIN_PER_MINUTE: u32 = 30;
 /// Lectures de la liste des parties publiques par adresse et par minute : l'accueil la relit toutes les 5 s
 /// (12 par minute), on laisse de la place pour plusieurs personnes derrière la même adresse.
 pub const PUBLIC_GAMES_PER_MINUTE: u32 = 60;
+/// Messages du chat par adresse et par minute : assez pour discuter, pas pour inonder les autres joueurs.
+pub const CHAT_PER_MINUTE: u32 = 30;
 /// Au-delà de ce nombre de compteurs, les compteurs des fenêtres terminées sont effacés (mémoire bornée).
 const MAX_TRACKED: usize = 10_000;
 
@@ -32,6 +35,7 @@ pub fn limit_for(endpoint: Endpoint) -> Option<u32> {
         Endpoint::Create => Some(CREATE_PER_MINUTE),
         Endpoint::Join => Some(JOIN_PER_MINUTE),
         Endpoint::PublicGames => Some(PUBLIC_GAMES_PER_MINUTE),
+        Endpoint::Chat => Some(CHAT_PER_MINUTE),
         _ => None,
     }
 }
@@ -125,13 +129,14 @@ mod tests {
     }
 
     #[test]
-    fn only_routes_without_a_player_token_are_limited() {
+    fn only_open_routes_and_chat_messages_are_limited() {
         assert_eq!(limit_for(Endpoint::Create), Some(CREATE_PER_MINUTE));
         assert_eq!(limit_for(Endpoint::Join), Some(JOIN_PER_MINUTE));
         assert_eq!(
             limit_for(Endpoint::PublicGames),
             Some(PUBLIC_GAMES_PER_MINUTE)
         );
+        assert_eq!(limit_for(Endpoint::Chat), Some(CHAT_PER_MINUTE));
         assert_eq!(limit_for(Endpoint::Action), None);
         assert_eq!(limit_for(Endpoint::State), None);
     }

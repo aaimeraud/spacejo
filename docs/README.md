@@ -23,5 +23,6 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
   - [mises à jour instantanées](decisions/2026-11-04-mises-a-jour-instantanees.md) : avis poussés par le serveur (SSE), moins d'allers-retours vers la base ;
   - [parties publiques](decisions/2026-11-04-parties-publiques.md) : visibilité dans une colonne, liste des salons ouverts, lien d'invitation ;
   - [code QR](decisions/2026-11-04-code-qr.md) : bibliothèque `qrcode-generator`, dessin en SVG par React ;
-  - [limitation de débit](decisions/2026-11-04-limitation-de-debit.md) : fenêtre fixe par adresse IP, en-tête de Cloudflare.
+  - [limitation de débit](decisions/2026-11-04-limitation-de-debit.md) : fenêtre fixe par adresse IP, en-tête de Cloudflare ;
+  - [chat](decisions/2026-11-04-chat.md) : table à part, sans changer la version de la partie, livré par le flux d'avis.
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).
