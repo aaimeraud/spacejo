@@ -33,7 +33,7 @@ Deux contraintes en ressortent :
   `eu-west-1`). Le serveur doit en être proche : chaque requête du jeu fait environ trois allers-retours vers la
   base (sur Render : Francfort, la région la plus proche).
 
-- **Version de Rust épinglée** (`rust-toolchain.toml`, 1.98.0) : la machine de build de Vercel fournissait Rust
+- **Version de Rust épinglée** (`rust-toolchain.toml`, 1.99.1 depuis la mise à jour du 2026-11-04) : la machine de build de Vercel fournissait Rust
   1.92, alors que sqlx 0.9 en demande 1.94 (`rust-version` du `Cargo.toml` corrigé en conséquence). rustup lit
   ce fichier et installe la bonne version, en local, dans la CI et sur Vercel si son build passe par rustup. À
   défaut, il faudrait revenir à sqlx 0.8.

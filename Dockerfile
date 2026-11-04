@@ -2,7 +2,7 @@
 # Trois étapes : seule la dernière, minimale, part en production.
 
 # --- 1. Interface (React + Vite) ---
-FROM node:24-slim AS web
+FROM node:26-slim AS web
 WORKDIR /app/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -18,7 +18,7 @@ RUN npm run build \
        -o -name '*.webmanifest' -o -name '*.ico' \) -exec gzip -9 -k {} +
 
 # --- 2. Serveur (Rust) ---
-FROM rust:1.98.0-slim-trixie AS server
+FROM rust:1.99.1-slim-trixie AS server
 WORKDIR /app
 # D'abord les seules dépendances, avec des sources vides : cette couche reste en cache tant que
 # Cargo.toml et Cargo.lock ne changent pas, et les builds suivants ne recompilent que le projet.

@@ -25,7 +25,7 @@ https://render.com/docs/docker, https://render.com/docs/web-services.
   tout chemin contenant `..`.
 - **Réponses de l'API compressées** (gzip, `CompressionLayer`) : l'état d'une partie est relu toutes les 2 s.
 - **Migrations appliquées au démarrage** du serveur (`sqlx::migrate!`) : plus d'étape manuelle au déploiement.
-- **Image Docker** en trois étapes (interface avec Node 24, serveur avec Rust 1.98, image finale Debian minimale
+- **Image Docker** en trois étapes (interface avec Node 26, la version LTS, serveur avec Rust 1.99.1, image finale Debian minimale
   sous un utilisateur sans droits) ; la couche des dépendances Rust reste en cache tant que `Cargo.lock` ne change
   pas. **`render.yaml`** décrit le service : offre gratuite, Francfort (la région Render la plus proche de la base
   Supabase en Irlande), contrôle de santé `/api/health`, déploiement à chaque commit sur `main`.

@@ -1,6 +1,6 @@
 # Version de Rust du projet, lue par rustup en local et dans la CI (sqlx 0.9 demande au moins 1.94). L'image
 # Docker utilise la même version (Dockerfile). Voir docs/decisions/2026-11-04-deploiement-supabase.md.
 [toolchain]
-channel = "1.98.0"
+channel = "1.99.1"
 components = ["rustfmt", "clippy"]
 profile = "minimal"

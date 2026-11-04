@@ -17,8 +17,8 @@ décisions). Plan et hypothèses : [PLAN.md](PLAN.md), [ASSUMPTIONS.md](ASSUMPTI
 
 ## Prérequis
 
-- Rust : https://rustup.rs (la version, 1.98.0, est fixée par `rust-toolchain.toml` et installée toute seule)
-- Node.js 24 ou plus récent, avec npm
+- Rust : https://rustup.rs (la version, 1.99.1, est fixée par `rust-toolchain.toml` et installée toute seule)
+- Node.js 26 ou plus récent, avec npm
 - PostgreSQL : Docker (`docker compose`) ou une installation locale. Facultatif pour jouer en local
   (le serveur sait garder les parties en mémoire), nécessaire pour les tests PostgreSQL.
 - git-cliff, pour les releases seulement : https://git-cliff.org/docs/installation
