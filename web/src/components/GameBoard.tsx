@@ -6,9 +6,11 @@
 // La disposition vient de `game/seats.ts`, le relief du CSS (styles.css, « Table »). Le tableau des scores
 // s'ouvre dans une fenêtre (il s'ouvre tout seul en fin de manche).
 import { CircleCheck, Crown, Hourglass, ListOrdered, LogOut, Play, Repeat, RotateCcw, SkipForward, Trophy, UserX, Users, WifiOff } from "lucide-react";
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Action, ChatMessage, GameView, PlayerView, PresenceEntry, Waiting } from "../api/types";
 import { lastMessageId, unreadCount } from "../game/chat";
+import { pileReshuffled } from "../game/reshuffle";
+import { RESHUFFLE_ANIMATION_MS } from "../config";
 import { hint, isMyTurn, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
 import { focusedOpponent } from "../game/focus";
 import { hiddenCount, seatPlayers } from "../game/seats";
@@ -152,6 +154,24 @@ function WaitingBanner({
 export function GameBoard({ view, code, busy, presence, waiting, onAction, onSkip, onLeave, chat, onSend }: Props) {
   const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const [mode, setMode] = useState<HeldMode>("swap");
+  // Remélange de la défausse en pioche : repéré en comparant la vue précédente et la nouvelle (game/reshuffle.ts),
+  // puis animé pendant `RESHUFFLE_ANIMATION_MS`. `reshuffles` sert de `key` : chaque remélange rejoue l'animation.
+  const previousView = useRef<GameView | null>(null);
+  const [reshuffles, setReshuffles] = useState(0);
+  const [reshuffling, setReshuffling] = useState(false);
+  useEffect(() => {
+    if (pileReshuffled(previousView.current, view)) {
+      setReshuffles((count) => count + 1);
+      setReshuffling(true);
+    }
+    previousView.current = view;
+  }, [view]);
+  useEffect(() => {
+    if (reshuffles === 0) return;
+    const timer = window.setTimeout(() => setReshuffling(false), RESHUFFLE_ANIMATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [reshuffles]);
+
   // Chat : panneau ouvert ou non, et dernier message vu (pour compter les non-lus).
   const [chatOpen, setChatOpen] = useState(false);
   const [seenId, setSeenId] = useState(0);
@@ -284,6 +304,11 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
 
   const center = (
     <div className="table-center">
+      {reshuffling && (
+        <p className="reshuffle-note" role="status">
+          La pioche est vide : la défausse est mélangée et devient la pioche.
+        </p>
+      )}
       {view.phase === "RoundOver" ? (
         <div className="round-over">
           <p>Manche {view.round} terminée</p>
@@ -300,9 +325,19 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
             disabled={!canTake}
             aria-label={`Piocher (${view.draw_pile_count} cartes)`}
           >
-            <span className="pile-stack" aria-hidden="true">
+            <span key={reshuffles} className={`pile-stack${reshuffling ? " is-shuffling" : ""}`} aria-hidden="true">
               <ValueCard value={null} />
             </span>
+            {reshuffling && (
+              // Quelques cartes partent de la défausse (à droite) et rejoignent la pioche, l'une après l'autre.
+              <span key={`flight-${reshuffles}`} className="reshuffle-flight" aria-hidden="true">
+                {[0, 1, 2, 3].map((index) => (
+                  <span key={index} className="reshuffle-card" style={{ "--i": index } as CSSProperties}>
+                    <ValueCard value={null} />
+                  </span>
+                ))}
+              </span>
+            )}
             <span className="pile-label">Pioche · {view.draw_pile_count}</span>
           </button>
           <button

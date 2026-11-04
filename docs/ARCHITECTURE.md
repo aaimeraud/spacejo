@@ -173,6 +173,7 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `public/` | fichiers servis tels quels : icônes (`favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icons/`), image d'aperçu `og-image.png`, manifeste `manifest.webmanifest` et service worker `sw.js` de l'application installable (voir la décision « application installable ») |
 | `src/theme.ts` | thème clair ou sombre : celui du système par défaut, ou le choix gardé dans `localStorage` ; appliqué par `data-theme` sur `<html>` |
 | `src/game/chat.ts` | messages du chat : fusion sans doublon des messages reçus, nombre de non-lus |
+| `src/game/reshuffle.ts` | repère le remélange de la défausse en pioche (la pioche grossit pendant une manche), pour l'animer sur la table |
 | `src/game/departures.ts` | messages « X a abandonné la partie » / « X a quitté le salon », trouvés en comparant deux vues |
 | `src/retry.ts` | rejouer une écriture refusée pour conflit de version (sert aux retournements de la mise en place) |
 | `src/session.ts` | session de l'onglet (code, jeton, identifiant) dans `sessionStorage`, et parties mémorisées dans `localStorage` pour la reprise |

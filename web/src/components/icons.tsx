@@ -6,6 +6,7 @@ import {
   Equal,
   Flag,
   Layers,
+  SquareStack,
   Rocket,
   RotateCw,
   Scale,
@@ -22,6 +23,7 @@ export const RULE_ICONS: Record<ChoiceKey | "end_score", LucideIcon> = {
   first_player_tie: Dices,
   next_round_starter: RotateCw,
   empty_pile: Layers,
+  deck: SquareStack,
   end_tie: Equal,
   end_score: Flag,
 };
