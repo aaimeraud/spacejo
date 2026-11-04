@@ -2,6 +2,13 @@
 
 Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.
 
+## 1.1.0 - 2026-11-04
+
+### Nouveautés
+
+- **api** : List public games and let hosts create public or private games (d08413b)
+- **web** : Share an invite link and join public games from the home screen (6548719)
+
 ## 1.0.0 - 2026-11-04
 
 ### Nouveautés
