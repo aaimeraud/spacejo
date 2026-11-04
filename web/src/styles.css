@@ -98,10 +98,12 @@ p { margin: 0; }
 .num, .badge-meta, .scoreboard, .ranking, .end-score-value, .pile-label, .stage-info { font-variant-numeric: tabular-nums; }
 
 /* ===== Cadre de l'application ===== */
-/* Marges de sécurité : dans l'application installée, l'écran va jusque sous l'encoche et la barre d'accueil. */
+/* Marges de sécurité : dans l'application installée, l'écran va jusque sous l'encoche et la barre d'accueil.
+   `--safe-top` est réutilisée par tout ce qui couvre l'écran (fenêtres, chat), pas seulement par `.app`. */
+:root { --safe-top: env(safe-area-inset-top); }
 .app {
   height: 100dvh; display: flex; flex-direction: column;
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  padding: var(--safe-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 /* Application installée sur iPhone, en portrait : iOS pose sous la barre d'état (heure, encoche) un dégradé flou
    qui déborde un peu de la zone sûre ; le haut de l'écran y paraissait brouillé. On ajoute donc un espace sous la
@@ -110,10 +112,10 @@ p { margin: 0; }
    les ordinateurs ne sont pas concernés. En paysage, la barre d'état est masquée : rien à ajouter. */
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (orientation: portrait) {
-    .app {
+    :root {
       --ios-status-bar-min: 50px;
       --ios-status-bar-gap: 16px;
-      padding-top: calc(max(env(safe-area-inset-top), var(--ios-status-bar-min)) + var(--ios-status-bar-gap));
+      --safe-top: calc(max(env(safe-area-inset-top), var(--ios-status-bar-min)) + var(--ios-status-bar-gap));
     }
   }
 }
@@ -270,11 +272,14 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 
 /* ===== Fenêtres ===== */
 .modal-backdrop {
-  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px;
+  position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+  /* 16 px autour de la fenêtre, en plus des zones de sécurité (encoche, barre d'accueil). */
+  padding: calc(var(--safe-top) + 16px) calc(env(safe-area-inset-right) + 16px)
+    calc(env(safe-area-inset-bottom) + 16px) calc(env(safe-area-inset-left) + 16px);
   background: var(--backdrop); animation: fade-in 0.15s ease-out;
 }
 .modal {
-  width: min(560px, 100%); max-height: calc(100dvh - 32px); display: flex; flex-direction: column;
+  width: min(560px, 100%); max-height: 100%; display: flex; flex-direction: column;
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-panel);
 }
 .modal.is-wide { width: min(900px, 100%); }
@@ -296,6 +301,8 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .player-chip.is-absent { opacity: 0.6; }
 .player-chip-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lobby-start { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
+/* La liste des règles défile dans son panneau si elle est trop longue (téléphone) : les boutons restent visibles. */
+.lobby-rules .recap { flex: 1; min-height: 0; overflow: auto; }
 .lobby-rules-actions { margin-top: auto; display: flex; gap: 10px; flex-wrap: wrap; }
 .is-portrait .lobby { grid-template-columns: 1fr; grid-template-rows: auto 1fr; gap: 14px; }
 .is-portrait .lobby .panel { padding: 14px; gap: 8px; }
@@ -655,7 +662,10 @@ button.primary.danger { background: var(--danger); color: #ffffff; }
 .chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
 .chat-input { flex: 1; min-width: 0; }
 @media (max-width: 600px) {
-  .chat-panel { right: 8px; left: 8px; bottom: 8px; width: auto; height: min(60dvh, 480px); }
+  .chat-panel {
+    right: calc(env(safe-area-inset-right) + 8px); left: calc(env(safe-area-inset-left) + 8px);
+    bottom: calc(env(safe-area-inset-bottom) + 8px); width: auto; height: min(60dvh, 480px);
+  }
 }
 
 /* Version et dernier commit (bas de l'accueil) */
