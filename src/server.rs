@@ -9,12 +9,13 @@
 
 use std::collections::HashMap;
 use std::convert::Infallible;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
 
 use axum::Router;
 use axum::body::Body;
-use axum::extract::{Query, Request, State};
+use axum::extract::{ConnectInfo, Query, Request, State};
 use axum::http::{HeaderValue, Method, StatusCode, header};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
@@ -27,6 +28,7 @@ use crate::auth;
 use crate::error::ApiError;
 use crate::events::Events;
 use crate::handlers::{self, ApiRequest, ApiResponse, Endpoint, MAX_BODY_BYTES, TOKEN_HEADER};
+use crate::rate_limit::{RateLimiter, limit_for};
 use crate::store::Store;
 
 /// Variable d'environnement de l'URL PostgreSQL ; absente, le stockage est en mémoire.
@@ -50,12 +52,16 @@ const DAY_CACHE: &str = "public, max-age=86400";
 /// Intervalle des commentaires de maintien d'un flux d'avis : sans eux, un proxy pourrait couper une
 /// connexion restée muette.
 const EVENTS_KEEP_ALIVE: Duration = Duration::from_secs(15);
+/// En-tête de l'adresse du navigateur, écrit par Cloudflare devant Render : il remplace toute valeur envoyée par
+/// le navigateur, contrairement à `X-Forwarded-For`, dont la première adresse peut être inventée.
+const CLIENT_IP_HEADER: &str = "cf-connecting-ip";
 
 /// État partagé par les routes : le stockage des parties et les avis de changement.
 #[derive(Clone)]
 struct AppState {
     store: Store,
     events: Events,
+    limiter: RateLimiter,
 }
 
 /// L'application : routes de l'API, puis l'interface (si un dossier est donné) pour tout le reste.
@@ -65,7 +71,11 @@ pub fn app(store: Store, events: Events, static_dir: Option<PathBuf>) -> Router 
         .route("/api/health", get(health))
         .route("/api/events", get(game_events))
         .route("/api/{*route}", any(api))
-        .with_state(AppState { store, events })
+        .with_state(AppState {
+            store,
+            events,
+            limiter: RateLimiter::default(),
+        })
         // Réponses JSON compressées (gzip) quand le navigateur l'accepte : l'état d'une partie est relu
         // toutes les 2 secondes. Ce calque ne couvre que les routes ci-dessus, pas les fichiers de
         // l'interface, déjà compressés au build.
@@ -94,6 +104,23 @@ async fn health() -> Response {
 async fn api(State(state): State<AppState>, request: Request) -> Response {
     let method = request.method().clone();
     let path = request.uri().path().to_string();
+    // Limitation de débit des routes sans jeton (création, jonction, parties publiques).
+    let limited = Endpoint::from_path(&path)
+        .and_then(|endpoint| limit_for(endpoint).map(|limit| (endpoint, limit)))
+        .and_then(|(endpoint, limit)| {
+            state
+                .limiter
+                .check(client_ip(&request), endpoint, limit)
+                .err()
+        });
+    if let Some(retry_after) = limited {
+        println!("{method} {path} → 429");
+        let mut response = json_response(ApiError::rate_limited(retry_after).into());
+        if let Ok(value) = HeaderValue::from_str(&retry_after.to_string()) {
+            response.headers_mut().insert(header::RETRY_AFTER, value);
+        }
+        return response;
+    }
     let response = match Endpoint::from_path(&path) {
         None => ApiError::not_found().into(),
         Some(endpoint) => match read_request(request).await {
@@ -108,6 +135,24 @@ async fn api(State(state): State<AppState>, request: Request) -> Response {
     // Journal minimal : méthode, chemin, statut. Jamais de jeton, de corps ni d'état.
     println!("{method} {path} → {}", response.status);
     json_response(response)
+}
+
+/// Adresse du navigateur : l'en-tête de Cloudflare s'il est là (en production sur Render), sinon l'adresse de la
+/// connexion (en local), sinon une adresse commune à tous (tests sans connexion réelle). Elle ne sert qu'à compter
+/// les requêtes et n'est jamais journalisée.
+fn client_ip(request: &Request) -> IpAddr {
+    request
+        .headers()
+        .get(CLIENT_IP_HEADER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.trim().parse::<IpAddr>().ok())
+        .or_else(|| {
+            request
+                .extensions()
+                .get::<ConnectInfo<SocketAddr>>()
+                .map(|ConnectInfo(address)| address.ip())
+        })
+        .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
 }
 
 /// Publie la version renvoyée par une réponse réussie. Le code de la partie est dans la réponse

@@ -20,6 +20,10 @@ Référence commune du front (`web/src/api/types.ts`) et du back (`src/`, `crate
 - **Code de partie** : 6 caractères de l'alphabet `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` (ni `0`/`O` ni
   `1`/`I`). Le serveur accepte les minuscules et les espaces autour, et les convertit.
 - **Nom de joueur** : 1 à 20 caractères après suppression des espaces autour.
+- **Limitation de débit** : `create`, `join` et `public-games` sont limitées par adresse IP et par minute (10, 30
+  et 60 requêtes ; constantes de `src/rate_limit.rs`). Au-delà : `429 rate_limited`, avec l'en-tête `Retry-After`
+  (secondes avant de réessayer). L'adresse est lue dans l'en-tête `CF-Connecting-IP` (écrit par Cloudflare devant
+  Render), sinon c'est celle de la connexion.
 
 ## Routes
 
@@ -292,11 +296,14 @@ Toute erreur a la forme :
 | 405 | `method_not_allowed` | mauvaise méthode HTTP |
 | 409 | `version_conflict` | `expected_version` périmée, ou écriture concurrente |
 | 413 | `payload_too_large` | corps de requête trop gros |
+| 429 | `rate_limited` | trop de `create`, `join` ou `public-games` depuis la même adresse (en-tête `Retry-After`) |
 | 422 | `wrong_phase` | action impossible dans la phase actuelle (dont réglages ou visibilité après lancement) |
 | 422 | `not_your_turn` | action hors de son tour |
 | 422 | `game_full` | déjà 10 joueurs |
 | 422 | `player_not_absent` | passage du tour d'un joueur présent, ou qui ne bloque pas la partie |
-| 422 | `eliminated` | le joueur a été éliminé (trop de tours manqués) |
+| 422 | `eliminated` | le joueur ne joue plus (éliminé pour absence, ou il a abandonné) |
+| 422 | `cannot_kick_host` | l'hôte demande à se retirer lui-même du salon |
+| 422 | `unknown_player` | joueur visé inexistant dans cette partie (`kick`) |
 | 422 | `not_enough_players` | lancement à moins de 2 joueurs |
 | 422 | `invalid_position` | colonne ou ligne hors de la grille, ou colonne retirée |
 | 422 | `already_revealed` | carte déjà visible (retournement) |

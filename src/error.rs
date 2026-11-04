@@ -91,6 +91,15 @@ impl ApiError {
         Self::new(413, "payload_too_large", "Requête trop volumineuse.")
     }
 
+    /// Trop de requêtes depuis la même adresse (`src/rate_limit.rs`) ; `retry_after` : secondes avant de réessayer.
+    pub fn rate_limited(retry_after: u64) -> Self {
+        Self::new(
+            429,
+            "rate_limited",
+            format!("Trop de requêtes. Réessayez dans {retry_after} s."),
+        )
+    }
+
     /// Erreur interne : le détail n'est jamais envoyé au navigateur.
     pub fn internal() -> Self {
         Self::new(500, "internal", "Erreur interne du serveur.")

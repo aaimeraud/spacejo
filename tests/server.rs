@@ -264,3 +264,35 @@ async fn events_need_a_valid_code() {
     assert_eq!(response.status(), StatusCode::BAD_REQUEST);
     assert_eq!(body_json(response).await["error"]["code"], "invalid_code");
 }
+
+/// Création de partie envoyée depuis l'adresse `ip` (en-tête de Cloudflare, comme en production).
+fn create_from(ip: &str) -> Request<Body> {
+    Request::post("/api/create")
+        .header(header::CONTENT_TYPE, "application/json")
+        .header("cf-connecting-ip", ip)
+        .body(Body::from(json!({ "name": "Alice" }).to_string()))
+        .unwrap()
+}
+
+#[tokio::test]
+async fn too_many_creations_from_one_address_are_refused_with_retry_after() {
+    use spacejo_api::rate_limit::CREATE_PER_MINUTE;
+    let router = app(store(), Events::default(), None);
+    for _ in 0..CREATE_PER_MINUTE {
+        let response = send(router.clone(), create_from("198.51.100.7")).await;
+        assert_eq!(response.status(), StatusCode::CREATED);
+    }
+    let response = send(router.clone(), create_from("198.51.100.7")).await;
+    assert_eq!(response.status(), StatusCode::TOO_MANY_REQUESTS);
+    let retry_after: u64 = response.headers()[header::RETRY_AFTER]
+        .to_str()
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!((1..=60).contains(&retry_after));
+    assert_eq!(body_json(response).await["error"]["code"], "rate_limited");
+
+    // Une autre adresse n'est pas concernée.
+    let response = send(router, create_from("198.51.100.8")).await;
+    assert_eq!(response.status(), StatusCode::CREATED);
+}
