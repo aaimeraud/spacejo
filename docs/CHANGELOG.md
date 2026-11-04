@@ -2,6 +2,12 @@
 
 Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.
 
+## 1.4.1 - 2026-11-04
+
+### Corrections
+
+- **web** : Leave room under the iPhone status bar in the installed app (a008619)
+
 ## 1.4.0 - 2026-11-04
 
 ### Nouveautés
