@@ -91,6 +91,18 @@ impl ApiError {
         Self::new(413, "payload_too_large", "Requête trop volumineuse.")
     }
 
+    /// Message de chat vide, trop long, ou avec des caractères de contrôle.
+    pub fn invalid_message() -> Self {
+        Self::new(
+            400,
+            "invalid_message",
+            format!(
+                "Le message doit contenir de 1 à {} caractères, sur une seule ligne.",
+                crate::handlers::MAX_CHAT_CHARS
+            ),
+        )
+    }
+
     /// Trop de requêtes depuis la même adresse (`src/rate_limit.rs`) ; `retry_after` : secondes avant de réessayer.
     pub fn rate_limited(retry_after: u64) -> Self {
         Self::new(

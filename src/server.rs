@@ -26,7 +26,7 @@ use tower_http::services::{ServeDir, ServeFile};
 
 use crate::auth;
 use crate::error::ApiError;
-use crate::events::Events;
+use crate::events::{Events, Notice};
 use crate::handlers::{self, ApiRequest, ApiResponse, Endpoint, MAX_BODY_BYTES, TOKEN_HEADER};
 use crate::rate_limit::{RateLimiter, limit_for};
 use crate::store::Store;
@@ -104,7 +104,7 @@ async fn health() -> Response {
 async fn api(State(state): State<AppState>, request: Request) -> Response {
     let method = request.method().clone();
     let path = request.uri().path().to_string();
-    // Limitation de débit des routes sans jeton (création, jonction, parties publiques).
+    // Limitation de débit (création, jonction, parties publiques, envoi de messages du chat).
     let limited = Endpoint::from_path(&path)
         .and_then(|endpoint| limit_for(endpoint).map(|limit| (endpoint, limit)))
         .and_then(|(endpoint, limit)| {
@@ -155,18 +155,20 @@ fn client_ip(request: &Request) -> IpAddr {
         .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
 }
 
-/// Publie la version renvoyée par une réponse réussie. Le code de la partie est dans la réponse
-/// (création, jonction), dans le corps JSON de la requête, ou dans ses paramètres d'URL (`state`).
+/// Publie ce qu'annonce une réponse réussie : la version de la partie (`version`), ou le numéro d'un nouveau
+/// message du chat (`message.id`). Le code de la partie est dans la réponse (création, jonction), dans le corps
+/// JSON de la requête, ou dans ses paramètres d'URL (`state`).
 fn announce(events: &Events, request: &ApiRequest, response: &ApiResponse) {
     if !(200..300).contains(&response.status) {
         return;
     }
-    let Some(version) = response.body["version"]
+    let version = response.body["version"]
         .as_i64()
-        .and_then(|v| i32::try_from(v).ok())
-    else {
+        .and_then(|v| i32::try_from(v).ok());
+    let chat_message = response.body["message"]["id"].as_i64();
+    if version.is_none() && chat_message.is_none() {
         return;
-    };
+    }
     let from_body = serde_json::from_slice::<serde_json::Value>(&request.body)
         .ok()
         .and_then(|body| body["code"].as_str().map(str::to_string));
@@ -179,8 +181,14 @@ fn announce(events: &Events, request: &ApiRequest, response: &ApiResponse) {
         .map(str::to_string)
         .or(from_body)
         .or(from_query);
-    if let Some(code) = code.and_then(|code| auth::normalize_code(&code).ok()) {
+    let Some(code) = code.and_then(|code| auth::normalize_code(&code).ok()) else {
+        return;
+    };
+    if let Some(version) = version {
         events.publish(&code, version);
+    }
+    if let Some(id) = chat_message {
+        events.publish_chat(&code, id);
     }
 }
 
@@ -204,8 +212,13 @@ async fn game_events(
     let stream = futures_util::stream::unfold(receiver, |mut receiver| async move {
         loop {
             match receiver.recv().await {
-                Ok(version) => {
-                    let event = Event::default().event("version").data(version.to_string());
+                Ok(notice) => {
+                    let event = match notice {
+                        Notice::Version(version) => {
+                            Event::default().event("version").data(version.to_string())
+                        }
+                        Notice::Chat(id) => Event::default().event("chat").data(id.to_string()),
+                    };
                     return Some((Ok::<Event, Infallible>(event), receiver));
                 }
                 // Abonné trop lent : il a manqué des avis, le prochain suffira.

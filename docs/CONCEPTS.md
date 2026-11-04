@@ -7,7 +7,7 @@ Chaque ligne : la notion, le fichier où elle apparaît, et le chapitre du livre
 |---|---|---|
 | Espace de travail Cargo (plusieurs paquets, un seul `Cargo.lock`) | `Cargo.toml` | [ch14-03](https://doc.rust-lang.org/stable/book/ch14-03-cargo-workspaces.html) |
 | Modules et `pub use` | `crates/spacejo-core/src/lib.rs` | [ch07-02](https://doc.rust-lang.org/stable/book/ch07-02-defining-modules-to-control-scope-and-privacy.html) |
-| Enum avec données (`Column::Present(Vec<Cell>)`, `Phase::Playing(Turn)`) | `crates/spacejo-core/src/grid.rs`, `game.rs` | [ch06-01](https://doc.rust-lang.org/stable/book/ch06-01-defining-an-enum.html) |
+| Enum avec données (`Column::Present(Vec<Cell>)`, `Phase::Playing(Turn)`, `Notice::Chat(i64)`) | `crates/spacejo-core/src/grid.rs`, `game.rs`, `src/events.rs` | [ch06-01](https://doc.rust-lang.org/stable/book/ch06-01-defining-an-enum.html) |
 | `match` et motifs (couples, gardes `if`) | `crates/spacejo-core/src/scoring.rs`, `game.rs` | [ch06-02](https://doc.rust-lang.org/stable/book/ch06-02-match.html) |
 | `Option` et `Result`, opérateur `?`, `ok_or` | `crates/spacejo-core/src/grid.rs`, `game.rs` | [ch09-02](https://doc.rust-lang.org/stable/book/ch09-02-recoverable-errors-with-result.html) |
 | Emprunts `&` et `&mut` (lecture seule ou modification) | `crates/spacejo-core/src/rng.rs`, `view.rs` | [ch04-02](https://doc.rust-lang.org/stable/book/ch04-02-references-and-borrowing.html) |

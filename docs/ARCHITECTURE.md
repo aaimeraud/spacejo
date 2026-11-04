@@ -96,11 +96,11 @@ Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
 
 | Fichier | Rôle |
 |---|---|
-| `src/handlers.rs` | les onze opérations (dont la liste des parties publiques et la visibilité), indépendantes du serveur HTTP (`handle(store, endpoint, request)`) |
+| `src/handlers.rs` | les treize opérations (dont la liste des parties publiques et la visibilité), indépendantes du serveur HTTP (`handle(store, endpoint, request)`) |
 | `src/auth.rs` | jetons (256 bits, hachage SHA-256, comparaison en temps constant), codes de partie, graines |
 | `src/stored.rs` | `StoredGame` (ce qui est dans `games.state`) et `STATE_VERSION` |
 | `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste ; liste des parties publiques au salon (`list_public`) et visibilité (`set_public`) |
-| `src/events.rs` | avis de changement de version, un canal `broadcast` par partie, poussés aux navigateurs par `GET /api/events` |
+| `src/events.rs` | avis de changement (nouvelle version, nouveau message du chat : `Notice`), un canal `broadcast` par partie, poussés aux navigateurs par `GET /api/events` |
 | `src/server.rs` | serveur `axum` : `/api/health`, `/api/*` vers `handlers` (réponses compressées), fichiers de l'interface par `tower-http` (version gzip, règles de cache, retour à `index.html` pour une page de l'application) |
 | `src/error.rs` | `ApiError` (statut, code, message) et conversion depuis `GameError` |
 | `src/rate_limit.rs` | limitation de débit par adresse IP (fenêtre fixe d'une minute, compteurs en mémoire) sur `create`, `join` et `public-games` |
@@ -271,6 +271,24 @@ le même serveur sert l'API et l'interface construite (`web/dist`) sur une seule
 
 Choix et alternatives : [decisions/2026-11-04-parties-publiques.md](decisions/2026-11-04-parties-publiques.md).
 
+## Chat de la partie
+
+- **Envoi** (`POST /api/chat`) : le serveur identifie le joueur par son jeton, vérifie le texte (1 à
+  `MAX_CHAT_CHARS` caractères, une ligne, sans caractère de contrôle) et l'enregistre dans `chat_messages`, avec
+  le nom du joueur. L'état du jeu n'est pas touché : pas de nouvelle `version`, donc aucun conflit avec un coup
+  joué au même moment.
+- **Réception** : `src/server.rs` publie le numéro du message sur le flux d'avis (`Notice::Chat`) ; chaque navigateur
+  abonné relit les messages plus récents que le dernier qu'il connaît (`GET /api/messages?after=…`). Sans flux
+  d'avis, il les relit à chaque polling. À l'ouverture d'une partie (reprise, rechargement), il lit l'historique
+  (les 50 derniers messages).
+- **Interface** : un bouton « Chat » sur l'écran de partie et de fin de partie, avec le nombre de messages non lus
+  écrit en chiffres ; le panneau (`ChatPanel.tsx`) est posé sur le côté (en bas sur un téléphone) sans bloquer le
+  jeu. La liste est une région `role="log"` : les lecteurs d'écran annoncent les nouveaux messages.
+- **Hygiène** : le texte des messages n'est jamais journalisé ; le flux d'avis, sans jeton, ne transporte que des
+  numéros. L'envoi est limité à 30 messages par minute et par adresse (`src/rate_limit.rs`).
+
+Choix et alternatives : [decisions/2026-11-04-chat.md](decisions/2026-11-04-chat.md).
+
 ## Présence, absence et élimination
 
 Le serveur ne garde rien en mémoire et ne lance aucune tâche de fond : tout se décide pendant les requêtes.
@@ -326,6 +344,10 @@ parties publiques ne parcourt pas les parties privées.
 Table `presence`, créée par `migrations/0002_create_presence.sql` : `game_id` (référence `games.id`, supprimée
 avec la partie), `player_id`, `last_seen` ; clé primaire (`game_id`, `player_id`).
 
+Table `chat_messages`, créée par `migrations/0004_chat_messages.sql` : `id` (numéro croissant), `game_id`
+(référence `games.id`, supprimée avec la partie), `player_id`, `name` (nom au moment de l'envoi), `body`,
+`created_at` ; index (`game_id`, `id`) pour lire les derniers messages d'une partie.
+
 Le schéma n'évolue que par de nouveaux fichiers dans `migrations/` (jamais à la main) ; `cargo run --bin migrate`
 les applique, et `sqlx` note celles déjà appliquées dans `_sqlx_migrations`.
 
@@ -356,6 +378,9 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
   (`src/rate_limit.rs`), avec des compteurs en mémoire : remis à zéro à chaque redémarrage, et propres à chaque
   serveur s'il y en avait plusieurs (il faudrait alors les ranger dans PostgreSQL ou un service dédié). Les routes
   avec jeton ne sont pas limitées.
-- **Modération** : les noms des hôtes de parties publiques sont visibles de tous, sans filtre.
+- **Modération** : les noms des hôtes de parties publiques et les messages du chat sont visibles sans filtre ; on
+  ne peut ni signaler ni rendre muet un joueur.
+- **Historique du chat** : les messages restent en base tant que leur partie existe (les anciennes parties ne sont
+  pas encore effacées).
 - **Comptes utilisateurs** : aucun ; l'identité est un jeton secret par partie.
 - **Nombre de joueurs** : de 2 à 10 (`MAX_PLAYERS`) ; le core n'en dépend pas ailleurs.
