@@ -262,3 +262,21 @@ Demandée par le propriétaire du dépôt.
 3. [x] Documentation (décision : appel direct du navigateur à GitHub), vérifications, essai dans le navigateur.
 
 Aucune nouvelle dépendance. Service externe : `api.github.com`, appelé par le navigateur du visiteur.
+
+## Évolution en cours : pioche réduite et animation du remélange (branche `claude/reduced-deck`)
+
+Demandée par le propriétaire du dépôt : moins de cartes dans la pioche, proportionnellement au nombre de joueurs,
+pour que la défausse soit remélangée en pioche plus souvent ; et une animation à ce moment-là.
+
+1. [x] Core (tests d'abord) : nouveau réglage `deck` de `Rules` (CLAUDE.md, règle 6 : ce que la notice ne prévoit
+   pas est un réglage, défaut = règles officielles). `Full` (défaut, officiel) : les 150 cartes. `Reduced` (variante) :
+   après le mélange, on ne garde que `REDUCED_DECK_CARDS_PER_PLAYER` (40) cartes par joueur en jeu, au plus 150 —
+   12 dans sa grille et 28 pour la pioche. Les cartes gardées sont tirées au hasard (graine de la partie) : la
+   proportion des valeurs reste celle du paquet complet en moyenne.
+2. [x] Format enregistré v4 (`rules.deck`), avec migration (`Full` pour les parties existantes) et exemple figé.
+3. [x] Interface : réglage « Taille de la pioche » dans le parcours « Personnalisée » et le récapitulatif ; animation
+   des cartes qui passent de la défausse à la pioche, avec un message (« La défausse est mélangée… »), détectée
+   en comparant deux vues ; aucune animation si `prefers-reduced-motion`.
+4. [x] Documentation (`RULES.md`, `CONTRACT.md`, `ASSUMPTIONS.md`), vérifications, essai dans le navigateur.
+
+Aucune nouvelle dépendance.

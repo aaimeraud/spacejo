@@ -32,8 +32,8 @@ pub use game::{
 pub use grid::{CARDS_PER_PLAYER, Cell, Column, GRID_COLUMNS, GRID_ROWS, Grid};
 pub use rng::SplitMix64;
 pub use rules::{
-    DEFAULT_END_SCORE, END_SCORE_MAX, END_SCORE_MIN, EmptyPile, EndTie, FirstPlayerTie,
-    NextRoundStarter, PenaltyRule, PenaltyScope, Rules,
+    DEFAULT_END_SCORE, DeckSize, END_SCORE_MAX, END_SCORE_MIN, EmptyPile, EndTie, FirstPlayerTie,
+    NextRoundStarter, PenaltyRule, PenaltyScope, REDUCED_DECK_CARDS_PER_PLAYER, Rules,
 };
 pub use scoring::finisher_round_score;
 pub use view::{ColumnView, GameView, HeldView, PhaseName, PlayerView, PublicSlot, view_for};

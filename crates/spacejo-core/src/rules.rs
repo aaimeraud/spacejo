@@ -13,12 +13,15 @@ pub const END_SCORE_MIN: i32 = 10;
 pub const END_SCORE_MAX: i32 = 500;
 /// Score de fin de partie officiel.
 pub const DEFAULT_END_SCORE: i32 = 100;
+/// Pioche réduite (`DeckSize::Reduced`) : cartes gardées par joueur en jeu, 12 pour sa grille, le reste pour la pioche.
+pub const REDUCED_DECK_CARDS_PER_PLAYER: usize = 40;
 
 /// Tous les réglages d'une partie. Ils sont enregistrés en entier dans l'état de la partie.
 ///
 /// `deny_unknown_fields` : un champ inconnu dans le JSON est refusé (validation stricte des
-/// données du navigateur). Comme il n'y a pas de `#[serde(default)]`, un champ manquant est
-/// refusé aussi : les réglages reçus sont toujours complets.
+/// données du navigateur). Un champ manquant est refusé aussi, sauf `deck`, ajouté après la v1.3 :
+/// absent, c'est le paquet complet (règle officielle), pour qu'une interface encore ancienne, qui
+/// envoie les 7 réglages d'origine, continue de fonctionner pendant une mise à jour.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Rules {
@@ -29,6 +32,8 @@ pub struct Rules {
     pub empty_pile: EmptyPile,
     pub end_tie: EndTie,
     pub end_score: i32,
+    #[serde(default)]
+    pub deck: DeckSize,
 }
 
 // Les enums ci-dessous n'ont que des variantes sans données : serde les écrit en JSON sous
@@ -93,6 +98,18 @@ pub enum EndTie {
     ExtraRound,
 }
 
+/// Combien de cartes compte le paquet de chaque manche ?
+/// `Default` (avec `#[default]`) donne la valeur officielle, utilisée quand `deck` est absent du JSON.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DeckSize {
+    /// Officiel : les 150 cartes.
+    #[default]
+    Full,
+    /// Variante : `REDUCED_DECK_CARDS_PER_PLAYER` cartes par joueur en jeu (au plus 150), tirées au hasard dans le
+    /// paquet mélangé. La pioche est plus courte : la défausse est remélangée plus souvent.
+    Reduced,
+}
+
 /// Valeurs par défaut = règles officielles : la première valeur de chaque enum.
 impl Default for Rules {
     fn default() -> Self {
@@ -104,6 +121,7 @@ impl Default for Rules {
             empty_pile: EmptyPile::ReshuffleDiscard,
             end_tie: EndTie::SharedVictory,
             end_score: DEFAULT_END_SCORE,
+            deck: DeckSize::Full,
         }
     }
 }

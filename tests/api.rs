@@ -203,10 +203,10 @@ async fn creating_without_rules_uses_the_official_rules_and_stores_them_all() {
     let (host, response) = create(&store, "Alice", None).await;
     let defaults = serde_json::to_value(Rules::default()).unwrap();
     assert_eq!(response.body["view"]["rules"], defaults);
-    // L'état enregistré contient les 7 réglages, pas seulement ceux qui ont été choisis.
+    // L'état enregistré contient les 8 réglages, pas seulement ceux qui ont été choisis.
     let raw = memory.raw_state(&host.code).unwrap();
     assert_eq!(raw["game"]["rules"], defaults);
-    assert_eq!(raw["game"]["rules"].as_object().unwrap().len(), 7);
+    assert_eq!(raw["game"]["rules"].as_object().unwrap().len(), 8);
     assert_eq!(raw["state_version"], spacejo_api::STATE_VERSION);
 }
 
@@ -220,7 +220,8 @@ async fn creating_with_rules_validates_every_setting() {
         "next_round_starter": "Rotate",
         "empty_pile": "EndRound",
         "end_tie": "ExtraRound",
-        "end_score": 150
+        "end_score": 150,
+        "deck": "Reduced"
     });
     let (host, response) = create(&store, "Alice", Some(variant.clone())).await;
     assert_eq!(response.body["view"]["rules"], variant);
@@ -236,6 +237,7 @@ async fn creating_with_rules_validates_every_setting() {
         "next_round_starter",
         "empty_pile",
         "end_tie",
+        "deck",
     ] {
         let mut rules = variant.clone();
         rules[field] = json!("Inconnu");

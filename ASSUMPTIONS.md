@@ -111,3 +111,15 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
     cet historique comptent comme non lus.
 33. **Pas de modération** : aucun filtre de mots, aucun signalement ; la limitation de débit (30 messages par minute
     et par adresse) empêche seulement d'inonder le chat.
+
+## Pioche réduite (demandée par le propriétaire du dépôt)
+
+34. **Pioche réduite** (`deck` = `Reduced`) : 40 cartes par joueur encore en jeu (12 pour sa grille, 28 pour la pioche),
+    au plus les 150 cartes (donc sans effet à partir de 4 joueurs). Le premier choix, 20, laissait une pioche de
+    15 cartes à 2 joueurs, jugée trop courte par le propriétaire du dépôt. Ce nombre est une constante (`REDUCED_DECK_CARDS_PER_PLAYER`) ; la demande disait seulement
+    « moins de cartes, proportionnellement au nombre de joueurs ». Les cartes gardées sont les premières du paquet
+    mélangé : un tirage au hasard, qui respecte la proportion des valeurs en moyenne mais pas exactement. Le paquet est
+    refait à chaque manche, avec le nombre de joueurs encore en jeu (un joueur éliminé ne compte plus).
+35. **Animation du remélange** : l'interface la déduit de deux vues successives (la pioche grossit pendant une même
+    manche), sans information de plus du serveur. Un remélange survenu pendant qu'un navigateur était fermé n'est
+    pas rejoué.
