@@ -23,4 +23,4 @@ Chaque ligne : la notion, le fichier où elle apparaît, et le chapitre du livre
 | Tests unitaires `#[cfg(test)]` dans le même fichier | `src/auth.rs` | [ch11-03](https://doc.rust-lang.org/stable/book/ch11-03-test-organization.html) |
 | `let … else` (sortir tôt quand un motif ne correspond pas) | `src/handlers.rs`, `crates/spacejo-core/src/game.rs` | [ch19-01](https://doc.rust-lang.org/stable/book/ch19-01-all-the-places-for-patterns.html) |
 | Méthodes d'`Option` (`is_none_or`, `is_some_and`, `filter`) | `src/handlers.rs`, `crates/spacejo-core/src/game.rs` | [doc de `Option`](https://doc.rust-lang.org/std/option/enum.Option.html) |
-
+| Trait dérivé `Hash` (pour servir de clé de `HashMap`) | `src/handlers.rs` (`Endpoint`), `src/rate_limit.rs` | [ch08-03](https://doc.rust-lang.org/stable/book/ch08-03-hash-maps.html), [annexe C](https://doc.rust-lang.org/stable/book/appendix-03-derivable-traits.html) |

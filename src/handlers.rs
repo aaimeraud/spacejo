@@ -35,8 +35,8 @@ pub const ABSENT_TURN_WAIT_SECS: f64 = 45.0;
 /// Nombre maximal de parties données par `GET /api/public-games` (les plus récentes).
 pub const PUBLIC_GAMES_LIMIT: usize = 20;
 
-/// Les routes de l'API.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+/// Les routes de l'API. `Hash` : une route sert de clé aux compteurs de `rate_limit`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Endpoint {
     Create,
     Join,

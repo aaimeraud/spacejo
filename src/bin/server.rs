@@ -59,7 +59,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("SpaceJo écoute sur le port {port}");
     let events = Events::default();
     let closing = events.clone();
-    axum::serve(listener, app(store, events, static_dir))
+    // `into_make_service_with_connect_info` : chaque requête connaît l'adresse de la connexion (limitation de
+    // débit, quand l'en-tête de Cloudflare est absent, en local).
+    let service =
+        app(store, events, static_dir).into_make_service_with_connect_info::<SocketAddr>();
+    axum::serve(listener, service)
         .with_graceful_shutdown(async move {
             shutdown_signal().await;
             // Termine les flux d'avis encore ouverts : sinon l'arrêt les attendrait sans fin.

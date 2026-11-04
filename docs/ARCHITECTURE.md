@@ -96,13 +96,14 @@ Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
 
 | Fichier | Rôle |
 |---|---|
-| `src/handlers.rs` | les neuf opérations (dont la liste des parties publiques et la visibilité), indépendantes du serveur HTTP (`handle(store, endpoint, request)`) |
+| `src/handlers.rs` | les onze opérations (dont la liste des parties publiques et la visibilité), indépendantes du serveur HTTP (`handle(store, endpoint, request)`) |
 | `src/auth.rs` | jetons (256 bits, hachage SHA-256, comparaison en temps constant), codes de partie, graines |
 | `src/stored.rs` | `StoredGame` (ce qui est dans `games.state`) et `STATE_VERSION` |
 | `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste ; liste des parties publiques au salon (`list_public`) et visibilité (`set_public`) |
 | `src/events.rs` | avis de changement de version, un canal `broadcast` par partie, poussés aux navigateurs par `GET /api/events` |
 | `src/server.rs` | serveur `axum` : `/api/health`, `/api/*` vers `handlers` (réponses compressées), fichiers de l'interface par `tower-http` (version gzip, règles de cache, retour à `index.html` pour une page de l'application) |
 | `src/error.rs` | `ApiError` (statut, code, message) et conversion depuis `GameError` |
+| `src/rate_limit.rs` | limitation de débit par adresse IP (fenêtre fixe d'une minute, compteurs en mémoire) sur `create`, `join` et `public-games` |
 
 ### Parcours d'une action, du clic à la réponse
 
@@ -349,8 +350,10 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
   autres verraient les coups au polling, en 5 s au plus).
 - **Hébergement gratuit** : sur l'offre gratuite de Render, le serveur s'endort après 15 minutes sans requête et
   met environ une minute à se réveiller ; l'interface le réveille dès l'ouverture de l'accueil.
-- **Limitation de débit** : aucune limite sur la création et la jonction de parties, ni sur la liste des parties
-  publiques.
+- **Limitation de débit** : par adresse IP sur la création, la jonction et la liste des parties publiques
+  (`src/rate_limit.rs`), avec des compteurs en mémoire : remis à zéro à chaque redémarrage, et propres à chaque
+  serveur s'il y en avait plusieurs (il faudrait alors les ranger dans PostgreSQL ou un service dédié). Les routes
+  avec jeton ne sont pas limitées.
 - **Modération** : les noms des hôtes de parties publiques sont visibles de tous, sans filtre.
 - **Comptes utilisateurs** : aucun ; l'identité est un jeton secret par partie.
 - **Nombre de joueurs** : de 2 à 10 (`MAX_PLAYERS`) ; le core n'en dépend pas ailleurs.
