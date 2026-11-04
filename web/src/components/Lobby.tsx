@@ -1,12 +1,13 @@
-// Salon : code et lien d'invitation à partager, visibilité (privée ou publique), joueurs (jusqu'à 10), règles actives. L'hôte modifie les règles avec le même
+// Salon : code, lien d'invitation et son code QR à partager, visibilité (privée ou publique, modifiable par l'hôte), joueurs (jusqu'à 10), règles actives. L'hôte modifie les règles avec le même
 // parcours pas à pas qu'à la création (dans une fenêtre), puis lance la partie. Tout tient sur un écran.
-import { BookOpen, Copy, Crown, Globe, Lock, LogOut, Pencil, Play, Share2, Users, WifiOff } from "lucide-react";
+import { BookOpen, Copy, Crown, Globe, Lock, LogOut, Pencil, Play, QrCode as QrIcon, Share2, Users, WifiOff } from "lucide-react";
 import { useState } from "react";
 import type { GameView, PresenceEntry, Rules } from "../api/types";
 import { MAX_PLAYERS } from "../config";
 import { inviteLink } from "../invite";
 import { FitStage } from "./FitStage";
 import { Modal } from "./Modal";
+import { QrCode } from "./QrCode";
 import { ThemeToggle } from "./ThemeToggle";
 import { RuleStepBody, RulesRecap, WizardFrame, ruleStepTitle, useRulesFlow } from "./wizard/RuleSteps";
 
@@ -18,6 +19,8 @@ interface Props {
   busy: boolean;
   presence: PresenceEntry[];
   onRulesChange: (rules: Rules) => void;
+  /** L'hôte rend la partie publique (`true`) ou privée. */
+  onVisibilityChange: (isPublic: boolean) => void;
   onStart: () => void;
   onLeave: () => void;
 }
@@ -89,8 +92,19 @@ async function shareInvite(link: string): Promise<string | null> {
   return "Lien d'invitation copié !";
 }
 
-export function Lobby({ view, code, isPublic, busy, presence, onRulesChange, onStart, onLeave }: Props) {
+export function Lobby({
+  view,
+  code,
+  isPublic,
+  busy,
+  presence,
+  onRulesChange,
+  onVisibilityChange,
+  onStart,
+  onLeave,
+}: Props) {
   const [editing, setEditing] = useState(false);
+  const [showingQr, setShowingQr] = useState(false);
   const [explaining, setExplaining] = useState(false);
   // Message après une copie ou un partage (`null` : consigne par défaut).
   const [copied, setCopied] = useState<string | null>(null);
@@ -101,7 +115,7 @@ export function Lobby({ view, code, isPublic, busy, presence, onRulesChange, onS
 
   return (
     <>
-      <FitStage landscape={[1180, 700]} portrait={[440, 960]}>
+      <FitStage landscape={[1180, 700]} portrait={[440, 1010]}>
         {() => (
           <div className="lobby">
             <section className="panel lobby-players" aria-labelledby="players-title">
@@ -138,6 +152,20 @@ export function Lobby({ view, code, isPublic, busy, presence, onRulesChange, onS
                 >
                   <Share2 aria-hidden="true" /> Inviter avec un lien
                 </button>
+                <button type="button" className="ghost-button" onClick={() => setShowingQr(true)}>
+                  <QrIcon aria-hidden="true" /> Code QR
+                </button>
+                {isHost && (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    disabled={busy}
+                    onClick={() => onVisibilityChange(!isPublic)}
+                  >
+                    {isPublic ? <Lock aria-hidden="true" /> : <Globe aria-hidden="true" />}
+                    {isPublic ? "Rendre privée" : "Rendre publique"}
+                  </button>
+                )}
               </div>
               <p className="note" role="status">
                 {copied ??
@@ -207,6 +235,17 @@ export function Lobby({ view, code, isPublic, busy, presence, onRulesChange, onS
         )}
       </FitStage>
       {editing && <RulesWizardModal initial={view.rules} onSave={onRulesChange} onClose={() => setEditing(false)} />}
+      {showingQr && (
+        <Modal title="Inviter avec un code QR" onClose={() => setShowingQr(false)}>
+          <div className="qr-invite">
+            <QrCode text={link} label={`Code QR du lien d'invitation de la partie ${code}`} />
+            <p className="note">
+              Scannez ce code avec l'appareil photo d'un téléphone pour rejoindre la partie <strong>{code}</strong>.
+            </p>
+            <p className="qr-link">{link}</p>
+          </div>
+        </Modal>
+      )}
       {explaining && (
         <Modal title="Règles actives, en détail" onClose={() => setExplaining(false)} wide>
           <RulesRecap rules={view.rules} details />

@@ -109,7 +109,7 @@ export interface JoinedResponse extends PresenceInfo {
   view: GameView;
 }
 
-/** Réponse de `rules`, `start` et `action`. */
+/** Réponse de `rules`, `start`, `action`, `skip` et `visibility`. */
 export interface WriteResponse extends PresenceInfo {
   version: number;
   view: GameView;

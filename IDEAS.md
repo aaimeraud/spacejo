@@ -10,5 +10,3 @@ Idées notées pendant le travail, à étudier plus tard.
 - Réglage pour décider si les colonnes identiques sont retirées au retournement final (ASSUMPTIONS.md, n° 5).
 - Rejouer automatiquement un retournement de mise en place refusé pour conflit de version (409), fréquent
   quand tous les joueurs retournent leurs cartes en même temps.
-- Basculer une partie de privée à publique (et inversement) depuis le salon, par l'hôte, avant le lancement.
-- Code QR du lien d'invitation au salon, pour inviter quelqu'un dans la même pièce.

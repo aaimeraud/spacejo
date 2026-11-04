@@ -97,6 +97,7 @@ Routes : `/api/health`, `/api/create`, `/api/join`, `/api/rules`, `/api/start`, 
 | `react`, `react-dom` | web | imposé |
 | `typescript`, `vite`, `@vitejs/plugin-react` | web | imposé (Vite + TypeScript strict) |
 | `vitest` | web | tests du front, même configuration que Vite |
+| `qrcode-generator` 2.0.4 | web | matrice du code QR du lien d'invitation (MIT, aucune dépendance) ; voir l'évolution « visibilité modifiable au salon » ci-dessous |
 | police Inter (Google Fonts) | web | une police lisible et moderne avec chiffres de même largeur ; ressource chargée par la page, pas un paquet npm (voir `docs/decisions/2026-11-04-theme-nuit.md`) |
 
 Pas de caisse `rand` dans le core : le mélange utilise un petit générateur SplitMix64 écrit dans le
@@ -190,3 +191,18 @@ Demandée par le propriétaire du dépôt après la release v1.0.0. Décision :
 4. [x] Documentation (`CONTRACT.md`, `ARCHITECTURE.md`, décision, `ASSUMPTIONS.md`) ; vérification dans le navigateur.
 
 Aucune nouvelle dépendance.
+
+## Évolution en cours : visibilité modifiable au salon, code QR du lien (branche `claude/lobby-visibility-qr`)
+
+Demandée par le propriétaire du dépôt après la v1.1.0 (idées notées dans `IDEAS.md`).
+
+1. [x] API (tests d'abord) : `POST /api/visibility` (hôte, au salon seulement, avec `expected_version`) rend la
+   partie publique ou privée ; écrit la colonne `games.public` et incrémente `version` (même verrou optimiste), ce
+   qui prévient les autres joueurs par le flux d'avis.
+2. [x] Interface : au salon, l'hôte bascule « publique / privée » ; bouton « Code QR » qui affiche le lien
+   d'invitation en code QR (dessiné en SVG par React, toujours sombre sur fond clair pour rester lisible).
+3. [x] Documentation, vérification dans le navigateur.
+
+Dépendance ajoutée : `qrcode-generator` 2.0.4 (licence MIT, aucune dépendance, ~20 Ko), pour calculer la matrice du
+code QR. Écrire un encodeur QR soi-même (correction d'erreurs Reed-Solomon, masques) serait long et risqué pour un
+gain nul. Écartée : `qrcode` (trois dépendances, dont `yargs`, pour la ligne de commande).

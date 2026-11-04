@@ -252,6 +252,8 @@ export function App() {
 
   const onRulesChange = (rules: Rules) =>
     write((s, version) => api.updateRules(s.code, s.token, version, rules));
+  const onVisibilityChange = (publicGame: boolean) =>
+    write((s, version) => api.setVisibility(s.code, s.token, version, publicGame));
   const onStart = () => write((s, version) => api.start(s.code, s.token, version));
   const onAction = (action: Action) => write((s, version) => api.act(s.code, s.token, version, action));
   const onSkip = (player: number) => write((s, version) => api.skip(s.code, s.token, version, player));
@@ -295,6 +297,7 @@ export function App() {
             busy={busy}
             presence={presence}
             onRulesChange={onRulesChange}
+            onVisibilityChange={onVisibilityChange}
             onStart={onStart}
             onLeave={() => leave(true)}
           />

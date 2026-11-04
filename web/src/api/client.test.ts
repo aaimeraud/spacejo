@@ -68,6 +68,15 @@ describe("SpaceJoApi", () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ name: "Alice", public: true });
   });
 
+  it("change la visibilité avec la version attendue et le jeton", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(200, { version: 4, view: {} }, calls));
+    await api.setVisibility("K7MPQX", "secret", 3, true);
+    expect(calls[0]?.url).toBe("/api/visibility");
+    expect((calls[0]?.init?.headers as Record<string, string>)[TOKEN_HEADER]).toBe("secret");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ code: "K7MPQX", expected_version: 3, public: true });
+  });
+
   it("liste les parties publiques sans jeton", async () => {
     const calls: Call[] = [];
     const games = [{ code: "K7MPQX", host: "Alice", players: 2, max_players: 10 }];
