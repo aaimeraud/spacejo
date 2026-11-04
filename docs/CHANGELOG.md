@@ -2,6 +2,13 @@
 
 Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.
 
+## 1.3.0 - 2026-11-04
+
+### Nouveautés
+
+- **api** : Add an in-game chat with messages pushed to every player (136fe23)
+- **web** : Add a chat panel to the game screen with an unread counter (f503077)
+
 ## 1.2.0 - 2026-11-04
 
 ### Nouveautés
