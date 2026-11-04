@@ -8,3 +8,6 @@ Idées notées pendant le travail, à étudier plus tard.
 - Joueurs automatiques, plus de 4 joueurs.
 - Animations plus riches (carte qui vole de la pioche vers la grille).
 - Réglage pour décider si les colonnes identiques sont retirées au retournement final (ASSUMPTIONS.md, n° 5).
+- Chat au salon (le serveur l'accepte déjà ; seule l'interface manque).
+- Réactions rapides dans le chat (« Bien joué ! », émojis) en un clic.
+- Rendre muet un joueur dans son propre chat, ou signaler un message (parties publiques).

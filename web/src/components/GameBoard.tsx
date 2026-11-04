@@ -6,14 +6,16 @@
 // La disposition vient de `game/seats.ts`, le relief du CSS (styles.css, « Table »). Le tableau des scores
 // s'ouvre dans une fenêtre (il s'ouvre tout seul en fin de manche).
 import { CircleCheck, Crown, Hourglass, ListOrdered, LogOut, Play, Repeat, RotateCcw, SkipForward, Trophy, UserX, Users, WifiOff } from "lucide-react";
-import { useEffect, useState, type CSSProperties } from "react";
-import type { Action, GameView, PlayerView, PresenceEntry, Waiting } from "../api/types";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import type { Action, ChatMessage, GameView, PlayerView, PresenceEntry, Waiting } from "../api/types";
+import { lastMessageId, unreadCount } from "../game/chat";
 import { hint, isMyTurn, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
 import { focusedOpponent } from "../game/focus";
 import { hiddenCount, seatPlayers } from "../game/seats";
 import { ValueCard } from "./Card";
 import { FitStage, type Orientation } from "./FitStage";
 import { GridView } from "./GridView";
+import { ChatButton, ChatPanel } from "./ChatPanel";
 import { Modal } from "./Modal";
 import { Scoreboard } from "./Scoreboard";
 import { ThemeToggle } from "./ThemeToggle";
@@ -29,6 +31,10 @@ interface Props {
   /** L'hôte passe le tour d'un joueur absent. */
   onSkip: (player: number) => void;
   onLeave: () => void;
+  /** Messages du chat de la partie. */
+  chat: ChatMessage[];
+  /** Envoie un message ; `true` s'il est parti. */
+  onSend: (text: string) => Promise<boolean>;
 }
 
 /** Taille des sièges adverses selon le nombre de joueurs (plus il y en a, plus ils sont petits). */
@@ -143,9 +149,19 @@ function WaitingBanner({
   );
 }
 
-export function GameBoard({ view, code, busy, presence, waiting, onAction, onSkip, onLeave }: Props) {
+export function GameBoard({ view, code, busy, presence, waiting, onAction, onSkip, onLeave, chat, onSend }: Props) {
   const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const [mode, setMode] = useState<HeldMode>("swap");
+  // Chat : panneau ouvert ou non, et dernier message vu (pour compter les non-lus).
+  const [chatOpen, setChatOpen] = useState(false);
+  const [seenId, setSeenId] = useState(0);
+  useEffect(() => {
+    if (chatOpen) setSeenId(lastMessageId(chat));
+  }, [chatOpen, chat]);
+  const unread = chatOpen ? 0 : unreadCount(chat, seenId, view.me);
+  const closeChat = useCallback(() => setChatOpen(false), []);
+  const chatPanel = chatOpen && <ChatPanel messages={chat} me={view.me} onSend={onSend} onClose={closeChat} />;
+
   // Quitter une partie en cours, c'est l'abandonner pour de bon : on demande confirmation (pas après la fin).
   const [confirmingQuit, setConfirmingQuit] = useState(false);
   const quit = () => (view.phase === "GameOver" || me?.eliminated === true ? onLeave() : setConfirmingQuit(true));
@@ -248,6 +264,7 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
                 ))}
               </ol>
               <div className="game-over-actions">
+                <ChatButton unread={unread} onClick={() => setChatOpen((open) => !open)} />
                 <button type="button" className="ghost-button" onClick={() => setScoresOpen(true)}>
                   <ListOrdered aria-hidden="true" /> Tableau des scores
                 </button>
@@ -260,6 +277,7 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
         </FitStage>
         {scoresModal}
         {quitModal}
+        {chatPanel}
       </>
     );
   }
@@ -482,6 +500,7 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
                   <ListOrdered aria-hidden="true" />
                   <span className="stage-action-label">Scores</span>
                 </button>
+                <ChatButton unread={unread} onClick={() => setChatOpen((open) => !open)} />
                 <ThemeToggle />
                 <button type="button" className="ghost-button" onClick={quit} aria-label="Quitter la partie">
                   <LogOut aria-hidden="true" />
@@ -510,7 +529,8 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
         )}
       </FitStage>
       {scoresModal}
-        {quitModal}
+      {quitModal}
+      {chatPanel}
     </>
   );
 }

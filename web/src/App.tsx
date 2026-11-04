@@ -4,8 +4,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, SpaceJoApi } from "./api/client";
 import { listenGameEvents } from "./api/events";
 import { pollInterval } from "./polling";
-import type { Action, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
+import type { Action, ChatMessage, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
 import { MAX_REVEAL_RETRIES, NOTICE_DURATION_MS } from "./config";
+import { lastMessageId, mergeMessages } from "./game/chat";
 import { departureNotices } from "./game/departures";
 import { slotAction } from "./game/logic";
 import { codeFromSearch } from "./invite";
@@ -53,6 +54,9 @@ export function App() {
   const [isPublic, setIsPublic] = useState(false);
   // Message d'information passager (« X a abandonné la partie »), distinct des erreurs.
   const [notice, setNotice] = useState<string | null>(null);
+  // Messages du chat de la partie, et leur copie dans une référence (lue par les relectures, sans relancer le polling).
+  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const chatRef = useRef<ChatMessage[]>([]);
   // Dernière vue reçue, pour repérer les départs entre deux vues (game/departures.ts).
   const lastViewRef = useRef<GameView | null>(null);
   const [view, setView] = useState<GameView | null>(null);
@@ -85,6 +89,8 @@ export function App() {
     versionRef.current = null;
     lastViewRef.current = null;
     setNotice(null);
+    chatRef.current = [];
+    setChat([]);
     setSession(null);
     setView(null);
     setError(null);
@@ -109,6 +115,26 @@ export function App() {
       applyPresence(info);
     },
     [applyPresence],
+  );
+
+  /** Ajoute des messages du chat à ceux déjà connus. */
+  const addMessages = useCallback((incoming: ChatMessage[]) => {
+    if (incoming.length === 0) return;
+    chatRef.current = mergeMessages(chatRef.current, incoming);
+    setChat(chatRef.current);
+  }, []);
+
+  /** Relit les messages du chat plus récents que le dernier connu. Un échec est sans gravité (on réessaiera). */
+  const readChat = useCallback(
+    async (current: Session) => {
+      try {
+        const response = await api.messages(current.code, current.token, lastMessageId(chatRef.current));
+        addMessages(response.messages);
+      } catch {
+        // Réseau ou partie disparue : le polling de l'état s'en occupe.
+      }
+    },
+    [addMessages],
   );
 
   /** Relit l'état ; avec `force`, on redemande la vue complète. */
@@ -148,6 +174,8 @@ export function App() {
       reading = true;
       try {
         await refresh(session);
+        // Sans flux d'avis, les messages du chat arrivent au rythme du polling.
+        if (!live) await readChat(session);
         if (!stopped) setError((previous) => (previous?.startsWith("Connexion") ? null : previous));
       } catch (caught) {
         if (stopped) return;
@@ -180,6 +208,9 @@ export function App() {
           void tick();
         }
       },
+      onChat: (id) => {
+        if (id > lastMessageId(chatRef.current)) void readChat(session);
+      },
       onLive: (open) => {
         live = open;
         // Flux rouvert après une coupure : on rattrape ce qui a pu se passer entre-temps.
@@ -200,7 +231,25 @@ export function App() {
       closeEvents();
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [session, refresh, leave]);
+  }, [session, refresh, leave, readChat]);
+
+  // Historique du chat à l'ouverture d'une session (reprise d'une partie, rechargement de la page).
+  useEffect(() => {
+    if (session !== null) void readChat(session);
+  }, [session, readChat]);
+
+  /** Envoie un message ; `true` s'il est parti. L'erreur (message refusé, trop de messages) s'affiche. */
+  const onSend = async (text: string): Promise<boolean> => {
+    if (session === null) return false;
+    try {
+      const response = await api.say(session.code, session.token, text);
+      addMessages([response.message]);
+      return true;
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Message non envoyé.");
+      return false;
+    }
+  };
 
   /** Exécute une requête d'écriture et gère les erreurs communes. */
   const run = useCallback(
@@ -380,6 +429,8 @@ export function App() {
             onAction={onAction}
             onSkip={onSkip}
             onLeave={onQuit}
+            chat={chat}
+            onSend={onSend}
           />
         )}
       </main>
