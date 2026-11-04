@@ -12,8 +12,9 @@ use spacejo_core::Game;
 /// Version actuelle du format enregistré.
 /// - 1 : format initial ;
 /// - 2 : ajout de `missed_turns` et `eliminated` à chaque joueur (absences et élimination) ;
-/// - 3 : ajout de `abandoned` à chaque joueur (joueur qui a quitté la partie).
-pub const STATE_VERSION: u64 = 3;
+/// - 3 : ajout de `abandoned` à chaque joueur (joueur qui a quitté la partie) ;
+/// - 4 : ajout du réglage `deck` (taille du paquet) dans `game.rules`.
+pub const STATE_VERSION: u64 = 4;
 
 /// Ce qui est stocké pour une partie : le jeu complet et les hachages des jetons
 /// (indice = identifiant du joueur). Jamais envoyé tel quel au navigateur.
@@ -81,8 +82,9 @@ impl StoredGame {
         // Chaque migration fait passer le JSON d'une version à la suivante ; un exemple figé de chaque
         // ancienne version est relu par `tests/state_version.rs`.
         let value = match version {
-            1 => migrate_v2_to_v3(migrate_v1_to_v2(value)?)?,
-            2 => migrate_v2_to_v3(value)?,
+            1 => migrate_v3_to_v4(migrate_v2_to_v3(migrate_v1_to_v2(value)?)?)?,
+            2 => migrate_v3_to_v4(migrate_v2_to_v3(value)?)?,
+            3 => migrate_v3_to_v4(value)?,
             STATE_VERSION => value,
             found if found > STATE_VERSION => return Err(StateError::TooNew { found }),
             found => return Err(StateError::Unsupported { found }),
@@ -119,5 +121,17 @@ fn migrate_v2_to_v3(mut value: Value) -> Result<Value, StateError> {
         object.insert("abandoned".to_string(), Value::from(false));
     }
     value["state_version"] = Value::from(3);
+    Ok(value)
+}
+
+/// v3 → v4 : les parties existantes gardent le paquet complet (`deck: "Full"`, règle officielle).
+fn migrate_v3_to_v4(mut value: Value) -> Result<Value, StateError> {
+    let rules = value
+        .get_mut("game")
+        .and_then(|game| game.get_mut("rules"))
+        .and_then(Value::as_object_mut)
+        .ok_or(StateError::Corrupt)?;
+    rules.insert("deck".to_string(), Value::from("Full"));
+    value["state_version"] = Value::from(4);
     Ok(value)
 }

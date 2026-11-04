@@ -10,7 +10,10 @@ use crate::cards::{CardValue, DECK_SIZE, full_deck};
 use crate::error::GameError;
 use crate::grid::{CARDS_PER_PLAYER, Grid};
 use crate::rng::SplitMix64;
-use crate::rules::{EmptyPile, EndTie, FirstPlayerTie, NextRoundStarter, Rules};
+use crate::rules::{
+    DeckSize, EmptyPile, EndTie, FirstPlayerTie, NextRoundStarter, REDUCED_DECK_CARDS_PER_PLAYER,
+    Rules,
+};
 use crate::scoring::finisher_round_score;
 
 /// Nombre minimum de joueurs pour lancer une partie.
@@ -526,12 +529,18 @@ impl Game {
     /// Distribue une nouvelle manche : paquet complet mélangé, 12 cartes par joueur,
     /// une carte sur la défausse, le reste en pioche.
     fn start_round(&mut self) -> Result<(), GameError> {
-        let needed = self.active_players().len() * CARDS_PER_PLAYER + 1;
+        let active = self.active_players().len();
+        let needed = active * CARDS_PER_PLAYER + 1;
         if needed > DECK_SIZE {
             return Err(GameError::NotEnoughCards);
         }
         let mut deck = full_deck();
         self.rng.shuffle(&mut deck);
+        // Pioche réduite (réglage `deck`) : on ne garde que le début du paquet mélangé, soit un tirage au hasard
+        // de 40 cartes par joueur (au plus le paquet entier). Il en reste toujours assez : 40 > 12 + 1.
+        if self.rules.deck == DeckSize::Reduced {
+            deck.truncate((active * REDUCED_DECK_CARDS_PER_PLAYER).clamp(needed, DECK_SIZE));
+        }
         for player in &mut self.players {
             player.initial_reveals = 0;
             if player.eliminated {

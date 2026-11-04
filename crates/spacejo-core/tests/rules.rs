@@ -51,7 +51,8 @@ fn rules_serialize_with_every_field() {
             "next_round_starter": "Finisher",
             "empty_pile": "ReshuffleDiscard",
             "end_tie": "SharedVictory",
-            "end_score": 100
+            "end_score": 100,
+            "deck": "Full"
         })
     );
 }
@@ -66,6 +67,7 @@ fn unknown_values_and_fields_are_refused() {
         "next_round_starter",
         "empty_pile",
         "end_tie",
+        "deck",
     ] {
         let mut json = valid.clone();
         json[field] = serde_json::json!("Inconnu");
@@ -73,10 +75,16 @@ fn unknown_values_and_fields_are_refused() {
             serde_json::from_value::<Rules>(json).is_err(),
             "valeur inconnue acceptée pour {field}"
         );
-        // Un champ manquant est aussi refusé : les réglages sont toujours complets.
-        let mut json = valid.clone();
-        json.as_object_mut().unwrap().remove(field);
-        assert!(serde_json::from_value::<Rules>(json).is_err());
+        // Un champ manquant est aussi refusé : les réglages sont toujours complets. Seule exception, `deck`
+        // (ajouté après coup, absent = paquet complet) : voir `rules_without_deck_keep_the_full_deck`.
+        if field != "deck" {
+            let mut json = valid.clone();
+            json.as_object_mut().unwrap().remove(field);
+            assert!(
+                serde_json::from_value::<Rules>(json).is_err(),
+                "{field} manquant accepté"
+            );
+        }
     }
     let mut json = valid.clone();
     json["end_score"] = serde_json::json!("cent");
@@ -139,4 +147,23 @@ fn players_and_names_are_validated() {
         assert_eq!(game.join(&format!("Joueur {i}")), Ok(i));
     }
     assert_eq!(game.join("En trop"), Err(GameError::GameFull));
+}
+
+#[test]
+fn rules_without_deck_keep_the_full_deck() {
+    // Un navigateur qui a encore l'ancienne interface envoie les 7 réglages d'origine : on garde le paquet complet.
+    let json = serde_json::json!({
+        "penalty": "DoubleUnlessStrictlyLowest",
+        "penalty_scope": "RoundTotal",
+        "first_player_tie": "JoinOrder",
+        "next_round_starter": "Finisher",
+        "empty_pile": "ReshuffleDiscard",
+        "end_tie": "SharedVictory",
+        "end_score": 100
+    });
+    let rules: Rules = serde_json::from_value(json).unwrap();
+    assert_eq!(rules, Rules::default());
+    // Les autres réglages restent obligatoires.
+    let missing = serde_json::json!({ "deck": "Reduced", "end_score": 100 });
+    assert!(serde_json::from_value::<Rules>(missing).is_err());
 }

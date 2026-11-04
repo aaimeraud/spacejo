@@ -353,10 +353,10 @@ Table `chat_messages`, créée par `migrations/0004_chat_messages.sql` : `id` (n
 Le schéma n'évolue que par de nouveaux fichiers dans `migrations/` (jamais à la main) ; `cargo run --bin migrate`
 les applique, et `sqlx` note celles déjà appliquées dans `_sqlx_migrations`.
 
-Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 3 ; les v1 et v2 sont migrées à la lecture). Si le format de `Game`
+Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 4 ; les v1 à v3 sont migrées à la lecture). Si le format de `Game`
 change, il faut incrémenter `STATE_VERSION` et écrire la migration dans `StoredGame::decode` ; un état
 illisible est refusé avec l'erreur `unsupported_state_version`. Le test `tests/state_version.rs` relit un
-exemple figé de chaque version (`tests/fixtures/state_v1.json` à `state_v3.json`) pour détecter tout changement de format oublié.
+exemple figé de chaque version (`tests/fixtures/state_v1.json` à `state_v4.json`) pour détecter tout changement de format oublié.
 
 ## Journaux
 

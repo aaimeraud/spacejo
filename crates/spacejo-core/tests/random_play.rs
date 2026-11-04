@@ -1,8 +1,8 @@
 //! Critère 13 : des parties complètes jouées au hasard (coups toujours légaux, graine fixée)
 //! se terminent toujours, et le nombre total de cartes reste 150 à chaque étape.
 use spacejo_core::{
-    Action, EmptyPile, EndTie, FirstPlayerTie, Game, NextRoundStarter, PenaltyRule, PenaltyScope,
-    Phase, Rules, SplitMix64,
+    Action, DeckSize, EmptyPile, EndTie, FirstPlayerTie, Game, NextRoundStarter, PenaltyRule,
+    PenaltyScope, Phase, Rules, SplitMix64,
 };
 
 /// Garde-fou : une partie qui dépasse ce nombre d'actions est considérée comme bloquée.
@@ -30,9 +30,25 @@ fn play_random_game_with_absences(
     // Générateur séparé pour choisir les coups (la partie a le sien).
     let mut chooser = SplitMix64::new(seed ^ 0xDEAD_BEEF);
     let mut actions = 0;
+    // Aucune carte ne se perd pendant une manche. Avec le paquet complet, il y en a toujours 150 ; avec la pioche
+    // réduite, le paquet est refait à chaque manche (40 cartes par joueur encore en jeu).
+    let full = rules.deck == DeckSize::Full;
+    let mut round = game.round;
+    let mut expected = game.card_count();
     while game.phase != Phase::GameOver {
         assert!(actions < MAX_ACTIONS, "partie bloquée (graine {seed})");
-        assert_eq!(game.card_count(), 150, "cartes perdues (graine {seed})");
+        if game.round != round {
+            round = game.round;
+            expected = game.card_count();
+        }
+        assert_eq!(
+            game.card_count(),
+            expected,
+            "cartes perdues (graine {seed})"
+        );
+        if full {
+            assert_eq!(expected, 150, "paquet incomplet (graine {seed})");
+        }
         // Tous les coups légaux de tous les joueurs (pendant la mise en place, plusieurs
         // joueurs peuvent jouer).
         let mut legal: Vec<(usize, Action)> = Vec::new();
@@ -61,7 +77,9 @@ fn play_random_game_with_absences(
             .unwrap_or_else(|e| panic!("coup légal refusé : {action:?} → {e:?}"));
         actions += 1;
     }
-    assert_eq!(game.card_count(), 150);
+    if full {
+        assert_eq!(game.card_count(), 150);
+    }
     assert!(!game.winners.is_empty());
     // Les gagnants ont bien le total le plus bas.
     let lowest = game
@@ -97,12 +115,19 @@ fn random_games_with_variants_always_finish() {
             empty_pile: EmptyPile::EndRound,
             end_tie: EndTie::ExtraRound,
             end_score: 50,
+            deck: DeckSize::Full,
         },
         Rules {
             penalty: PenaltyRule::Disabled,
             next_round_starter: NextRoundStarter::Rotate,
             end_tie: EndTie::ExtraRound,
             end_score: 10,
+            ..Rules::default()
+        },
+        // Pioche réduite : la défausse est souvent remélangée en pioche.
+        Rules {
+            deck: DeckSize::Reduced,
+            end_score: 30,
             ..Rules::default()
         },
     ];

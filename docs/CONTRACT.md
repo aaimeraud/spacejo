@@ -36,7 +36,8 @@ Requête :
 { "name": "Alice", "rules": { ...Rules }, "public": true }
 ```
 `rules` est facultatif : absent, ce sont les règles officielles (`Rules` par défaut). S'il est présent,
-il doit être complet (les 7 champs).
+il doit être complet : les 7 réglages d'origine sont obligatoires ; `deck` est facultatif (absent : `Full`,
+les règles officielles), pour qu'une interface encore ancienne continue de fonctionner pendant une mise à jour.
 `public` est facultatif (booléen) : absent ou `false`, la partie est privée (on ne la rejoint qu'avec son code) ;
 `true`, elle est listée par `GET /api/public-games` tant qu'elle est au salon. L'hôte peut changer ce choix au salon
 (`POST /api/visibility`).
@@ -192,7 +193,8 @@ augmente alors de 1.
   "next_round_starter": "Finisher",
   "empty_pile": "ReshuffleDiscard",
   "end_tie": "SharedVictory",
-  "end_score": 100
+  "end_score": 100,
+  "deck": "Full"
 }
 ```
 Valeurs permises (défaut en premier) :
@@ -203,6 +205,7 @@ Valeurs permises (défaut en premier) :
 - `empty_pile` : `ReshuffleDiscard` | `EndRound`
 - `end_tie` : `SharedVictory` | `ExtraRound`
 - `end_score` : entier de 10 à 500
+- `deck` : `Full` | `Reduced` (pioche réduite : 40 cartes par joueur en jeu, au plus 150 ; voir docs/RULES.md)
 
 ### `Action`
 

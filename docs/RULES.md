@@ -12,7 +12,8 @@ Statuts, vérifiés le 2026-11-03 sur les sources listées en fin de section :
 
 Les règles sans étiquette n'étaient pas en doute.
 
-- **Cartes** : 150 cartes. 5 × (-2), 10 × (-1), 15 × 0, et 10 × chacune des valeurs de 1 à 12.
+- **Cartes** : 150 cartes. 5 × (-2), 10 × (-1), 15 × 0, et 10 × chacune des valeurs de 1 à 12 [officiel].
+  Variante : pioche réduite, proportionnelle au nombre de joueurs, réglage `deck` [option].
   (Le total de 150 est confirmé ; la répartition exacte n'a pas été relue dans les sources consultées.)
 - **Mise en place** : chaque joueur reçoit 12 cartes face cachée, en grille de 3 lignes × 4 colonnes.
   Une carte est retournée au centre pour démarrer la défausse, le reste forme la pioche.
@@ -70,6 +71,7 @@ Ces réglages sont la structure `Rules` de `crates/spacejo-core/src/rules.rs`.
 | `penalty_scope` | `RoundTotal`, `PositiveCardsOnly` | sources ambiguës |
 | `first_player_tie` | `JoinOrder`, `Random` | non précisé par la notice |
 | `next_round_starter` | `Finisher`, `RoundWinner`, `Rotate` | défaut officiel (deux transcriptions), les autres sont des variantes |
+| `deck` | `Full`, `Reduced` | défaut officiel ; `Reduced` est une variante demandée par le propriétaire du dépôt |
 | `empty_pile` | `ReshuffleDiscard`, `EndRound` | non précisé par la notice |
 | `end_tie` | `SharedVictory`, `ExtraRound` | non précisé par la notice |
 | `end_score` | 100 (entier de 10 à 500) | défaut officiel |
@@ -86,6 +88,13 @@ Sens de chaque valeur :
 - `Finisher` : celui qui a terminé la manche commence la suivante. `RoundWinner` : celui qui a le score de
   manche le plus bas (après pénalité ; en cas d'égalité, le premier dans l'ordre d'arrivée). `Rotate` : le
   joueur suivant dans l'ordre de jeu après celui qui a commencé la manche précédente.
+- `Full` : chaque manche se joue avec les 150 cartes. `Reduced` : au début de chaque manche, le paquet est
+  mélangé puis on n'en garde que 40 cartes par joueur encore en jeu (`REDUCED_DECK_CARDS_PER_PLAYER`), au plus 150 :
+  12 pour la grille de chacun, 1 pour la défausse, le reste pour la pioche (55 cartes à 2 joueurs, 83 à 3 ; à partir de 4 joueurs, le
+  plafond de 150 est atteint et la partie se joue avec le paquet entier). Les
+  cartes gardées sont tirées au hasard, donc la proportion des valeurs reste en moyenne celle du paquet complet.
+  La pioche s'épuise vite : avec `ReshuffleDiscard`, la défausse redevient souvent la pioche ; avec `EndRound`,
+  les manches sont plus courtes.
 - `ReshuffleDiscard` : on remélange la défausse, sauf sa carte du dessus qui reste visible, pour former la
   nouvelle pioche. `EndRound` : la manche se termine immédiatement, tous retournent leurs cartes et on
   compte, sans dernier tour ; comme personne n'a « terminé », il n'y a pas de pénalité. Dans les deux cas,
