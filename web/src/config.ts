@@ -65,3 +65,19 @@ export const MAX_PLAYERS = 10;
 
 /** Clé de `localStorage` du thème choisi (« light » ou « dark ») ; absente, on suit le réglage du système. */
 export const THEME_KEY = "spacejo.theme";
+
+/** Dépôt public du jeu sur GitHub (version et dernier commit affichés en bas de l'accueil). */
+export const GITHUB_REPO = "aaimeraud/spacejo";
+
+/** Branche dont on montre le dernier commit. */
+export const GITHUB_BRANCH = "main";
+
+/** Adresse de l'API REST de GitHub. */
+export const GITHUB_API = "https://api.github.com";
+
+/** Durée pendant laquelle la version et le dernier commit lus sur GitHub sont gardés (10 minutes) : l'API publique
+ * n'accepte que 60 requêtes par heure et par adresse. */
+export const GITHUB_CACHE_MS = 10 * 60 * 1000;
+
+/** Clé de `localStorage` de ce cache. */
+export const GITHUB_CACHE_KEY = "spacejo.github";

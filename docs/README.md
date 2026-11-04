@@ -24,5 +24,6 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
   - [parties publiques](decisions/2026-11-04-parties-publiques.md) : visibilité dans une colonne, liste des salons ouverts, lien d'invitation ;
   - [code QR](decisions/2026-11-04-code-qr.md) : bibliothèque `qrcode-generator`, dessin en SVG par React ;
   - [limitation de débit](decisions/2026-11-04-limitation-de-debit.md) : fenêtre fixe par adresse IP, en-tête de Cloudflare ;
-  - [chat](decisions/2026-11-04-chat.md) : table à part, sans changer la version de la partie, livré par le flux d'avis.
+  - [chat](decisions/2026-11-04-chat.md) : table à part, sans changer la version de la partie, livré par le flux d'avis ;
+  - [version sur l'accueil](decisions/2026-11-04-version-sur-accueil.md) : API publique de GitHub appelée par le navigateur, cache de 10 minutes.
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).

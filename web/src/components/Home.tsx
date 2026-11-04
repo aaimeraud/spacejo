@@ -11,6 +11,7 @@ import type { KnownSession } from "../session";
 import { ValueCard } from "./Card";
 import { FitStage } from "./FitStage";
 import { PublicGames } from "./PublicGames";
+import { RepoTrackers } from "./RepoTrackers";
 import { ThemeToggle } from "./ThemeToggle";
 import { RuleStepBody, WizardFrame, ruleStepTitle, useRulesFlow } from "./wizard/RuleSteps";
 
@@ -122,9 +123,12 @@ export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, 
             </section>
           )}
           <div className="home-foot">
-            <p className="legal">
-              SpaceJo reprend les règles du jeu de cartes Skyjo. Projet indépendant, non affilié à Magilano.
-            </p>
+            <div className="home-foot-text">
+              <p className="legal">
+                SpaceJo reprend les règles du jeu de cartes Skyjo. Projet indépendant, non affilié à Magilano.
+              </p>
+              <RepoTrackers />
+            </div>
             <ThemeToggle />
           </div>
         </div>
