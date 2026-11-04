@@ -1,4 +1,4 @@
-//! Les sept opérations de l'API (docs/CONTRACT.md), indépendantes du serveur HTTP (voir `server`).
+//! Les huit opérations de l'API (docs/CONTRACT.md), indépendantes du serveur HTTP (voir `server`).
 //!
 //! Chaque opération suit le même parcours (serverless : rien n'est gardé en mémoire) :
 //! valider la requête → charger la partie → identifier le joueur par son jeton → vérifier
@@ -9,8 +9,8 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 use spacejo_core::{
-    Action, Game, GameError, HOST, INITIAL_REVEALS, MAX_MISSED_TURNS, Phase, PlayerId, Rules,
-    view_for,
+    Action, Game, GameError, HOST, INITIAL_REVEALS, MAX_MISSED_TURNS, MAX_PLAYERS, Phase, PlayerId,
+    Rules, view_for,
 };
 
 use crate::auth;
@@ -32,6 +32,8 @@ pub const PRESENCE_TIMEOUT_SECS: f64 = 15.0;
 /// Attente d'« un tour » pour un joueur absent, depuis la dernière modification de la partie
 /// (secondes). Passé ce délai, son tour est passé (ASSUMPTIONS.md, n° 19).
 pub const ABSENT_TURN_WAIT_SECS: f64 = 45.0;
+/// Nombre maximal de parties données par `GET /api/public-games` (les plus récentes).
+pub const PUBLIC_GAMES_LIMIT: usize = 20;
 
 /// Les routes de l'API.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -43,6 +45,7 @@ pub enum Endpoint {
     Action,
     Skip,
     State,
+    PublicGames,
 }
 
 impl Endpoint {
@@ -56,13 +59,14 @@ impl Endpoint {
             "/api/action" => Some(Endpoint::Action),
             "/api/skip" => Some(Endpoint::Skip),
             "/api/state" => Some(Endpoint::State),
+            "/api/public-games" => Some(Endpoint::PublicGames),
             _ => None,
         }
     }
 
     fn method(self) -> &'static str {
         match self {
-            Endpoint::State => "GET",
+            Endpoint::State | Endpoint::PublicGames => "GET",
             _ => "POST",
         }
     }
@@ -108,6 +112,8 @@ impl From<ApiError> for ApiResponse {
 struct CreateRequest {
     name: String,
     rules: Option<Rules>,
+    /// Partie publique (listée sur l'accueil) ; absent = privée.
+    public: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -161,6 +167,7 @@ pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> A
             Endpoint::Action => action(store, &request).await,
             Endpoint::Skip => skip(store, &request).await,
             Endpoint::State => state(store, &request).await,
+            Endpoint::PublicGames => public_games(store, &request).await,
         }
     };
     match result {
@@ -175,6 +182,8 @@ async fn create(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiE
     let body: CreateRequest = parse_body(&request.body)?;
     // Sans réglages : règles officielles. Les réglages complets sont enregistrés dans la partie.
     let rules = body.rules.unwrap_or_default();
+    // Sans précision, la partie est privée : on ne la rend visible de tous que si l'hôte le demande.
+    let public = body.public.unwrap_or(false);
     let game = Game::new(&body.name, rules, auth::generate_seed()?)?;
     let token = auth::generate_token()?;
     let stored = StoredGame::new(game, vec![auth::hash_token(&token)]);
@@ -183,7 +192,7 @@ async fn create(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiE
     // Un code déjà pris (très improbable) : on en tire un autre.
     for _ in 0..MAX_WRITE_ATTEMPTS {
         let code = auth::generate_code()?;
-        match store.insert(&code, &state).await {
+        match store.insert(&code, &state, public).await {
             Ok(record) => {
                 let presence = store
                     .touch_presence(record.id, 0)
@@ -339,6 +348,36 @@ async fn state(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiEr
     Ok(ApiResponse::ok(body))
 }
 
+/// Parties publiques que l'on peut rejoindre, pour l'accueil. Sans jeton : on n'y donne que le code, le nom
+/// de l'hôte et le nombre de joueurs (aucune carte, aucun jeton). Seul l'hôte présent garde sa partie dans
+/// la liste : un salon abandonné disparaît de lui-même.
+async fn public_games(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    if !request.query.is_empty() {
+        return Err(ApiError::invalid_request(
+            "cette route n'accepte aucun paramètre",
+        ));
+    }
+    let rows = store
+        .list_public(PRESENCE_TIMEOUT_SECS, MAX_PLAYERS, PUBLIC_GAMES_LIMIT)
+        .await
+        .map_err(storage_error)?;
+    // Une partie illisible (format inconnu) est simplement omise de la liste.
+    let games: Vec<Value> = rows
+        .into_iter()
+        .filter_map(|row| {
+            let stored = StoredGame::decode(row.state).ok()?;
+            let host = stored.game.players.get(HOST)?;
+            Some(json!({
+                "code": row.code,
+                "host": host.name,
+                "players": stored.game.players.len(),
+                "max_players": MAX_PLAYERS,
+            }))
+        })
+        .collect();
+    Ok(ApiResponse::ok(json!({ "games": games })))
+}
+
 // ----- Briques communes -----
 
 /// Parcours commun de `rules`, `start` et `action` : jeton, version attendue, opération du
@@ -478,6 +517,7 @@ fn game_payload(
     });
     json!({
         "version": record.version,
+        "public": record.public,
         "view": view_for(&stored.game, player),
         "presence": connected,
         "waiting": waiting,

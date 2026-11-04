@@ -96,10 +96,10 @@ Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
 
 | Fichier | Rôle |
 |---|---|
-| `src/handlers.rs` | les sept opérations, indépendantes du serveur HTTP (`handle(store, endpoint, request)`) |
+| `src/handlers.rs` | les huit opérations (dont la liste des parties publiques), indépendantes du serveur HTTP (`handle(store, endpoint, request)`) |
 | `src/auth.rs` | jetons (256 bits, hachage SHA-256, comparaison en temps constant), codes de partie, graines |
 | `src/stored.rs` | `StoredGame` (ce qui est dans `games.state`) et `STATE_VERSION` |
-| `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste |
+| `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste ; liste des parties publiques au salon (`list_public`) |
 | `src/events.rs` | avis de changement de version, un canal `broadcast` par partie, poussés aux navigateurs par `GET /api/events` |
 | `src/server.rs` | serveur `axum` : `/api/health`, `/api/*` vers `handlers` (réponses compressées), fichiers de l'interface par `tower-http` (version gzip, règles de cache, retour à `index.html` pour une page de l'application) |
 | `src/error.rs` | `ApiError` (statut, code, message) et conversion depuis `GameError` |
@@ -242,6 +242,24 @@ annoncées (`role="status"`, `role="alert"`).
 En développement, Vite (port 5173) renvoie `/api` vers `cargo run` (le serveur, port 3000). En production,
 le même serveur sert l'API et l'interface construite (`web/dist`) sur une seule adresse : pas de CORS.
 
+## Parties publiques, parties privées et lien d'invitation
+
+- **Visibilité** : à la création, l'hôte choisit une partie **privée** (par défaut) ou **publique**. Ce n'est pas
+  une règle du jeu : elle est rangée dans la colonne `games.public`, hors de l'état `state` (le core n'en sait
+  rien). Toutes les réponses qui donnent l'état contiennent `public`, que le salon affiche.
+- **Liste des parties publiques** (`GET /api/public-games`, sans jeton) : parties publiques encore au salon, pas
+  pleines, dont l'hôte est présent (requête depuis moins de `PRESENCE_TIMEOUT_SECS`) ; les plus récentes d'abord,
+  au plus `PUBLIC_GAMES_LIMIT` (20). On n'y donne que le code, le nom de l'hôte et le nombre de joueurs. Un salon
+  abandonné par son hôte, une partie lancée ou pleine disparaît donc de lui-même, sans tâche de fond.
+  L'accueil la relit toutes les 5 s (`PUBLIC_GAMES_REFRESH_MS`) tant qu'elle est affichée.
+- **Lien d'invitation** : `https://<site>/?code=K7MPQX` (`web/src/invite.ts`). Le salon le partage par la feuille
+  de partage du système quand elle existe (téléphone), sinon le copie. Ouvert, le lien mène directement à l'étape
+  « Comment vous appelez-vous ? », code rempli ; si cet appareil a déjà rejoint la partie (l'hôte qui ouvre son
+  propre lien), elle est reprise au lieu d'être rejointe une seconde fois. Le paramètre est retiré de l'adresse
+  aussitôt lu. Le lien ne contient que le code, jamais de jeton.
+
+Choix et alternatives : [decisions/2026-11-04-parties-publiques.md](decisions/2026-11-04-parties-publiques.md).
+
 ## Présence, absence et élimination
 
 Le serveur ne garde rien en mémoire et ne lance aucune tâche de fond : tout se décide pendant les requêtes.
@@ -268,7 +286,8 @@ mémoire, dont l'horloge peut être avancée dans les tests (`MemoryStore::advan
 
 ## Modèle de données
 
-Une seule table, créée par `migrations/0001_create_games.sql` :
+Table `games`, créée par `migrations/0001_create_games.sql` (colonne `public` ajoutée par
+`migrations/0003_public_games.sql`) :
 
 | Colonne | Type | Rôle |
 |---|---|---|
@@ -277,6 +296,10 @@ Une seule table, créée par `migrations/0001_create_games.sql` :
 | `state` | `JSONB` | `StoredGame` : `state_version`, `game` (état complet du core), `token_hashes` |
 | `version` | `INTEGER` | numéro de version pour le verrou optimiste (1 à la création, +1 par écriture) |
 | `updated_at` | `TIMESTAMPTZ` | date de la dernière écriture |
+| `public` | `BOOLEAN` | partie publique (listée sur l'accueil tant qu'elle est au salon) ; faux par défaut |
+
+Index partiel `games_public_recent` (`updated_at DESC`, seulement les lignes où `public` est vrai) : la liste des
+parties publiques ne parcourt pas les parties privées.
 
 Table `presence`, créée par `migrations/0002_create_presence.sql` : `game_id` (référence `games.id`, supprimée
 avec la partie), `player_id`, `last_seen` ; clé primaire (`game_id`, `player_id`).
@@ -307,6 +330,9 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
   autres verraient les coups au polling, en 5 s au plus).
 - **Hébergement gratuit** : sur l'offre gratuite de Render, le serveur s'endort après 15 minutes sans requête et
   met environ une minute à se réveiller ; l'interface le réveille dès l'ouverture de l'accueil.
-- **Limitation de débit** : aucune limite sur la création et la jonction de parties.
+- **Limitation de débit** : aucune limite sur la création et la jonction de parties, ni sur la liste des parties
+  publiques.
+- **Visibilité figée** : une partie reste publique ou privée telle que l'hôte l'a créée (pas de bascule au salon).
+- **Modération** : les noms des hôtes de parties publiques sont visibles de tous, sans filtre.
 - **Comptes utilisateurs** : aucun ; l'identité est un jeton secret par partie.
 - **Nombre de joueurs** : de 2 à 10 (`MAX_PLAYERS`) ; le core n'en dépend pas ailleurs.

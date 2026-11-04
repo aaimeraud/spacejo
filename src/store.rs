@@ -16,6 +16,7 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde_json::Value;
+use spacejo_core::HOST;
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
@@ -24,6 +25,8 @@ use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 pub const MAX_DB_CONNECTIONS: u32 = 5;
 /// Délai maximal pour obtenir une connexion.
 pub const DB_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(5);
+/// Phase « salon » telle qu'elle est écrite dans l'état JSON (`Phase::Lobby` sérialisée par serde).
+const LOBBY_PHASE: &str = "Lobby";
 
 /// Une partie lue en base.
 #[derive(Clone, Debug, PartialEq)]
@@ -33,6 +36,15 @@ pub struct Record {
     pub version: i32,
     /// Secondes écoulées depuis la dernière écriture de la partie.
     pub idle_seconds: f64,
+    /// Partie publique (listée sur l'accueil tant qu'elle est au salon) ou privée.
+    pub public: bool,
+}
+
+/// Une partie publique au salon, telle que lue pour la liste de l'accueil.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PublicRow {
+    pub code: String,
+    pub state: Value,
 }
 
 /// Erreurs de stockage.
@@ -57,11 +69,35 @@ pub enum Store {
 }
 
 impl Store {
-    /// Insère une nouvelle partie, en version 1.
-    pub async fn insert(&self, code: &str, state: &Value) -> Result<Record, StoreError> {
+    /// Insère une nouvelle partie, en version 1, publique ou privée.
+    pub async fn insert(
+        &self,
+        code: &str,
+        state: &Value,
+        public: bool,
+    ) -> Result<Record, StoreError> {
         match self {
-            Store::Memory(store) => store.insert(code, state),
-            Store::Postgres(store) => store.insert(code, state).await,
+            Store::Memory(store) => store.insert(code, state, public),
+            Store::Postgres(store) => store.insert(code, state, public).await,
+        }
+    }
+
+    /// Parties publiques encore au salon, avec moins de `max_players` joueurs, dont l'hôte a fait une
+    /// requête depuis moins de `host_timeout_secs` secondes : les plus récemment modifiées d'abord, au
+    /// plus `limit`.
+    pub async fn list_public(
+        &self,
+        host_timeout_secs: f64,
+        max_players: usize,
+        limit: usize,
+    ) -> Result<Vec<PublicRow>, StoreError> {
+        match self {
+            Store::Memory(store) => store.list_public(host_timeout_secs, max_players, limit),
+            Store::Postgres(store) => {
+                store
+                    .list_public(host_timeout_secs, max_players, limit)
+                    .await
+            }
         }
     }
 
@@ -131,6 +167,7 @@ struct MemoryRow {
     state: Value,
     version: i32,
     updated_at: Instant,
+    public: bool,
 }
 
 #[derive(Debug, Default)]
@@ -159,7 +196,7 @@ impl MemoryStore {
         Self::default()
     }
 
-    fn insert(&self, code: &str, state: &Value) -> Result<Record, StoreError> {
+    fn insert(&self, code: &str, state: &Value, public: bool) -> Result<Record, StoreError> {
         let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
         if tables.games.contains_key(code) {
             return Err(StoreError::CodeTaken);
@@ -169,6 +206,7 @@ impl MemoryStore {
             state: state.clone(),
             version: 1,
             updated_at: tables.now(),
+            public,
         };
         tables.games.insert(code.to_string(), row.clone());
         Ok(Record {
@@ -176,6 +214,7 @@ impl MemoryStore {
             state: row.state,
             version: row.version,
             idle_seconds: 0.0,
+            public: row.public,
         })
     }
 
@@ -187,7 +226,46 @@ impl MemoryStore {
             state: row.state.clone(),
             version: row.version,
             idle_seconds: now.duration_since(row.updated_at).as_secs_f64(),
+            public: row.public,
         }))
+    }
+
+    fn list_public(
+        &self,
+        host_timeout_secs: f64,
+        max_players: usize,
+        limit: usize,
+    ) -> Result<Vec<PublicRow>, StoreError> {
+        let tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let now = tables.now();
+        // Mêmes filtres que la requête SQL de `PgStore::list_public`.
+        let host_present = |id: i64| {
+            tables
+                .presence
+                .get(&(id, HOST))
+                .is_some_and(|seen| now.duration_since(*seen).as_secs_f64() <= host_timeout_secs)
+        };
+        let mut rows: Vec<(&String, &MemoryRow)> = tables
+            .games
+            .iter()
+            .filter(|(_, row)| row.public && row.state["game"]["phase"] == LOBBY_PHASE)
+            .filter(|(_, row)| {
+                row.state["game"]["players"]
+                    .as_array()
+                    .is_some_and(|players| players.len() < max_players)
+            })
+            .filter(|(_, row)| host_present(row.id))
+            .collect();
+        // Les plus récentes d'abord ; à égalité, la dernière créée.
+        rows.sort_by(|(_, a), (_, b)| b.updated_at.cmp(&a.updated_at).then(b.id.cmp(&a.id)));
+        Ok(rows
+            .into_iter()
+            .take(limit)
+            .map(|(code, row)| PublicRow {
+                code: code.clone(),
+                state: row.state.clone(),
+            })
+            .collect())
     }
 
     fn save(&self, id: i64, state: &Value, expected_version: i32) -> Result<i32, StoreError> {
@@ -254,6 +332,7 @@ impl MemoryStore {
             state: Value::Null,
             version: 1,
             updated_at: now,
+            public: false,
         });
         row.state = state;
         Some(())
@@ -293,12 +372,14 @@ impl PgStore {
         &self.pool
     }
 
-    async fn insert(&self, code: &str, state: &Value) -> Result<Record, StoreError> {
+    async fn insert(&self, code: &str, state: &Value, public: bool) -> Result<Record, StoreError> {
         let result = sqlx::query_as::<_, (i64, i32)>(
-            "INSERT INTO games (code, state, version) VALUES ($1, $2, 1) RETURNING id, version",
+            "INSERT INTO games (code, state, version, public) VALUES ($1, $2, 1, $3) \
+             RETURNING id, version",
         )
         .bind(code)
         .bind(state)
+        .bind(public)
         .fetch_one(&self.pool)
         .await;
         match result {
@@ -307,6 +388,7 @@ impl PgStore {
                 state: state.clone(),
                 version,
                 idle_seconds: 0.0,
+                public,
             }),
             // Violation de la contrainte UNIQUE sur `code`.
             Err(sqlx::Error::Database(db)) if db.is_unique_violation() => {
@@ -318,20 +400,56 @@ impl PgStore {
 
     async fn load(&self, code: &str) -> Result<Option<Record>, StoreError> {
         // L'heure vient de PostgreSQL (`now()`), la même pour toutes les fonctions.
-        let row = sqlx::query_as::<_, (i64, Value, i32, f64)>(
-            "SELECT id, state, version, EXTRACT(EPOCH FROM now() - updated_at)::float8 \
+        let row = sqlx::query_as::<_, (i64, Value, i32, f64, bool)>(
+            "SELECT id, state, version, EXTRACT(EPOCH FROM now() - updated_at)::float8, public \
              FROM games WHERE code = $1",
         )
         .bind(code)
         .fetch_optional(&self.pool)
         .await
         .map_err(StoreError::Database)?;
-        Ok(row.map(|(id, state, version, idle_seconds)| Record {
-            id,
-            state,
-            version,
-            idle_seconds,
-        }))
+        Ok(
+            row.map(|(id, state, version, idle_seconds, public)| Record {
+                id,
+                state,
+                version,
+                idle_seconds,
+                public,
+            }),
+        )
+    }
+
+    async fn list_public(
+        &self,
+        host_timeout_secs: f64,
+        max_players: usize,
+        limit: usize,
+    ) -> Result<Vec<PublicRow>, StoreError> {
+        // Parties publiques au salon et pas pleines (phase et joueurs lus dans l'état JSONB), dont l'hôte
+        // est présent. L'index partiel `games_public_recent` (migration 0003) limite la recherche aux
+        // parties publiques.
+        let rows = sqlx::query_as::<_, (String, Value)>(
+            "SELECT g.code, g.state FROM games g \
+             JOIN presence p ON p.game_id = g.id AND p.player_id = $1 \
+             WHERE g.public \
+               AND g.state -> 'game' ->> 'phase' = $2 \
+               AND jsonb_array_length(g.state -> 'game' -> 'players') < $5 \
+               AND p.last_seen > now() - make_interval(secs => $3) \
+             ORDER BY g.updated_at DESC, g.id DESC \
+             LIMIT $4",
+        )
+        .bind(HOST as i32)
+        .bind(LOBBY_PHASE)
+        .bind(host_timeout_secs)
+        .bind(i64::try_from(limit).unwrap_or(i64::MAX))
+        .bind(i32::try_from(max_players).unwrap_or(i32::MAX))
+        .fetch_all(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        Ok(rows
+            .into_iter()
+            .map(|(code, state)| PublicRow { code, state })
+            .collect())
     }
 
     async fn save(&self, id: i64, state: &Value, expected_version: i32) -> Result<i32, StoreError> {

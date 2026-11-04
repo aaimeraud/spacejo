@@ -74,3 +74,13 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
 22. **Nombre de joueurs** : de 2 à 10 (`MAX_PLAYERS`). À 10 joueurs, 121 cartes sont distribuées et la pioche n'en
     compte que 29 : le réglage `empty_pile` intervient donc plus souvent.
 
+
+## Parties publiques et lien d'invitation (demandés par le propriétaire du dépôt)
+
+23. **Visibilité par défaut** : une partie est privée sauf si l'hôte la déclare publique à la création ; les
+    parties créées avant cette évolution sont privées. La visibilité ne change plus ensuite.
+24. **Partie listée** : une partie publique n'apparaît dans la liste que si elle est au salon, pas pleine, et que
+    son hôte est présent (même délai que l'absence, `PRESENCE_TIMEOUT_SECS`). Un salon dont l'hôte est parti
+    disparaît de la liste, et y revient si l'hôte revient.
+25. **Lien d'invitation** : il ne porte que le code de la partie (`/?code=…`). Ouvert sur un appareil qui a déjà
+    rejoint cette partie, il la reprend au lieu de la rejoindre une seconde fois.

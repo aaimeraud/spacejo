@@ -20,5 +20,6 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
   - [application installable](decisions/2026-11-04-application-installable.md) : PWA, icônes, aperçus des liens ;
   - [déploiement Supabase](decisions/2026-11-04-deploiement-supabase.md) : pooler, polling adaptatif, version de Rust ;
   - [serveur unique sur Render](decisions/2026-11-04-serveur-unique-render.md) : axum, Docker, l'API et l'interface sur une même adresse ;
-  - [mises à jour instantanées](decisions/2026-11-04-mises-a-jour-instantanees.md) : avis poussés par le serveur (SSE), moins d'allers-retours vers la base.
+  - [mises à jour instantanées](decisions/2026-11-04-mises-a-jour-instantanees.md) : avis poussés par le serveur (SSE), moins d'allers-retours vers la base ;
+  - [parties publiques](decisions/2026-11-04-parties-publiques.md) : visibilité dans une colonne, liste des salons ouverts, lien d'invitation.
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).
