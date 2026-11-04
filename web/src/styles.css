@@ -157,6 +157,7 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
   background: var(--danger-bg); color: var(--danger); padding: 10px 14px; border-radius: 14px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
 }
+.toast-info { background: var(--bg-raised); color: var(--text); border: 1px solid var(--border); }
 .toast-close { min-height: 0; padding: 0 8px; background: transparent; color: inherit; font-size: 1.3rem; }
 
 /* ===== Tuiles (préréglages, choix, menu) ===== */
@@ -588,3 +589,8 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .qr-invite { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
 .qr-code { width: min(280px, 70vw); height: auto; border-radius: 8px; }
 .qr-link { font-size: 0.85rem; color: var(--muted); word-break: break-all; margin: 0; }
+
+/* Retirer un joueur du salon (hôte) ; bouton d'abandon */
+.kick-button { margin-left: auto; min-height: 0; padding: 4px; }
+.kick-button svg { width: 16px; height: 16px; }
+button.primary.danger { background: var(--danger); color: #ffffff; }

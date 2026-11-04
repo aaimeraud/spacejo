@@ -77,6 +77,23 @@ describe("SpaceJoApi", () => {
     expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ code: "K7MPQX", expected_version: 3, public: true });
   });
 
+  it("quitte la partie avec le jeton, sans version attendue", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(200, { version: 5 }, calls));
+    await api.leave("K7MPQX", "secret");
+    expect(calls[0]?.url).toBe("/api/leave");
+    expect((calls[0]?.init?.headers as Record<string, string>)[TOKEN_HEADER]).toBe("secret");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ code: "K7MPQX" });
+  });
+
+  it("retire un joueur du salon", async () => {
+    const calls: Call[] = [];
+    const api = new SpaceJoApi(fakeFetch(200, { version: 6, view: {} }, calls));
+    await api.kick("K7MPQX", "secret", 5, 2);
+    expect(calls[0]?.url).toBe("/api/kick");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({ code: "K7MPQX", expected_version: 5, player: 2 });
+  });
+
   it("liste les parties publiques sans jeton", async () => {
     const calls: Call[] = [];
     const games = [{ code: "K7MPQX", host: "Alice", players: 2, max_players: 10 }];

@@ -92,6 +92,20 @@ export class SpaceJoApi {
     );
   }
 
+  /** Quitter la partie : au salon, on en est retiré ; pendant la partie, on abandonne (vu par tous). */
+  leave(code: string, token: string): Promise<{ version: number }> {
+    return this.request("/api/leave", { method: "POST", body: JSON.stringify({ code }) }, token);
+  }
+
+  /** L'hôte retire un joueur du salon. */
+  kick(code: string, token: string, expectedVersion: number, player: number): Promise<WriteResponse> {
+    return this.request(
+      "/api/kick",
+      { method: "POST", body: JSON.stringify({ code, expected_version: expectedVersion, player }) },
+      token,
+    );
+  }
+
   /** Parties publiques que l'on peut rejoindre (sans jeton). */
   publicGames(): Promise<PublicGamesResponse> {
     return this.request("/api/public-games", { method: "GET" });

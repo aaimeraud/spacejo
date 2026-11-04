@@ -84,7 +84,8 @@ function PlayerBadge({
       )}
       {player.eliminated ? (
         <span className="pill pill-eliminated">
-          <UserX aria-hidden="true" /> éliminé
+          {player.abandoned ? <LogOut aria-hidden="true" /> : <UserX aria-hidden="true" />}
+          {player.abandoned ? "a abandonné" : "éliminé"}
         </span>
       ) : (
         !connected && (
@@ -145,6 +146,9 @@ function WaitingBanner({
 export function GameBoard({ view, code, busy, presence, waiting, onAction, onSkip, onLeave }: Props) {
   const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const [mode, setMode] = useState<HeldMode>("swap");
+  // Quitter une partie en cours, c'est l'abandonner pour de bon : on demande confirmation (pas après la fin).
+  const [confirmingQuit, setConfirmingQuit] = useState(false);
+  const quit = () => (view.phase === "GameOver" || me?.eliminated === true ? onLeave() : setConfirmingQuit(true));
   const [scoresOpen, setScoresOpen] = useState(false);
   const seats = seatPlayers(view);
   const me = view.players[view.me];
@@ -179,6 +183,28 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
     if (action.type === "SwapHeld" || action.type === "DiscardHeldAndReveal") setMode("swap");
     if (action.type === "NextRound") setScoresOpen(false);
   };
+
+  const quitModal = confirmingQuit && (
+    <Modal
+      title="Abandonner la partie ?"
+      onClose={() => setConfirmingQuit(false)}
+      footer={
+        <>
+          <button type="button" className="ghost-button" onClick={() => setConfirmingQuit(false)}>
+            Continuer à jouer
+          </button>
+          <button type="button" className="primary danger" onClick={onLeave}>
+            <LogOut aria-hidden="true" /> Abandonner
+          </button>
+        </>
+      }
+    >
+      <p>
+        Si vous quittez maintenant, vous abandonnez la partie : tous les joueurs verront que vous l'avez quittée, et
+        vous ne pourrez plus y revenir. La partie continue sans vous.
+      </p>
+    </Modal>
+  );
 
   const scoresModal = scoresOpen && (
     <Modal
@@ -215,7 +241,9 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
                     <span>{player.name}</span>
                     <strong>{player.total_score} pts</strong>
                     {view.winners.includes(player.id) && <span className="pill pill-turn">gagnant</span>}
-                    {player.eliminated && <span className="pill pill-eliminated">éliminé</span>}
+                    {player.eliminated && (
+                      <span className="pill pill-eliminated">{player.abandoned ? "a abandonné" : "éliminé"}</span>
+                    )}
                   </li>
                 ))}
               </ol>
@@ -231,6 +259,7 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
           )}
         </FitStage>
         {scoresModal}
+        {quitModal}
       </>
     );
   }
@@ -331,7 +360,13 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
       {opponents.map(({ player }) => {
         const playing = view.current_player === player.id;
         const absent = !player.eliminated && !connected(player.id);
-        const status = [playing && "joue", absent && "absent", player.eliminated && "éliminé"].filter(Boolean).join(", ");
+        const status = [
+          playing && "joue",
+          absent && "absent",
+          player.eliminated && (player.abandoned ? "a abandonné" : "éliminé"),
+        ]
+          .filter(Boolean)
+          .join(", ");
         return (
           <button
             key={player.id}
@@ -448,7 +483,7 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
                   <span className="stage-action-label">Scores</span>
                 </button>
                 <ThemeToggle />
-                <button type="button" className="ghost-button" onClick={onLeave} aria-label="Quitter la partie">
+                <button type="button" className="ghost-button" onClick={quit} aria-label="Quitter la partie">
                   <LogOut aria-hidden="true" />
                   <span className="stage-action-label">Quitter</span>
                 </button>
@@ -475,6 +510,7 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
         )}
       </FitStage>
       {scoresModal}
+        {quitModal}
     </>
   );
 }

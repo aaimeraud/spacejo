@@ -171,6 +171,8 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, classement (simple tri des totaux) |
 | `public/` | fichiers servis tels quels : icônes (`favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icons/`), image d'aperçu `og-image.png`, manifeste `manifest.webmanifest` et service worker `sw.js` de l'application installable (voir la décision « application installable ») |
 | `src/theme.ts` | thème clair ou sombre : celui du système par défaut, ou le choix gardé dans `localStorage` ; appliqué par `data-theme` sur `<html>` |
+| `src/game/departures.ts` | messages « X a abandonné la partie » / « X a quitté le salon », trouvés en comparant deux vues |
+| `src/retry.ts` | rejouer une écriture refusée pour conflit de version (sert aux retournements de la mise en place) |
 | `src/session.ts` | session de l'onglet (code, jeton, identifiant) dans `sessionStorage`, et parties mémorisées dans `localStorage` pour la reprise |
 | `src/config.ts` | constantes : `POLL_INTERVAL_MS` (2000), `POLL_LOBBY_INTERVAL_MS` (3000), `POLL_IDLE_INTERVAL_MS` (10000), bornes, longueurs |
 | `src/polling.ts` | rythme du polling selon la phase, la visibilité de l'onglet et le flux d'avis |

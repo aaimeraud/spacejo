@@ -32,6 +32,12 @@ export const GAME_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 /** Paramètre d'adresse du lien d'invitation (`/?code=K7MPQX`). */
 export const INVITE_CODE_PARAM = "code";
 
+/** Nouveaux essais d'un retournement de mise en place refusé pour conflit de version (409). */
+export const MAX_REVEAL_RETRIES = 3;
+
+/** Durée d'affichage d'un message d'information (« X a abandonné la partie »), en millisecondes. */
+export const NOTICE_DURATION_MS = 6000;
+
 /** Rafraîchissement de la liste des parties publiques sur l'accueil (en millisecondes). */
 export const PUBLIC_GAMES_REFRESH_MS = 5000;
 

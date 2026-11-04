@@ -5,7 +5,11 @@ import { ApiError, SpaceJoApi } from "./api/client";
 import { listenGameEvents } from "./api/events";
 import { pollInterval } from "./polling";
 import type { Action, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
+import { MAX_REVEAL_RETRIES, NOTICE_DURATION_MS } from "./config";
+import { departureNotices } from "./game/departures";
+import { slotAction } from "./game/logic";
 import { codeFromSearch } from "./invite";
+import { retryOnConflict } from "./retry";
 import { GameBoard } from "./components/GameBoard";
 import { Home } from "./components/Home";
 import { Lobby } from "./components/Lobby";
@@ -47,6 +51,10 @@ export function App() {
   // Code d'invitation pas encore utilisé : oublié dès qu'on entre dans une partie ou qu'on la quitte.
   const [pendingInvite, setPendingInvite] = useState<string | null>(inviteCode);
   const [isPublic, setIsPublic] = useState(false);
+  // Message d'information passager (« X a abandonné la partie »), distinct des erreurs.
+  const [notice, setNotice] = useState<string | null>(null);
+  // Dernière vue reçue, pour repérer les départs entre deux vues (game/departures.ts).
+  const lastViewRef = useRef<GameView | null>(null);
   const [view, setView] = useState<GameView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -75,6 +83,8 @@ export function App() {
     clearSession(window.sessionStorage);
     setPendingInvite(null);
     versionRef.current = null;
+    lastViewRef.current = null;
+    setNotice(null);
     setSession(null);
     setView(null);
     setError(null);
@@ -92,6 +102,9 @@ export function App() {
   const applyResponse = useCallback(
     (version: number, next: GameView, info: PresenceInfo) => {
       versionRef.current = version;
+      const departures = departureNotices(lastViewRef.current, next);
+      if (departures.length > 0) setNotice(departures.join(" "));
+      lastViewRef.current = next;
       setView(next);
       applyPresence(info);
     },
@@ -139,9 +152,14 @@ export function App() {
       } catch (caught) {
         if (stopped) return;
         if (caught instanceof ApiError && (caught.status === 401 || caught.status === 404)) {
-          // Jeton refusé ou partie disparue : on revient à l'accueil et on l'oublie.
+          // Jeton refusé ou partie disparue : on revient à l'accueil et on l'oublie. Un jeton refusé au cours d'une
+          // partie veut dire que l'on n'y a plus de place (retiré du salon par l'hôte, ou parti depuis un autre onglet).
           leave(true);
-          setError(caught.message);
+          setError(
+            caught.status === 401
+              ? "Vous ne faites plus partie de cette partie : l'hôte vous a retiré·e du salon, ou vous l'avez quittée."
+              : caught.message,
+          );
         } else if (caught instanceof ApiError) {
           setError(`Connexion : ${caught.message}`);
         }
@@ -206,6 +224,13 @@ export function App() {
     [refresh, session],
   );
 
+  // Le message d'information s'efface tout seul.
+  useEffect(() => {
+    if (notice === null) return;
+    const timer = window.setTimeout(() => setNotice(null), NOTICE_DURATION_MS);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   // Une partie terminée n'est plus proposée à la reprise.
   useEffect(() => {
     if (view?.phase === "GameOver" && session !== null) forgetSession(window.localStorage, session.code);
@@ -255,7 +280,41 @@ export function App() {
   const onVisibilityChange = (publicGame: boolean) =>
     write((s, version) => api.setVisibility(s.code, s.token, version, publicGame));
   const onStart = () => write((s, version) => api.start(s.code, s.token, version));
-  const onAction = (action: Action) => write((s, version) => api.act(s.code, s.token, version, action));
+  const onAction = (action: Action) => {
+    if (action.type !== "RevealInitial") {
+      write((s, version) => api.act(s.code, s.token, version, action));
+      return;
+    }
+    // Retournement de mise en place : tout le monde retourne en même temps, donc la version change souvent sous
+    // nos pieds (409). On relit l'état et on rejoue, tant que cette carte peut encore être retournée.
+    void run(async () => {
+      if (session === null) return;
+      const r = await retryOnConflict(
+        () => api.act(session.code, session.token, versionRef.current ?? 0, action),
+        {
+          retries: MAX_REVEAL_RETRIES,
+          isConflict: (caught) => caught instanceof ApiError && caught.isConflict,
+          beforeRetry: async () => {
+            const fresh = await api.state(session.code, session.token);
+            if (!fresh.changed) return false;
+            applyResponse(fresh.version, fresh.view, fresh);
+            const still = slotAction(fresh.view, "swap", action.column, action.row);
+            return still?.type === "RevealInitial";
+          },
+        },
+      );
+      if (r !== null) applyResponse(r.version, r.view, r);
+    });
+  };
+  const onKick = (player: number) => write((s, version) => api.kick(s.code, s.token, version, player));
+  /** Quitter : le serveur est prévenu (retiré du salon, ou abandon visible par tous), puis retour à l'accueil.
+   * Si l'appel échoue (réseau), on part quand même : l'absence finira par l'éliminer. */
+  const onQuit = () => {
+    if (session !== null && view !== null && view.phase !== "GameOver") {
+      api.leave(session.code, session.token).catch(() => undefined);
+    }
+    leave(true);
+  };
   const onSkip = (player: number) => write((s, version) => api.skip(s.code, s.token, version, player));
 
   return (
@@ -265,6 +324,14 @@ export function App() {
     <div className="app">
 
       <main className="app-main">
+        {notice !== null && (
+          <p className="toast toast-info" role="status">
+            {notice}
+            <button type="button" className="toast-close" onClick={() => setNotice(null)} aria-label="Fermer le message">
+              ×
+            </button>
+          </p>
+        )}
         {error !== null && (
           <p className="toast" role="alert">
             {error}
@@ -298,8 +365,9 @@ export function App() {
             presence={presence}
             onRulesChange={onRulesChange}
             onVisibilityChange={onVisibilityChange}
+            onKick={onKick}
             onStart={onStart}
-            onLeave={() => leave(true)}
+            onLeave={onQuit}
           />
         )}
         {session !== null && view !== null && view.phase !== "Lobby" && (
@@ -311,7 +379,7 @@ export function App() {
             waiting={waiting}
             onAction={onAction}
             onSkip={onSkip}
-            onLeave={() => leave(true)}
+            onLeave={onQuit}
           />
         )}
       </main>

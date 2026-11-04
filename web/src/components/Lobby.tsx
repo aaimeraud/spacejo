@@ -1,6 +1,20 @@
 // Salon : code, lien d'invitation et son code QR à partager, visibilité (privée ou publique, modifiable par l'hôte), joueurs (jusqu'à 10), règles actives. L'hôte modifie les règles avec le même
 // parcours pas à pas qu'à la création (dans une fenêtre), puis lance la partie. Tout tient sur un écran.
-import { BookOpen, Copy, Crown, Globe, Lock, LogOut, Pencil, Play, QrCode as QrIcon, Share2, Users, WifiOff } from "lucide-react";
+import {
+  BookOpen,
+  Copy,
+  Crown,
+  Globe,
+  Lock,
+  LogOut,
+  Pencil,
+  Play,
+  QrCode as QrIcon,
+  Share2,
+  UserX,
+  Users,
+  WifiOff,
+} from "lucide-react";
 import { useState } from "react";
 import type { GameView, PresenceEntry, Rules } from "../api/types";
 import { MAX_PLAYERS } from "../config";
@@ -21,6 +35,8 @@ interface Props {
   onRulesChange: (rules: Rules) => void;
   /** L'hôte rend la partie publique (`true`) ou privée. */
   onVisibilityChange: (isPublic: boolean) => void;
+  /** L'hôte retire un joueur du salon. */
+  onKick: (player: number) => void;
   onStart: () => void;
   onLeave: () => void;
 }
@@ -100,6 +116,7 @@ export function Lobby({
   presence,
   onRulesChange,
   onVisibilityChange,
+  onKick,
   onStart,
   onLeave,
 }: Props) {
@@ -195,6 +212,18 @@ export function Lobby({
                       <span className="pill pill-absent">
                         <WifiOff aria-hidden="true" /> absent
                       </span>
+                    )}
+                    {isHost && player.id !== view.host && (
+                      <button
+                        type="button"
+                        className="icon-button kick-button"
+                        aria-label={`Retirer ${player.name} du salon`}
+                        title={`Retirer ${player.name}`}
+                        disabled={busy}
+                        onClick={() => onKick(player.id)}
+                      >
+                        <UserX aria-hidden="true" />
+                      </button>
                     )}
                   </li>
                 ))}
