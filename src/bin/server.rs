@@ -10,6 +10,7 @@
 use std::net::{Ipv4Addr, SocketAddr};
 use std::path::PathBuf;
 
+use spacejo_api::events::Events;
 use spacejo_api::server::{
     DATABASE_URL_VAR, DEFAULT_PORT, DEFAULT_STATIC_DIR, PORT_VAR, STATIC_DIR_VAR, app,
 };
@@ -56,8 +57,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let address = SocketAddr::from((Ipv4Addr::UNSPECIFIED, port));
     let listener = tokio::net::TcpListener::bind(address).await?;
     println!("SpaceJo écoute sur le port {port}");
-    axum::serve(listener, app(store, static_dir))
-        .with_graceful_shutdown(shutdown_signal())
+    let events = Events::default();
+    let closing = events.clone();
+    axum::serve(listener, app(store, events, static_dir))
+        .with_graceful_shutdown(async move {
+            shutdown_signal().await;
+            // Termine les flux d'avis encore ouverts : sinon l'arrêt les attendrait sans fin.
+            closing.close_all();
+        })
         .await?;
     println!("Arrêt du serveur.");
     Ok(())

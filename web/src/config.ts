@@ -11,6 +11,10 @@ export const POLL_LOBBY_INTERVAL_MS = 3000;
  * compté absent. Ralentir ici ménage le serveur et la base. */
 export const POLL_IDLE_INTERVAL_MS = 10000;
 
+/** Intervalle quand le flux d'avis du serveur est ouvert : les coups arrivent par ce flux, le polling ne sert
+ * plus qu'à signaler sa présence (sous les 15 s du délai d'absence) et à rattraper un avis perdu. */
+export const POLL_LIVE_INTERVAL_MS = 5000;
+
 /** Bornes de `end_score` (mêmes valeurs que `END_SCORE_MIN` / `END_SCORE_MAX` du core ; le serveur
  * reste seul juge et refuse toute valeur hors bornes). */
 export const END_SCORE_MIN = 10;

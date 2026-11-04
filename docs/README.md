@@ -19,5 +19,6 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
   - [thème « nuit »](decisions/2026-11-04-theme-nuit.md) : fond noir, une couleur d'accent, police Inter, et son pendant clair ;
   - [application installable](decisions/2026-11-04-application-installable.md) : PWA, icônes, aperçus des liens ;
   - [déploiement Supabase](decisions/2026-11-04-deploiement-supabase.md) : pooler, polling adaptatif, version de Rust ;
-  - [serveur unique sur Render](decisions/2026-11-04-serveur-unique-render.md) : axum, Docker, l'API et l'interface sur une même adresse.
+  - [serveur unique sur Render](decisions/2026-11-04-serveur-unique-render.md) : axum, Docker, l'API et l'interface sur une même adresse ;
+  - [mises à jour instantanées](decisions/2026-11-04-mises-a-jour-instantanees.md) : avis poussés par le serveur (SSE), moins d'allers-retours vers la base.
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).

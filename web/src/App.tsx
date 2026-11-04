@@ -2,6 +2,7 @@
 // Le serveur est autoritaire : on n'envoie que des intentions et on affiche la vue renvoyée.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, SpaceJoApi } from "./api/client";
+import { listenGameEvents } from "./api/events";
 import { pollInterval } from "./polling";
 import type { Action, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
 import { GameBoard } from "./components/GameBoard";
@@ -82,17 +83,30 @@ export function App() {
     [applyResponse, applyPresence],
   );
 
-  // Polling tant qu'une session est ouverte, à un rythme qui dépend de la phase et de la visibilité de
-  // l'onglet (polling.ts). Chaque lecture programme la suivante ; revenir sur l'onglet relit aussitôt.
+  // Lecture de l'état tant qu'une session est ouverte :
+  // - aussitôt qu'un avis du serveur annonce une nouvelle version (api/events.ts) ;
+  // - et par polling, à un rythme qui dépend de la phase, de la visibilité de l'onglet et du flux d'avis
+  //   (polling.ts). Chaque lecture programme la suivante ; revenir sur l'onglet relit aussitôt.
   useEffect(() => {
     if (session === null) return;
     let stopped = false;
     let timer: number | undefined;
+    let live = false;
+    // Une seule lecture à la fois : un avis arrivé pendant une lecture en relance une juste après.
+    let reading = false;
+    let readAgain = false;
     const schedule = () => {
       window.clearTimeout(timer);
-      if (!stopped) timer = window.setTimeout(() => void tick(), pollInterval(document.hidden, phaseRef.current));
+      if (!stopped) {
+        timer = window.setTimeout(() => void tick(), pollInterval(document.hidden, phaseRef.current, live));
+      }
     };
     const tick = async () => {
+      if (reading) {
+        readAgain = true;
+        return;
+      }
+      reading = true;
       try {
         await refresh(session);
         if (!stopped) setError((previous) => (previous?.startsWith("Connexion") ? null : previous));
@@ -106,9 +120,28 @@ export function App() {
           setError(`Connexion : ${caught.message}`);
         }
       } finally {
-        schedule();
+        reading = false;
+        if (readAgain && !stopped) {
+          readAgain = false;
+          void tick();
+        } else {
+          schedule();
+        }
       }
     };
+    const closeEvents = listenGameEvents(session.code, {
+      onVersion: (version) => {
+        if (version !== versionRef.current) {
+          window.clearTimeout(timer);
+          void tick();
+        }
+      },
+      onLive: (open) => {
+        live = open;
+        // Flux rouvert après une coupure : on rattrape ce qui a pu se passer entre-temps.
+        if (open) void tick();
+      },
+    });
     const onVisibility = () => {
       if (!document.hidden) {
         window.clearTimeout(timer);
@@ -120,6 +153,7 @@ export function App() {
     return () => {
       stopped = true;
       window.clearTimeout(timer);
+      closeEvents();
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [session, refresh, leave]);

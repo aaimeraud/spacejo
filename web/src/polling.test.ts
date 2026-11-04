@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { POLL_IDLE_INTERVAL_MS, POLL_INTERVAL_MS, POLL_LOBBY_INTERVAL_MS } from "./config";
+import { POLL_IDLE_INTERVAL_MS, POLL_INTERVAL_MS, POLL_LIVE_INTERVAL_MS, POLL_LOBBY_INTERVAL_MS } from "./config";
 import { pollInterval } from "./polling";
 
 describe("rythme du polling", () => {
@@ -19,7 +19,14 @@ describe("rythme du polling", () => {
     expect(pollInterval(false, "GameOver")).toBe(POLL_IDLE_INTERVAL_MS);
   });
 
+  it("ralentit quand le flux d'avis du serveur est ouvert", () => {
+    expect(pollInterval(false, "Playing", true)).toBe(POLL_LIVE_INTERVAL_MS);
+    expect(pollInterval(false, "Lobby", true)).toBe(POLL_LIVE_INTERVAL_MS);
+    expect(pollInterval(true, "Playing", true)).toBe(POLL_IDLE_INTERVAL_MS);
+  });
+
   it("reste sous le délai d'absence du serveur (15 s)", () => {
     expect(POLL_IDLE_INTERVAL_MS).toBeLessThan(15000);
+    expect(POLL_LIVE_INTERVAL_MS).toBeLessThan(15000);
   });
 });

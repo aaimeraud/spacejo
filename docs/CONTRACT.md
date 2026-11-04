@@ -85,6 +85,19 @@ fin de `waiting.seconds_left`. Les conséquences sont celles d'un passage automa
 Contrôle de santé, pour l'hébergeur (et pour réveiller le serveur) : ne lit ni la base ni de jeton.
 Réponse `200` : `{ "status": "ok" }`.
 
+### `GET /api/events?code=K7MPQX`
+
+Flux d'avis (server-sent events, `text/event-stream`) : la connexion reste ouverte, et chaque nouvelle version
+de la partie envoie un évènement `version` dont la donnée est le numéro :
+
+```
+event: version
+data: 7
+```
+
+Pas de jeton : le flux ne révèle que le numéro de version. Le client relit alors l'état avec `GET /api/state`.
+Des commentaires (`:`) maintiennent la connexion toutes les 15 s. Code mal formé : `400 invalid_code`.
+
 ### `GET /api/state?code=K7MPQX&known_version=6`
 
 En-tête `X-Player-Token`. `known_version` est facultatif.

@@ -100,6 +100,7 @@ Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
 | `src/auth.rs` | jetons (256 bits, hachage SHA-256, comparaison en temps constant), codes de partie, graines |
 | `src/stored.rs` | `StoredGame` (ce qui est dans `games.state`) et `STATE_VERSION` |
 | `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste |
+| `src/events.rs` | avis de changement de version, un canal `broadcast` par partie, poussés aux navigateurs par `GET /api/events` |
 | `src/server.rs` | serveur `axum` : `/api/health`, `/api/*` vers `handlers` (réponses compressées), fichiers de l'interface par `tower-http` (version gzip, règles de cache, retour à `index.html` pour une page de l'application) |
 | `src/error.rs` | `ApiError` (statut, code, message) et conversion depuis `GameError` |
 
@@ -157,6 +158,7 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 |---|---|
 | `src/api/types.ts` | types de l'API, recopiés de [CONTRACT.md](CONTRACT.md) |
 | `src/api/client.ts` | appels HTTP, jeton dans l'en-tête `X-Player-Token`, erreurs → `ApiError` |
+| `src/api/events.ts` | flux d'avis du serveur (`EventSource`) : nouvelle version → relecture immédiate |
 | `src/App.tsx` | session, polling, envoi des actions avec `expected_version`, choix de l'écran |
 | `src/components/` | `Home` (accueil et parcours pas à pas), `Lobby` (salon), `GameBoard` (table de jeu et fin de partie), `GridView`, `Card` (carte 3D à deux faces), `Scoreboard`, `Modal` (fenêtres), `FitStage` (écran figé mis à l'échelle), `ThemeToggle` (bascule clair / sombre), `icons.tsx` (icônes Lucide des réglages) |
 | `src/components/wizard/RuleSteps.tsx` | étapes du parcours de réglages (type de partie, un réglage par écran, score de fin, récapitulatif), partagées par l'accueil et le salon |
@@ -168,7 +170,7 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/theme.ts` | thème clair ou sombre : celui du système par défaut, ou le choix gardé dans `localStorage` ; appliqué par `data-theme` sur `<html>` |
 | `src/session.ts` | session de l'onglet (code, jeton, identifiant) dans `sessionStorage`, et parties mémorisées dans `localStorage` pour la reprise |
 | `src/config.ts` | constantes : `POLL_INTERVAL_MS` (2000), `POLL_LOBBY_INTERVAL_MS` (3000), `POLL_IDLE_INTERVAL_MS` (10000), bornes, longueurs |
-| `src/polling.ts` | rythme du polling selon la phase et la visibilité de l'onglet |
+| `src/polling.ts` | rythme du polling selon la phase, la visibilité de l'onglet et le flux d'avis |
 
 **Table de jeu (CSS 3D)** : la partie se joue sur une table ovale inclinée en perspective (`rotateX`). Les
 adversaires sont assis autour, à la place calculée par `seats.ts` (un angle sur une ellipse, pour n'importe
@@ -212,9 +214,11 @@ reçoit toujours les 7 réglages.
 **Icônes** : `lucide-react` (licence ISC). Elles sont décoratives (`aria-hidden`) : un texte, visible ou réservé
 aux lecteurs d'écran, porte toujours l'information.
 
-**Polling** : `GET /api/state?code=…&known_version=…`, toutes les 2 secondes pendant une partie, 3 au salon,
-10 quand l'onglet est caché ou la partie finie (`polling.ts`), et aussitôt quand on revient sur l'onglet. Si la
-version n'a pas changé,
+**Avis et polling** : le navigateur ouvre un flux d'avis (`GET /api/events?code=…`, server-sent events,
+`api/events.ts`) ; à chaque nouvelle version annoncée, il relit l'état aussitôt (`GET /api/state`, avec son
+jeton). Le polling continue en secours : toutes les 5 secondes quand le flux est ouvert (présence, avis perdu),
+sinon 2 en partie, 3 au salon, 10 quand l'onglet est caché ou la partie finie (`polling.ts`) ; revenir sur
+l'onglet relit aussitôt. Si la version n'a pas changé,
 la réponse est minimale (`changed: false`) et rien n'est redessiné.
 
 **Conflits** : chaque écriture envoie la version connue. En cas de 409 (un autre joueur a joué entre-temps,
@@ -297,8 +301,10 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
   (Supabase Realtime, par exemple).
 - **Expiration des parties** : les anciennes parties ne sont jamais supprimées (`updated_at` permettra un
   nettoyage périodique).
-- **Connexions PostgreSQL** : le serveur garde au plus 5 connexions, par le pooler de Supabase (mode session ;
-  le mode transaction marche aussi, sqlx est réglé pour).
+- **Connexions PostgreSQL** : le serveur garde au plus 5 connexions, par le pooler de Supabase en mode session
+  (le cache de requêtes préparées de sqlx ne marche pas en mode transaction).
+- **Avis en mémoire** : avec plusieurs serveurs, les avis d'un serveur ne toucheraient que ses navigateurs (les
+  autres verraient les coups au polling, en 5 s au plus).
 - **Hébergement gratuit** : sur l'offre gratuite de Render, le serveur s'endort après 15 minutes sans requête et
   met environ une minute à se réveiller ; l'interface le réveille dès l'ouverture de l'accueil.
 - **Limitation de débit** : aucune limite sur la création et la jonction de parties.

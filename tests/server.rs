@@ -6,7 +6,9 @@ use std::path::PathBuf;
 use axum::body::{Body, to_bytes};
 use axum::http::{Request, StatusCode, header};
 use axum::response::Response;
+use futures_util::StreamExt;
 use serde_json::{Value, json};
+use spacejo_api::events::Events;
 use spacejo_api::handlers::MAX_BODY_BYTES;
 use spacejo_api::server::app;
 use spacejo_api::{MemoryStore, Store};
@@ -53,7 +55,7 @@ fn static_dir(name: &str) -> PathBuf {
 
 #[tokio::test]
 async fn health_answers_without_touching_the_store() {
-    let response = send(app(store(), None), get("/api/health")).await;
+    let response = send(app(store(), Events::default(), None), get("/api/health")).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(body_json(response).await, json!({ "status": "ok" }));
 }
@@ -64,7 +66,7 @@ async fn api_routes_reach_the_handlers() {
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::from(json!({ "name": "Alice" }).to_string()))
         .unwrap();
-    let response = send(app(store(), None), request).await;
+    let response = send(app(store(), Events::default(), None), request).await;
     assert_eq!(response.status(), StatusCode::CREATED);
     assert_eq!(response.headers()[header::CACHE_CONTROL], "no-store");
     let body = body_json(response).await;
@@ -79,18 +81,18 @@ async fn api_responses_are_compressed_when_accepted() {
         .header(header::ACCEPT_ENCODING, "gzip")
         .body(Body::from(json!({ "name": "Alice" }).to_string()))
         .unwrap();
-    let response = send(app(store(), None), request).await;
+    let response = send(app(store(), Events::default(), None), request).await;
     assert_eq!(response.status(), StatusCode::CREATED);
     assert_eq!(response.headers()[header::CONTENT_ENCODING], "gzip");
 }
 
 #[tokio::test]
 async fn unknown_api_route_and_wrong_method_are_refused() {
-    let response = send(app(store(), None), get("/api/nope")).await;
+    let response = send(app(store(), Events::default(), None), get("/api/nope")).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
     assert_eq!(body_json(response).await["error"]["code"], "not_found");
 
-    let response = send(app(store(), None), get("/api/create")).await;
+    let response = send(app(store(), Events::default(), None), get("/api/create")).await;
     assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
 }
 
@@ -99,7 +101,7 @@ async fn oversized_body_is_refused() {
     let request = Request::post("/api/create")
         .body(Body::from(vec![b'x'; MAX_BODY_BYTES + 1]))
         .unwrap();
-    let response = send(app(store(), None), request).await;
+    let response = send(app(store(), Events::default(), None), request).await;
     assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
     assert_eq!(
         body_json(response).await["error"]["code"],
@@ -109,14 +111,14 @@ async fn oversized_body_is_refused() {
 
 #[tokio::test]
 async fn without_an_interface_only_the_api_answers() {
-    let response = send(app(store(), None), get("/")).await;
+    let response = send(app(store(), Events::default(), None), get("/")).await;
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 }
 
 #[tokio::test]
 async fn the_interface_is_served_with_its_cache_rules() {
     let dir = static_dir("cache");
-    let router = app(store(), Some(dir.clone()));
+    let router = app(store(), Events::default(), Some(dir.clone()));
 
     // La page : toujours revalidée.
     let response = send(router.clone(), get("/")).await;
@@ -162,7 +164,7 @@ async fn the_gzip_version_is_sent_when_accepted() {
         .header(header::ACCEPT_ENCODING, "gzip, deflate, br")
         .body(Body::empty())
         .unwrap();
-    let response = send(app(store(), Some(dir.clone())), request).await;
+    let response = send(app(store(), Events::default(), Some(dir.clone())), request).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.headers()[header::CONTENT_ENCODING], "gzip");
     assert!(
@@ -177,7 +179,7 @@ async fn the_gzip_version_is_sent_when_accepted() {
 #[tokio::test]
 async fn missing_files_and_escapes_are_not_found() {
     let dir = static_dir("escape");
-    let router = app(store(), Some(dir.clone()));
+    let router = app(store(), Events::default(), Some(dir.clone()));
     for uri in ["/missing.png", "/../Cargo.toml", "/assets/../../etc/passwd"] {
         let response = send(router.clone(), get(uri)).await;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{uri}");
@@ -186,4 +188,79 @@ async fn missing_files_and_escapes_are_not_found() {
     let response = send(router, request).await;
     assert_eq!(response.status(), StatusCode::METHOD_NOT_ALLOWED);
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// Lit le prochain morceau d'un flux d'évènements (en ignorant les commentaires de maintien).
+async fn next_event(body: &mut axum::body::BodyDataStream) -> String {
+    loop {
+        let chunk = tokio::time::timeout(std::time::Duration::from_secs(2), body.next())
+            .await
+            .expect("un évènement attendu")
+            .expect("flux encore ouvert")
+            .unwrap();
+        let text = String::from_utf8(chunk.to_vec()).unwrap();
+        if !text.starts_with(':') {
+            return text;
+        }
+    }
+}
+
+#[tokio::test]
+async fn game_changes_are_pushed_to_subscribers() {
+    let events = Events::default();
+    let router = app(store(), events.clone(), None);
+
+    // Alice crée une partie.
+    let request = Request::post("/api/create")
+        .body(Body::from(json!({ "name": "Alice" }).to_string()))
+        .unwrap();
+    let created = body_json(send(router.clone(), request).await).await;
+    let code = created["code"].as_str().unwrap().to_string();
+
+    // Un navigateur s'abonne aux avis de cette partie.
+    let response = send(router.clone(), get(&format!("/api/events?code={code}"))).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    assert_eq!(
+        response.headers()[header::CONTENT_TYPE],
+        "text/event-stream"
+    );
+    let mut stream = response.into_body().into_data_stream();
+
+    // Bob rejoint : la partie passe à la version 2, l'avis arrive aussitôt.
+    let request = Request::post("/api/join")
+        .body(Body::from(
+            json!({ "code": code, "name": "Bob" }).to_string(),
+        ))
+        .unwrap();
+    assert_eq!(send(router.clone(), request).await.status(), StatusCode::OK);
+    let event = next_event(&mut stream).await;
+    assert!(event.contains("event: version"), "{event}");
+    assert!(event.contains("data: 2"), "{event}");
+
+    // Un polling (même version) ne republie rien ; une erreur non plus.
+    let request = Request::post("/api/join")
+        .body(Body::from(json!({ "code": code, "name": "" }).to_string()))
+        .unwrap();
+    assert_eq!(
+        send(router, request).await.status(),
+        StatusCode::BAD_REQUEST
+    );
+    events.publish(&code, 3);
+    assert!(next_event(&mut stream).await.contains("data: 3"));
+
+    // À l'arrêt du serveur, le flux se termine.
+    events.close_all();
+    let end = tokio::time::timeout(std::time::Duration::from_secs(2), stream.next()).await;
+    assert!(matches!(end, Ok(None)));
+}
+
+#[tokio::test]
+async fn events_need_a_valid_code() {
+    let response = send(
+        app(store(), Events::default(), None),
+        get("/api/events?code=0O"),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+    assert_eq!(body_json(response).await["error"]["code"], "invalid_code");
 }

@@ -38,6 +38,7 @@ axum = "0.8.9"
 tower-http = { version = "0.7.1", features = ["fs", "compression-gzip"] }
 # Pour appeler ces services depuis une route axum (`ServiceExt::oneshot`) ; aussi utilisé par les tests.
 tower = { version = "0.5.3", features = ["util"] }
+futures-util = { version = "0.3.34", default-features = false, features = ["std"] }
 
 # Le serveur (API et interface) et l'outil de migration.
 [[bin]]
