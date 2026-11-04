@@ -6,6 +6,7 @@ import type { GameView, PresenceEntry, Rules } from "../api/types";
 import { MAX_PLAYERS } from "../config";
 import { FitStage } from "./FitStage";
 import { Modal } from "./Modal";
+import { ThemeToggle } from "./ThemeToggle";
 import { RuleStepBody, RulesRecap, WizardFrame, ruleStepTitle, useRulesFlow } from "./wizard/RuleSteps";
 
 interface Props {
@@ -156,6 +157,7 @@ export function Lobby({ view, code, busy, presence, onRulesChange, onStart, onLe
                 <button type="button" className="ghost-button" onClick={() => setExplaining(true)}>
                   <BookOpen aria-hidden="true" /> Explications
                 </button>
+                <ThemeToggle />
               </div>
             </section>
           </div>

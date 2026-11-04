@@ -28,3 +28,6 @@ export const MAX_KNOWN_SESSIONS = 5;
 
 /** Nombre maximal de joueurs (même valeur que `MAX_PLAYERS` du core ; le serveur reste seul juge). */
 export const MAX_PLAYERS = 10;
+
+/** Clé de `localStorage` du thème choisi (« light » ou « dark ») ; absente, on suit le réglage du système. */
+export const THEME_KEY = "spacejo.theme";

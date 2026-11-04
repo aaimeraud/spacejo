@@ -1,4 +1,4 @@
-# Thème « nuit » de l'interface
+# Thème « nuit » de l'interface, et son pendant clair
 
 ## Contexte
 
@@ -27,10 +27,23 @@ moderne.
 Le style suit la direction « True-black flat » de la compétence de design utilisée (tirage du 2026-11-03,
 graine 719397715).
 
+## Thème clair
+
+Ajouté ensuite à la demande du propriétaire du dépôt. Mêmes rôles, valeurs inversées : fond gris clair
+(`#ebebeb`), panneaux blancs, texte presque noir, bouton principal noir à texte blanc. Les contours de l'accent
+passent à un vert plus foncé (`--accent-line`, `#5f8a00`), car le vert citron ne se voit pas sur du blanc ; il
+reste en aplat (« joue », colonne retirée). Les cartes ne changent pas : dos foncés sur une table blanche.
+
+- Par défaut, l'interface suit le réglage du système (`prefers-color-scheme`), et le suit encore s'il change.
+- Un bouton soleil / lune (accueil, salon, partie) force l'un ou l'autre ; ce choix est gardé sur l'appareil
+  (`localStorage`, clé `spacejo.theme`) et l'emporte sur le système.
+- Toutes les couleurs passent par des variables CSS : le thème clair ne redéfinit que ces variables
+  (`:root[data-theme="light"]`), sauf les tuiles de l'accueil, blanches sur le fond gris.
+
 ## Alternatives écartées
 
 - Garder le décor spatial en l'épurant : le violet et les dégradés en sont l'essentiel.
-- Un thème clair : une partie se joue surtout le soir, et les couleurs des cartes ressortent mieux sur du noir.
+- Un thème clair seul : une partie se joue souvent le soir, et les couleurs des cartes ressortent mieux sur du noir ; d'où le sombre par défaut quand le système ne dit rien, et le clair en option.
 
 ## Conséquences
 

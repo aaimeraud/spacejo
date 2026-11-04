@@ -9,6 +9,7 @@ import { OFFICIAL_RULES } from "../rulesInfo";
 import type { KnownSession } from "../session";
 import { ValueCard } from "./Card";
 import { FitStage } from "./FitStage";
+import { ThemeToggle } from "./ThemeToggle";
 import { RuleStepBody, WizardFrame, ruleStepTitle, useRulesFlow } from "./wizard/RuleSteps";
 
 interface Props {
@@ -107,9 +108,12 @@ export function Home({ busy, resumable, onCreate, onJoin, onResume }: Props) {
               </ul>
             </section>
           )}
-          <p className="legal">
-            SpaceJo reprend les règles du jeu de cartes Skyjo. Projet indépendant, non affilié à Magilano.
-          </p>
+          <div className="home-foot">
+            <p className="legal">
+              SpaceJo reprend les règles du jeu de cartes Skyjo. Projet indépendant, non affilié à Magilano.
+            </p>
+            <ThemeToggle />
+          </div>
         </div>
       );
     }

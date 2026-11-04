@@ -14,6 +14,7 @@ import { FitStage, type Orientation } from "./FitStage";
 import { GridView } from "./GridView";
 import { Modal } from "./Modal";
 import { Scoreboard } from "./Scoreboard";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface Props {
   view: GameView;
@@ -377,10 +378,12 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
                   : hint(view, mode)}
               </p>
               <div className="stage-actions">
-                <button type="button" className="ghost-button" onClick={() => setScoresOpen(true)}>
-                  <ListOrdered aria-hidden="true" /> Scores
+                {/* En portrait, les icônes seules (le libellé reste lu par les lecteurs d'écran). */}
+                <button type="button" className="ghost-button" onClick={() => setScoresOpen(true)} aria-label="Scores">
+                  <ListOrdered aria-hidden="true" />
+                  <span className="stage-action-label">Scores</span>
                 </button>
-                {/* En portrait, l'icône seule (le libellé reste lu par les lecteurs d'écran). */}
+                <ThemeToggle />
                 <button type="button" className="ghost-button" onClick={onLeave} aria-label="Quitter la partie">
                   <LogOut aria-hidden="true" />
                   <span className="stage-action-label">Quitter</span>
