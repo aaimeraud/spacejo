@@ -83,6 +83,15 @@ export class SpaceJoApi {
     return this.request("/api/create", { method: "POST", body: JSON.stringify(body) });
   }
 
+  /** L'hôte rend la partie publique ou privée (au salon seulement). */
+  setVisibility(code: string, token: string, expectedVersion: number, isPublic: boolean): Promise<WriteResponse> {
+    return this.request(
+      "/api/visibility",
+      { method: "POST", body: JSON.stringify({ code, expected_version: expectedVersion, public: isPublic }) },
+      token,
+    );
+  }
+
   /** Parties publiques que l'on peut rejoindre (sans jeton). */
   publicGames(): Promise<PublicGamesResponse> {
     return this.request("/api/public-games", { method: "GET" });

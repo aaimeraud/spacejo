@@ -159,9 +159,10 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/api/types.ts` | types de l'API, recopiés de [CONTRACT.md](CONTRACT.md) |
 | `src/api/client.ts` | appels HTTP, jeton dans l'en-tête `X-Player-Token`, erreurs → `ApiError` |
 | `src/invite.ts` | lien d'invitation (`/?code=K7MPQX`) : le fabriquer, et relire le code d'une adresse |
+| `src/qr.ts` | matrice du code QR d'un texte (bibliothèque `qrcode-generator`), dessinée en SVG par `components/QrCode.tsx` |
 | `src/api/events.ts` | flux d'avis du serveur (`EventSource`) : nouvelle version → relecture immédiate |
 | `src/App.tsx` | session, polling, envoi des actions avec `expected_version`, choix de l'écran |
-| `src/components/` | `Home` (accueil et parcours pas à pas), `PublicGames` (liste des parties publiques de l'accueil), `Lobby` (salon, lien d'invitation), `GameBoard` (table de jeu et fin de partie), `GridView`, `Card` (carte 3D à deux faces), `Scoreboard`, `Modal` (fenêtres), `FitStage` (écran figé mis à l'échelle), `ThemeToggle` (bascule clair / sombre), `icons.tsx` (icônes Lucide des réglages) |
+| `src/components/` | `Home` (accueil et parcours pas à pas), `PublicGames` (liste des parties publiques de l'accueil), `Lobby` (salon, lien d'invitation, visibilité), `QrCode` (code QR en SVG), `GameBoard` (table de jeu et fin de partie), `GridView`, `Card` (carte 3D à deux faces), `Scoreboard`, `Modal` (fenêtres), `FitStage` (écran figé mis à l'échelle), `ThemeToggle` (bascule clair / sombre), `icons.tsx` (icônes Lucide des réglages) |
 | `src/components/wizard/RuleSteps.tsx` | étapes du parcours de réglages (type de partie, un réglage par écran, score de fin, récapitulatif), partagées par l'accueil et le salon |
 | `src/game/seats.ts` | place de chaque joueur autour de la table (moi en bas, puis l'ordre du tour, dans le sens des aiguilles d'une montre) |
 | `src/rulesInfo.ts` | explications, exemples, étiquettes « officiel » / « variante », préréglages (raccourcis de l'interface) et résumé des réglages |
@@ -261,6 +262,9 @@ le même serveur sert l'API et l'interface construite (`web/dist`) sur une seule
   « Comment vous appelez-vous ? », code rempli ; si cet appareil a déjà rejoint la partie (l'hôte qui ouvre son
   propre lien), elle est reprise au lieu d'être rejointe une seconde fois. Le paramètre est retiré de l'adresse
   aussitôt lu. Le lien ne contient que le code, jamais de jeton.
+- **Code QR** : le bouton « Code QR » du salon affiche le lien d'invitation en code QR, pour un joueur dans la même
+  pièce. `qr.ts` obtient la matrice de `qrcode-generator` ; `QrCode.tsx` la dessine en SVG (un seul chemin), toujours
+  noir sur blanc quel que soit le thème, avec la marge blanche de 4 cases demandée par la norme.
 
 Choix et alternatives : [decisions/2026-11-04-parties-publiques.md](decisions/2026-11-04-parties-publiques.md).
 

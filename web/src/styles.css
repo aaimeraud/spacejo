@@ -583,3 +583,8 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 /* Visibilité de la partie (salon) */
 .pill-visibility { background: var(--hover); color: var(--text); }
 .invite-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Code QR du lien d'invitation (salon) */
+.qr-invite { display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
+.qr-code { width: min(280px, 70vw); height: auto; border-radius: 8px; }
+.qr-link { font-size: 0.85rem; color: var(--muted); word-break: break-all; margin: 0; }

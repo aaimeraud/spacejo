@@ -21,5 +21,6 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
   - [déploiement Supabase](decisions/2026-11-04-deploiement-supabase.md) : pooler, polling adaptatif, version de Rust ;
   - [serveur unique sur Render](decisions/2026-11-04-serveur-unique-render.md) : axum, Docker, l'API et l'interface sur une même adresse ;
   - [mises à jour instantanées](decisions/2026-11-04-mises-a-jour-instantanees.md) : avis poussés par le serveur (SSE), moins d'allers-retours vers la base ;
-  - [parties publiques](decisions/2026-11-04-parties-publiques.md) : visibilité dans une colonne, liste des salons ouverts, lien d'invitation.
+  - [parties publiques](decisions/2026-11-04-parties-publiques.md) : visibilité dans une colonne, liste des salons ouverts, lien d'invitation ;
+  - [code QR](decisions/2026-11-04-code-qr.md) : bibliothèque `qrcode-generator`, dessin en SVG par React.
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).
