@@ -335,3 +335,30 @@ async fn only_public_lobbies_with_their_host_present_are_listed() {
     assert!(list().await.is_empty());
     db.drop().await;
 }
+
+#[tokio::test]
+async fn switching_visibility_uses_the_optimistic_lock() {
+    let Some(db) = TestDb::create().await else {
+        return;
+    };
+    run_migrations(db.store.pool()).await.unwrap();
+    let store = Store::Postgres(db.store.clone());
+    let record = store
+        .insert("K7MPQX", &json!({ "n": 0 }), false)
+        .await
+        .unwrap();
+
+    // Bonne version : la colonne change et la version augmente.
+    assert_eq!(store.set_public(record.id, true, 1).await.unwrap(), 2);
+    let loaded = store.load("K7MPQX").await.unwrap().unwrap();
+    assert!(loaded.public);
+    assert_eq!(loaded.version, 2);
+
+    // Version périmée : conflit, rien n'est écrit.
+    assert!(matches!(
+        store.set_public(record.id, false, 1).await,
+        Err(StoreError::Conflict)
+    ));
+    assert!(store.load("K7MPQX").await.unwrap().unwrap().public);
+    db.drop().await;
+}

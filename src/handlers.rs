@@ -1,4 +1,4 @@
-//! Les huit opérations de l'API (docs/CONTRACT.md), indépendantes du serveur HTTP (voir `server`).
+//! Les neuf opérations de l'API (docs/CONTRACT.md), indépendantes du serveur HTTP (voir `server`).
 //!
 //! Chaque opération suit le même parcours (serverless : rien n'est gardé en mémoire) :
 //! valider la requête → charger la partie → identifier le joueur par son jeton → vérifier
@@ -46,6 +46,7 @@ pub enum Endpoint {
     Skip,
     State,
     PublicGames,
+    Visibility,
 }
 
 impl Endpoint {
@@ -60,6 +61,7 @@ impl Endpoint {
             "/api/skip" => Some(Endpoint::Skip),
             "/api/state" => Some(Endpoint::State),
             "/api/public-games" => Some(Endpoint::PublicGames),
+            "/api/visibility" => Some(Endpoint::Visibility),
             _ => None,
         }
     }
@@ -154,6 +156,14 @@ struct SkipRequest {
     player: PlayerId,
 }
 
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VisibilityRequest {
+    code: String,
+    expected_version: i32,
+    public: bool,
+}
+
 /// Point d'entrée : traite une requête et renvoie toujours une réponse (succès ou erreur).
 pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> ApiResponse {
     let result = if request.method != endpoint.method() {
@@ -168,6 +178,7 @@ pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> A
             Endpoint::Skip => skip(store, &request).await,
             Endpoint::State => state(store, &request).await,
             Endpoint::PublicGames => public_games(store, &request).await,
+            Endpoint::Visibility => visibility(store, &request).await,
         }
     };
     match result {
@@ -346,6 +357,47 @@ async fn state(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiEr
         object.remove("view");
     }
     Ok(ApiResponse::ok(body))
+}
+
+/// L'hôte rend la partie publique ou privée, au salon seulement. La visibilité n'est pas une règle du jeu
+/// (elle vit dans la colonne `games.public`, pas dans `Game`) : les vérifications d'hôte et de phase sont donc
+/// faites ici, avec les mêmes erreurs que pour les réglages.
+async fn visibility(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: VisibilityRequest = parse_body(&request.body)?;
+    let code = auth::normalize_code(&body.code)?;
+    let token = require_token(request)?;
+    let (record, stored) = load(store, &code).await?;
+    let player = identify(&stored, token)?;
+    if body.expected_version != record.version {
+        return Err(ApiError::version_conflict());
+    }
+    if player != HOST {
+        return Err(GameError::NotHost.into());
+    }
+    if stored.game.phase != Phase::Lobby {
+        return Err(GameError::WrongPhase.into());
+    }
+    let version = match store
+        .set_public(record.id, body.public, record.version)
+        .await
+    {
+        Ok(version) => version,
+        Err(StoreError::Conflict) => return Err(ApiError::version_conflict()),
+        Err(error) => return Err(storage_error(error)),
+    };
+    let presence = store
+        .touch_presence(record.id, player)
+        .await
+        .map_err(storage_error)?;
+    let saved = Record {
+        version,
+        idle_seconds: 0.0,
+        public: body.public,
+        ..record
+    };
+    Ok(ApiResponse::ok(game_payload(
+        &saved, &stored, player, &presence,
+    )))
 }
 
 /// Parties publiques que l'on peut rejoindre, pour l'accueil. Sans jeton : on n'y donne que le code, le nom

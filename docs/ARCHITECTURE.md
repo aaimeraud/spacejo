@@ -96,10 +96,10 @@ Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
 
 | Fichier | Rôle |
 |---|---|
-| `src/handlers.rs` | les huit opérations (dont la liste des parties publiques), indépendantes du serveur HTTP (`handle(store, endpoint, request)`) |
+| `src/handlers.rs` | les neuf opérations (dont la liste des parties publiques et la visibilité), indépendantes du serveur HTTP (`handle(store, endpoint, request)`) |
 | `src/auth.rs` | jetons (256 bits, hachage SHA-256, comparaison en temps constant), codes de partie, graines |
 | `src/stored.rs` | `StoredGame` (ce qui est dans `games.state`) et `STATE_VERSION` |
-| `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste ; liste des parties publiques au salon (`list_public`) |
+| `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste ; liste des parties publiques au salon (`list_public`) et visibilité (`set_public`) |
 | `src/events.rs` | avis de changement de version, un canal `broadcast` par partie, poussés aux navigateurs par `GET /api/events` |
 | `src/server.rs` | serveur `axum` : `/api/health`, `/api/*` vers `handlers` (réponses compressées), fichiers de l'interface par `tower-http` (version gzip, règles de cache, retour à `index.html` pour une page de l'application) |
 | `src/error.rs` | `ApiError` (statut, code, message) et conversion depuis `GameError` |
@@ -245,9 +245,12 @@ le même serveur sert l'API et l'interface construite (`web/dist`) sur une seule
 
 ## Parties publiques, parties privées et lien d'invitation
 
-- **Visibilité** : à la création, l'hôte choisit une partie **privée** (par défaut) ou **publique**. Ce n'est pas
-  une règle du jeu : elle est rangée dans la colonne `games.public`, hors de l'état `state` (le core n'en sait
-  rien). Toutes les réponses qui donnent l'état contiennent `public`, que le salon affiche.
+- **Visibilité** : à la création, l'hôte choisit une partie **privée** (par défaut) ou **publique** ; il peut
+  changer d'avis au salon (« Rendre publique » / « Rendre privée », `POST /api/visibility`), jamais après le
+  lancement. Ce n'est pas une règle du jeu : elle est rangée dans la colonne `games.public`, hors de l'état `state`
+  (le core n'en sait rien), et les contrôles d'hôte et de phase sont faits par la route. Changer la visibilité
+  incrémente `version` avec le même verrou optimiste qu'une action (`Store::set_public`), ce qui prévient les
+  autres joueurs par le flux d'avis. Toutes les réponses qui donnent l'état contiennent `public`, que le salon affiche.
 - **Liste des parties publiques** (`GET /api/public-games`, sans jeton) : parties publiques encore au salon, pas
   pleines, dont l'hôte est présent (requête depuis moins de `PRESENCE_TIMEOUT_SECS`) ; les plus récentes d'abord,
   au plus `PUBLIC_GAMES_LIMIT` (20). On n'y donne que le code, le nom de l'hôte et le nombre de joueurs. Un salon
@@ -333,7 +336,6 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
   met environ une minute à se réveiller ; l'interface le réveille dès l'ouverture de l'accueil.
 - **Limitation de débit** : aucune limite sur la création et la jonction de parties, ni sur la liste des parties
   publiques.
-- **Visibilité figée** : une partie reste publique ou privée telle que l'hôte l'a créée (pas de bascule au salon).
 - **Modération** : les noms des hôtes de parties publiques sont visibles de tous, sans filtre.
 - **Comptes utilisateurs** : aucun ; l'identité est un jeton secret par partie.
 - **Nombre de joueurs** : de 2 à 10 (`MAX_PLAYERS`) ; le core n'en dépend pas ailleurs.

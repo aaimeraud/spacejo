@@ -123,6 +123,21 @@ impl Store {
         }
     }
 
+    /// Rend la partie publique ou privée si la version en base vaut toujours `expected_version` (même verrou
+    /// optimiste que `save`). L'état ne change pas, mais la version augmente : les autres joueurs relisent.
+    /// Renvoie la nouvelle version.
+    pub async fn set_public(
+        &self,
+        id: i64,
+        public: bool,
+        expected_version: i32,
+    ) -> Result<i32, StoreError> {
+        match self {
+            Store::Memory(store) => store.set_public(id, public, expected_version),
+            Store::Postgres(store) => store.set_public(id, public, expected_version).await,
+        }
+    }
+
     /// Note qu'un joueur vient de faire une requête. Ne touche ni l'état ni la version de la partie.
     pub async fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {
         match self {
@@ -279,6 +294,24 @@ impl MemoryStore {
         {
             Some(row) => {
                 row.state = state.clone();
+                row.version += 1;
+                row.updated_at = now;
+                Ok(row.version)
+            }
+            None => Err(StoreError::Conflict),
+        }
+    }
+
+    fn set_public(&self, id: i64, public: bool, expected_version: i32) -> Result<i32, StoreError> {
+        let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let now = tables.now();
+        match tables
+            .games
+            .values_mut()
+            .find(|r| r.id == id && r.version == expected_version)
+        {
+            Some(row) => {
+                row.public = public;
                 row.version += 1;
                 row.updated_at = now;
                 Ok(row.version)
@@ -459,6 +492,28 @@ impl PgStore {
              WHERE id = $2 AND version = $3 RETURNING version",
         )
         .bind(state)
+        .bind(id)
+        .bind(expected_version)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        match row {
+            Some((version,)) => Ok(version),
+            None => Err(StoreError::Conflict),
+        }
+    }
+
+    async fn set_public(
+        &self,
+        id: i64,
+        public: bool,
+        expected_version: i32,
+    ) -> Result<i32, StoreError> {
+        let row = sqlx::query_as::<_, (i32,)>(
+            "UPDATE games SET public = $1, version = version + 1, updated_at = now() \
+             WHERE id = $2 AND version = $3 RETURNING version",
+        )
+        .bind(public)
         .bind(id)
         .bind(expected_version)
         .fetch_optional(&self.pool)

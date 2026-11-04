@@ -78,7 +78,7 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
 ## Parties publiques et lien d'invitation (demandés par le propriétaire du dépôt)
 
 23. **Visibilité par défaut** : une partie est privée sauf si l'hôte la déclare publique à la création ; les
-    parties créées avant cette évolution sont privées. La visibilité ne change plus ensuite.
+    parties créées avant cette évolution sont privées. L'hôte peut la changer au salon, jamais après le lancement.
 24. **Partie listée** : une partie publique n'apparaît dans la liste que si elle est au salon, pas pleine, et que
     son hôte est présent (même délai que l'absence, `PRESENCE_TIMEOUT_SECS`). Un salon dont l'hôte est parti
     disparaît de la liste, et y revient si l'hôte revient.

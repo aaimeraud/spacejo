@@ -167,3 +167,108 @@ fn the_route_has_its_own_path() {
         Some(Endpoint::PublicGames)
     );
 }
+
+// ----- Bascule de visibilité au salon (`POST /api/visibility`) -----
+
+/// L'hôte (ou un autre joueur) demande à rendre la partie publique ou privée.
+async fn set_visibility(
+    store: &Store,
+    client: &common::Client,
+    expected_version: i64,
+    public: bool,
+) -> ApiResponse {
+    call(
+        store,
+        Endpoint::Visibility,
+        json!({ "code": client.code, "expected_version": expected_version, "public": public }),
+        Some(&client.token),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn the_host_switches_a_lobby_between_private_and_public() {
+    let (store, _) = memory();
+    let (host, created) = create(&store, "Alice", None).await;
+    assert_eq!(created.body["public"], false);
+
+    let response = set_visibility(&store, &host, 1, true).await;
+    assert_eq!(response.status, 200, "{:?}", response.body);
+    assert_eq!(response.body["public"], true);
+    // Une écriture comme une autre : la version augmente (les autres joueurs sont prévenus).
+    assert_eq!(response.body["version"], 2);
+    assert_eq!(response.body["view"]["phase"], "Lobby");
+    assert_eq!(public_games(&store).await.len(), 1);
+
+    let response = set_visibility(&store, &host, 2, false).await;
+    assert_eq!(response.status, 200, "{:?}", response.body);
+    assert_eq!(response.body["public"], false);
+    assert_eq!(response.body["version"], 3);
+    assert!(public_games(&store).await.is_empty());
+
+    // Les autres joueurs voient le changement en relisant l'état.
+    let (guest, _) = join(&store, &host.code, "Bob").await;
+    assert_eq!(set_visibility(&store, &host, 4, true).await.status, 200);
+    let state = get_state(&store, &format!("code={}", guest.code), Some(&guest.token)).await;
+    assert_eq!(state.body["public"], true);
+}
+
+#[tokio::test]
+async fn only_the_host_switches_visibility_and_only_in_the_lobby() {
+    let (store, _) = memory();
+    let (host, _) = create(&store, "Alice", None).await;
+    let (guest, _) = join(&store, &host.code, "Bob").await;
+
+    let response = set_visibility(&store, &guest, 2, true).await;
+    assert_eq!(response.status, 403);
+    assert_eq!(response.body["error"]["code"], "not_host");
+
+    assert_eq!(start(&store, &host).await.status, 200);
+    let response = set_visibility(&store, &host, 3, true).await;
+    assert_eq!(response.status, 422);
+    assert_eq!(response.body["error"]["code"], "wrong_phase");
+    // Rien n'a été écrit.
+    let state = get_state(&store, &format!("code={}", host.code), Some(&host.token)).await;
+    assert_eq!(state.body["public"], false);
+    assert_eq!(state.body["version"], 3);
+}
+
+#[tokio::test]
+async fn a_stale_or_invalid_visibility_request_writes_nothing() {
+    let (store, _) = memory();
+    let (host, _) = create(&store, "Alice", None).await;
+
+    // Version périmée (écran ancien ou requête rejouée) : conflit.
+    let response = set_visibility(&store, &host, 7, true).await;
+    assert_eq!(response.status, 409);
+    assert_eq!(response.body["error"]["code"], "version_conflict");
+
+    // Sans jeton.
+    let response = call(
+        &store,
+        Endpoint::Visibility,
+        json!({ "code": host.code, "expected_version": 1, "public": true }),
+        None,
+    )
+    .await;
+    assert_eq!(response.status, 401);
+
+    // `public` manquant, mal typé, ou champ inconnu.
+    for body in [
+        json!({ "code": host.code, "expected_version": 1 }),
+        json!({ "code": host.code, "expected_version": 1, "public": "oui" }),
+        json!({ "code": host.code, "expected_version": 1, "public": true, "extra": 1 }),
+    ] {
+        let response = call(&store, Endpoint::Visibility, body, Some(&host.token)).await;
+        assert_eq!(response.status, 400, "{:?}", response.body);
+    }
+    assert!(public_games(&store).await.is_empty());
+}
+
+#[test]
+fn the_visibility_route_has_its_own_path() {
+    assert_eq!(
+        Endpoint::from_path("/api/visibility"),
+        Some(Endpoint::Visibility)
+    );
+}

@@ -12,7 +12,7 @@ Référence commune du front (`web/src/api/types.ts`) et du back (`src/`, `crate
   Il n'est remis qu'une fois. Les autres routes l'attendent dans l'en-tête `X-Player-Token`. Le serveur
   ne stocke que son hachage SHA-256.
 - **Version** : chaque partie a un numéro `version` (entier, 1 à la création, +1 à chaque écriture :
-  jonction, réglages, lancement, action). `rules`, `start` et `action` envoient `expected_version` ; si
+  jonction, réglages, visibilité, lancement, action, passage d'un tour). `rules`, `visibility`, `start`, `action` et `skip` envoient `expected_version` ; si
   elle diffère de la version en base, réponse `409 version_conflict` et rien n'est écrit. Une requête
   rejouée échoue donc aussi.
 - **Vue filtrée** : chaque réponse qui contient l'état le donne sous la forme `view` (type `GameView`
@@ -34,7 +34,8 @@ Requête :
 `rules` est facultatif : absent, ce sont les règles officielles (`Rules` par défaut). S'il est présent,
 il doit être complet (les 7 champs).
 `public` est facultatif (booléen) : absent ou `false`, la partie est privée (on ne la rejoint qu'avec son code) ;
-`true`, elle est listée par `GET /api/public-games` tant qu'elle est au salon. Ce choix ne change plus ensuite.
+`true`, elle est listée par `GET /api/public-games` tant qu'elle est au salon. L'hôte peut changer ce choix au salon
+(`POST /api/visibility`).
 
 Réponse `201` :
 ```json
@@ -56,6 +57,16 @@ En-tête `X-Player-Token`. Requête :
 { "code": "K7MPQX", "expected_version": 3, "rules": { ...Rules } }
 ```
 `rules` est complet : il remplace tous les réglages. Réponse `200` : `{ "version": 4, "view": { ... } }`.
+
+### `POST /api/visibility` (hôte, avant le lancement)
+
+En-tête `X-Player-Token`. Requête :
+```json
+{ "code": "K7MPQX", "expected_version": 4, "public": true }
+```
+Rend la partie publique (`true`) ou privée (`false`). La version augmente comme pour toute écriture (les autres
+joueurs sont prévenus et relisent l'état), même si la valeur ne change pas. Refus : `not_host` si l'appelant n'est
+pas l'hôte, `wrong_phase` si la partie est lancée. Réponse `200` : `{ "version": 5, "public": true, "view": { ... } }`.
 
 ### `POST /api/start` (hôte)
 
@@ -218,7 +229,7 @@ Exemples : `{ "type": "DrawFromPile" }`, `{ "type": "SwapHeld", "column": 2, "ro
 
 ### Visibilité et présence (`public`, `presence`, `waiting`)
 
-Toutes les réponses qui donnent l'état (`create`, `join`, `rules`, `start`, `action`, `skip`, `state`) contiennent aussi :
+Toutes les réponses qui donnent l'état (`create`, `join`, `rules`, `visibility`, `start`, `action`, `skip`, `state`) contiennent aussi :
 
 ```json
 {
@@ -254,13 +265,13 @@ Toute erreur a la forme :
 | 400 | `invalid_rules` | réglage hors bornes (`end_score` hors de 10 à 500) |
 | 401 | `missing_token` | en-tête `X-Player-Token` absent |
 | 401 | `invalid_token` | jeton qui ne correspond à aucun joueur de cette partie |
-| 403 | `not_host` | réglages, lancement ou passage d'un tour demandés par un joueur qui n'est pas l'hôte |
+| 403 | `not_host` | réglages, visibilité, lancement ou passage d'un tour demandés par un joueur qui n'est pas l'hôte |
 | 404 | `game_not_found` | aucune partie avec ce code |
 | 404 | `not_found` | route inconnue (serveur local) |
 | 405 | `method_not_allowed` | mauvaise méthode HTTP |
 | 409 | `version_conflict` | `expected_version` périmée, ou écriture concurrente |
 | 413 | `payload_too_large` | corps de requête trop gros |
-| 422 | `wrong_phase` | action impossible dans la phase actuelle (dont réglages après lancement) |
+| 422 | `wrong_phase` | action impossible dans la phase actuelle (dont réglages ou visibilité après lancement) |
 | 422 | `not_your_turn` | action hors de son tour |
 | 422 | `game_full` | déjà 10 joueurs |
 | 422 | `player_not_absent` | passage du tour d'un joueur présent, ou qui ne bloque pas la partie |
