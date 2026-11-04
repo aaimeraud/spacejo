@@ -106,6 +106,7 @@ async fn migrations_create_the_schema_on_an_empty_database() {
         ("state", "jsonb"),
         ("version", "integer"),
         ("updated_at", "timestamp with time zone"),
+        ("public", "boolean"),
     ];
     let columns: Vec<(&str, &str)> = columns
         .iter()
@@ -123,10 +124,13 @@ async fn optimistic_lock_lets_only_one_concurrent_write_succeed() {
     run_migrations(db.store.pool()).await.unwrap();
     let store = Store::Postgres(db.store.clone());
 
-    let record = store.insert("K7MPQX", &json!({ "n": 0 })).await.unwrap();
+    let record = store
+        .insert("K7MPQX", &json!({ "n": 0 }), false)
+        .await
+        .unwrap();
     assert_eq!(record.version, 1);
     assert!(matches!(
-        store.insert("K7MPQX", &json!({})).await,
+        store.insert("K7MPQX", &json!({}), false).await,
         Err(StoreError::CodeTaken)
     ));
 
@@ -220,7 +224,10 @@ async fn presence_is_recorded_without_touching_the_game() {
     };
     run_migrations(db.store.pool()).await.unwrap();
     let store = Store::Postgres(db.store.clone());
-    let record = store.insert("K7MPQX", &json!({ "n": 0 })).await.unwrap();
+    let record = store
+        .insert("K7MPQX", &json!({ "n": 0 }), false)
+        .await
+        .unwrap();
     assert!(store.presence(record.id).await.unwrap().is_empty());
 
     store.touch(record.id, 0).await.unwrap();
@@ -244,7 +251,10 @@ async fn touch_presence_records_and_reads_in_one_query() {
     };
     run_migrations(db.store.pool()).await.unwrap();
     let store = Store::Postgres(db.store.clone());
-    let record = store.insert("K7MPQX", &json!({ "n": 0 })).await.unwrap();
+    let record = store
+        .insert("K7MPQX", &json!({ "n": 0 }), false)
+        .await
+        .unwrap();
 
     // Premier passage : seul le joueur lui-même, à 0 seconde.
     let presence = store.touch_presence(record.id, 2).await.unwrap();
@@ -264,5 +274,64 @@ async fn touch_presence_records_and_reads_in_one_query() {
     // Repasser ne crée pas de doublon, et la lecture séparée donne les mêmes joueurs.
     store.touch_presence(record.id, 2).await.unwrap();
     assert_eq!(store.presence(record.id).await.unwrap().len(), 2);
+    db.drop().await;
+}
+
+#[tokio::test]
+async fn only_public_lobbies_with_their_host_present_are_listed() {
+    let Some(db) = TestDb::create().await else {
+        return;
+    };
+    run_migrations(db.store.pool()).await.unwrap();
+    let store = Store::Postgres(db.store.clone());
+    let list = || async {
+        let request = spacejo_api::ApiRequest {
+            method: "GET".to_string(),
+            ..Default::default()
+        };
+        let response = spacejo_api::handle(&store, Endpoint::PublicGames, request).await;
+        assert_eq!(response.status, 200, "{:?}", response.body);
+        response.body["games"].as_array().unwrap().clone()
+    };
+
+    // Une partie privée et une partie publique : seule la seconde est listée.
+    common::create(&store, "Alice", None).await;
+    let created = common::call(
+        &store,
+        Endpoint::Create,
+        json!({ "name": "Carla", "public": true }),
+        None,
+    )
+    .await;
+    assert_eq!(created.status, 201, "{:?}", created.body);
+    let code = created.body["code"].as_str().unwrap().to_string();
+    let games = list().await;
+    assert_eq!(games.len(), 1);
+    assert_eq!(games[0]["code"], code.as_str());
+    assert_eq!(games[0]["host"], "Carla");
+    assert_eq!(games[0]["players"], 1);
+
+    // L'hôte n'est plus là depuis longtemps : la partie disparaît de la liste.
+    sqlx::query("UPDATE presence SET last_seen = now() - interval '1 hour'")
+        .execute(db.store.pool())
+        .await
+        .unwrap();
+    assert!(list().await.is_empty());
+
+    // L'hôte revient, puis la partie est lancée : elle n'est plus au salon.
+    sqlx::query("UPDATE presence SET last_seen = now()")
+        .execute(db.store.pool())
+        .await
+        .unwrap();
+    let (_, joined) = common::join(&store, &code, "Bob").await;
+    assert_eq!(joined.body["public"], true);
+    assert_eq!(list().await[0]["players"], 2);
+    let host = common::Client {
+        code: code.clone(),
+        token: created.body["token"].as_str().unwrap().to_string(),
+        player_id: 0,
+    };
+    assert_eq!(common::start(&store, &host).await.status, 200);
+    assert!(list().await.is_empty());
     db.drop().await;
 }

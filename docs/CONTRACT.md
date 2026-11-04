@@ -29,10 +29,12 @@ Crée une partie ; le créateur en est l'hôte (joueur `0`).
 
 Requête :
 ```json
-{ "name": "Alice", "rules": { ...Rules } }
+{ "name": "Alice", "rules": { ...Rules }, "public": true }
 ```
 `rules` est facultatif : absent, ce sont les règles officielles (`Rules` par défaut). S'il est présent,
 il doit être complet (les 7 champs).
+`public` est facultatif (booléen) : absent ou `false`, la partie est privée (on ne la rejoint qu'avec son code) ;
+`true`, elle est listée par `GET /api/public-games` tant qu'elle est au salon. Ce choix ne change plus ensuite.
 
 Réponse `201` :
 ```json
@@ -79,6 +81,19 @@ Passe tout de suite le tour du joueur absent qui bloque la partie (celui de `wai
 fin de `waiting.seconds_left`. Les conséquences sont celles d'un passage automatique : tour manqué compté,
 élimination au `max_missed_turns`-ième. Refus : `not_host` si l'appelant n'est pas l'hôte, `player_not_absent` si
 `player` est présent ou n'est pas celui que l'on attend. Réponse `200` : `{ "version": 7, "view": { ... } }`.
+
+### `GET /api/public-games`
+
+Parties publiques que l'on peut rejoindre. Pas de jeton, aucun paramètre (un paramètre donne `400 invalid_request`).
+Sont listées les parties publiques encore au salon (phase `Lobby`), avec moins de `max_players` joueurs, dont
+l'hôte a fait une requête depuis moins de 15 s (`PRESENCE_TIMEOUT_SECS`) ; les plus récemment modifiées d'abord,
+au plus 20 (`PUBLIC_GAMES_LIMIT`, dans `src/handlers.rs`).
+
+Réponse `200` :
+```json
+{ "games": [ { "code": "K7MPQX", "host": "Alice", "players": 2, "max_players": 10 } ] }
+```
+Aucune carte, aucun jeton : seulement le code, le nom de l'hôte et le nombre de joueurs.
 
 ### `GET /api/health`
 
@@ -201,17 +216,19 @@ Exemples : `{ "type": "DrawFromPile" }`, `{ "type": "SwapHeld", "column": 2, "ro
   pénalité, `penalized` = la pénalité a été appliquée. C'est le serveur qui calcule : l'interface n'additionne rien.
 - `winners` : identifiants des gagnants (rempli seulement en phase `GameOver`).
 
-### Présence (`presence`, `waiting`)
+### Visibilité et présence (`public`, `presence`, `waiting`)
 
 Toutes les réponses qui donnent l'état (`create`, `join`, `rules`, `start`, `action`, `skip`, `state`) contiennent aussi :
 
 ```json
 {
+  "public": false,
   "presence": [ { "player": 0, "connected": true }, { "player": 1, "connected": false } ],
   "waiting": { "player": 1, "seconds_left": 30, "missed_turns": 0, "max_missed_turns": 2 }
 }
 ```
 
+- `public` : la partie est publique (listée par `GET /api/public-games` tant qu'elle est au salon) ou privée.
 - `presence` : pour chaque joueur, `connected` vaut `false` s'il n'a fait aucune requête depuis 15 s
   (`PRESENCE_TIMEOUT_SECS`, dans `src/handlers.rs`).
 - `waiting` : `null`, ou le joueur absent qui bloque la partie (c'est son tour, ou il n'a pas retourné ses cartes

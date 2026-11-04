@@ -65,7 +65,7 @@ Dockerfile            image de production (interface puis serveur) ; render.yaml
 ```
 
 Routes : `/api/health`, `/api/create`, `/api/join`, `/api/rules`, `/api/start`, `/api/action`, `/api/skip`,
-`/api/state` ; toute autre adresse reçoit l'interface.
+`/api/state`, `/api/events`, `/api/public-games` ; toute autre adresse reçoit l'interface.
 
 ## Base de données et driver
 
@@ -170,3 +170,23 @@ d'appels convient mal au polling. Un serveur unique, toujours démarré, sert l'
 Dépendances ajoutées : `axum` (serveur HTTP de l'écosystème tokio, le plus courant en Rust), `tower-http`
 (fichiers de l'interface, compression) et `tower` (pour appeler ces services). `vercel_runtime` et
 `http-body-util` sont retirées.
+
+## Évolution en cours : lien d'invitation, parties publiques et privées (branche `claude/invite-public-games`)
+
+Demandée par le propriétaire du dépôt après la release v1.0.0. Décision :
+`docs/decisions/2026-11-04-parties-publiques.md`.
+
+1. [x] Base : migration 0003, colonne `games.public` (faux par défaut : les parties existantes restent privées)
+   et index partiel des parties publiques. La visibilité n'est pas une règle du jeu : elle reste hors de `Game`
+   (le core ne change pas, pas de nouvelle version du format enregistré).
+2. [x] API (tests d'abord) : `create` accepte `public` (facultatif, faux par défaut) ; toutes les réponses qui
+   donnent l'état contiennent `public` ; nouvelle route `GET /api/public-games` (sans jeton) : parties publiques
+   encore au salon, pas pleines, dont l'hôte est présent, les plus récentes d'abord (au plus
+   `PUBLIC_GAMES_LIMIT`), avec code, nom de l'hôte et nombre de joueurs.
+3. [x] Interface : à la création, étape « Qui peut rejoindre ? » (privée ou publique) ; au salon, bouton
+   « Copier le lien d'invitation » (partage natif sur téléphone) et mention publique/privée ; à l'accueil, tuile
+   « Parties publiques » (liste rafraîchie, clic → nom → rejoindre) ; un lien `/?code=XXXXXX` ouvre directement
+   l'étape du nom avec le code rempli.
+4. [x] Documentation (`CONTRACT.md`, `ARCHITECTURE.md`, décision, `ASSUMPTIONS.md`) ; vérification dans le navigateur.
+
+Aucune nouvelle dépendance.
