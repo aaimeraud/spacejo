@@ -2,6 +2,7 @@ name: UI improvement
 description: Suggest a change to the look, feel or usability of the interface.
 title: "feat(ui): "
 labels: ["Task"]
+assignees: "aaimeraud"
 body:
   - type: markdown
     attributes:
