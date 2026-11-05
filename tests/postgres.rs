@@ -451,3 +451,81 @@ async fn chat_messages_are_stored_in_order_and_deleted_with_their_game() {
     assert!(store.messages(game.id, 0, 10).await.unwrap().is_empty());
     db.drop().await;
 }
+
+#[tokio::test]
+async fn chat_reactions_are_stored_one_per_player_and_deleted_with_their_message() {
+    let Some(db) = TestDb::create().await else {
+        return;
+    };
+    run_migrations(db.store.pool()).await.unwrap();
+    let store = Store::Postgres(db.store.clone());
+    let game = store
+        .insert("K7MPQX", &json!({ "n": 0 }), false)
+        .await
+        .unwrap();
+    let other = store
+        .insert("ABCDEF", &json!({ "n": 0 }), false)
+        .await
+        .unwrap();
+    let message = store
+        .insert_message(game.id, 0, "Alice", "un")
+        .await
+        .unwrap();
+    let summary = |message: &spacejo_api::store::ChatMessage| -> Vec<(usize, String)> {
+        message
+            .reactions
+            .iter()
+            .map(|r| (r.player, r.reaction.clone()))
+            .collect()
+    };
+
+    // Pose, puis remplacement : une seule réaction par joueur, triées par joueur.
+    store
+        .set_reaction(game.id, message.id, 1, Some("heart"))
+        .await
+        .unwrap();
+    store
+        .set_reaction(game.id, message.id, 0, Some("laugh"))
+        .await
+        .unwrap();
+    let updated = store
+        .set_reaction(game.id, message.id, 1, Some("wow"))
+        .await
+        .unwrap()
+        .unwrap();
+    let expected = vec![(0, "laugh".to_string()), (1, "wow".to_string())];
+    assert_eq!(summary(&updated), expected);
+    assert_eq!(updated.text, "un");
+    let listed = store.messages(game.id, 0, 10).await.unwrap();
+    assert_eq!(summary(&listed[0]), expected);
+
+    // Retrait.
+    let updated = store
+        .set_reaction(game.id, message.id, 0, None)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(summary(&updated), vec![(1, "wow".to_string())]);
+
+    // Un message d'une autre partie est introuvable.
+    assert!(
+        store
+            .set_reaction(other.id, message.id, 0, Some("heart"))
+            .await
+            .unwrap()
+            .is_none()
+    );
+
+    // Les réactions disparaissent avec leur partie (et donc leurs messages).
+    sqlx::query("DELETE FROM games WHERE id = $1")
+        .bind(game.id)
+        .execute(db.store.pool())
+        .await
+        .unwrap();
+    let (left,): (i64,) = sqlx::query_as("SELECT count(*) FROM chat_reactions")
+        .fetch_one(db.store.pool())
+        .await
+        .unwrap();
+    assert_eq!(left, 0);
+    db.drop().await;
+}

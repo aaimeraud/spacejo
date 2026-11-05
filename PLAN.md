@@ -311,3 +311,17 @@ Aucune nouvelle dépendance.
 4. [ ] Vérifications, essai dans le navigateur, release.
 
 Aucune nouvelle dépendance.
+
+## Évolution en cours : avatars et réactions dans le chat (branche `daniel/issues-10-11-12`)
+
+Demandés par le propriétaire du dépôt : une petite « photo de profil » (l'initiale du pseudo) à côté des messages,
+et des réactions par emoji comme dans les messageries, avec un double tap / double clic pour réagir d'un cœur.
+
+1. [x] Base : migration `0005_chat_reactions.sql` (une réaction par joueur et par message, effacée avec le message).
+2. [x] API : `POST /api/react` (poser, changer ou retirer sa réaction ; liste fermée de réactions), réactions dans
+   chaque message de `GET /api/messages`, avis `reaction` dans `GET /api/events`, limitation de débit. Tests d'abord.
+3. [x] Interface : initiale à côté des messages des autres ; sous chaque bulle, les réactions avec leur nombre ;
+   bouton « Réagir » (utilisable au clavier) qui ouvre les 6 réactions ; double tap / double clic = cœur.
+4. [x] Documentation (`CONTRACT.md`, `ARCHITECTURE.md`, `ASSUMPTIONS.md`), vérifications, essai dans le navigateur.
+
+Aucune nouvelle dépendance.
