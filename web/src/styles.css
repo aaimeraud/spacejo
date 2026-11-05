@@ -380,6 +380,9 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .discard-top { display: block; animation: land 0.35s ease-out; }
 .held { display: flex; flex-direction: column; align-items: center; gap: 6px; }
 .held-card { display: block; animation: float 2.4s ease-in-out infinite, lift 0.3s ease-out; }
+/* Vote pour la manche suivante : compteur, avertissement de l'hôte, bouton. */
+.vote-footer { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; text-align: right; }
+.vote-footer .note, .round-over .vote-count { margin: 0; }
 .round-over { display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--bg-raised); padding: 16px 22px; border-radius: 16px; }
 
 /* Ma place : grille devant moi, sur le bord de la table. */

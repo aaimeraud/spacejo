@@ -74,14 +74,14 @@ fn extra_round_is_played_until_the_lowest_total_is_unique() {
     assert!(game.winners.is_empty());
 
     // Manche supplémentaire encore à égalité (5 + 30 contre 30 + 5 : 85, 85).
-    game.apply(0, Action::NextRound).unwrap();
+    common::everyone_starts_next_round(&mut game);
     game.players[1].total_score = 55; // 55 + 30 = 85, comme 50 + 5 + 30
     game.players[0].total_score = 80; // 80 + 5 = 85
     play_round_where_zero_finishes(&mut game, &[FINISHER_5, HIDDEN_30, HIDDEN_72]);
     assert_eq!(game.phase, Phase::RoundOver, "toujours à égalité");
 
     // Nouvelle manche : le total le plus bas devient unique.
-    game.apply(1, Action::NextRound).unwrap();
+    common::everyone_starts_next_round(&mut game);
     play_round_where_zero_finishes(&mut game, &[FINISHER_5, HIDDEN_30, HIDDEN_72]);
     assert_eq!(game.phase, Phase::GameOver);
     assert_eq!(game.winners, vec![0]);

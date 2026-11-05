@@ -18,7 +18,7 @@ fn rules(next_round_starter: NextRoundStarter) -> Rules {
 /// retournées (pour vérifier que la règle de la première manche n'est PAS utilisée),
 /// fait retourner 2 cartes à chacun et renvoie le joueur qui commence.
 fn start_next_round(game: &mut Game, highest: PlayerId) -> PlayerId {
-    game.apply(0, Action::NextRound).unwrap();
+    common::everyone_starts_next_round(game);
     for p in 0..game.players.len() {
         let top = if p == highest { 12 } else { 1 };
         game.players[p].grid = hidden_grid(&[[top, top, 0], [0, 1, 2], [2, 1, 0], [0, 1, 2]]);

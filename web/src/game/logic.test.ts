@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ColumnView, GameView, PlayerView } from "../api/types";
 import { OFFICIAL_RULES } from "../rulesInfo";
-import { hint, ranking, slotAction, slotLabel } from "./logic";
+import { hint, nextRoundStatus, ranking, slotAction, slotLabel } from "./logic";
 
 const column = (...values: (number | null)[]): ColumnView => ({
   kind: "Present",
@@ -35,6 +35,8 @@ const baseView = (overrides: Partial<GameView> = {}): GameView => ({
   discard_count: 1,
   rounds: [],
   winners: [],
+  next_round_votes: [],
+  next_round_decider: 0,
   ...overrides,
 });
 
@@ -96,5 +98,27 @@ describe("slotLabel", () => {
   it("décrit la carte sans jamais deviner une valeur cachée", () => {
     expect(slotLabel({ kind: "Hidden" }, 0, 2)).toBe("Carte cachée, colonne 1, ligne 3");
     expect(slotLabel({ kind: "Visible", value: -2 }, 3, 0)).toBe("Carte -2, colonne 4, ligne 1");
+  });
+});
+
+describe("vote pour la manche suivante", () => {
+  const roundOver = (overrides: Partial<GameView> = {}) =>
+    baseView({ phase: "RoundOver", current_player: null, players: [player(0), player(1), player(2)], ...overrides });
+
+  it("l'hôte décide ; les autres votent puis attendent", () => {
+    expect(nextRoundStatus(roundOver()).role).toBe("decider");
+    expect(nextRoundStatus(roundOver({ me: 1 })).role).toBe("can-vote");
+    expect(nextRoundStatus(roundOver({ me: 1, next_round_votes: [1] })).role).toBe("voted");
+    expect(hint(roundOver({ me: 1, next_round_votes: [1] }), "swap")).toContain("en attente de P0");
+  });
+
+  it("compte les votes parmi les joueurs encore en jeu, sans celui qui décide", () => {
+    const view = roundOver({ next_round_votes: [2], players: [player(0), player(1), player(2), player(3, { eliminated: true })] });
+    expect(nextRoundStatus(view)).toEqual({ role: "decider", votes: 1, voters: 2 });
+  });
+
+  it("un joueur éliminé ne vote pas", () => {
+    const view = roundOver({ me: 2, players: [player(0), player(1), player(2, { eliminated: true })] });
+    expect(nextRoundStatus(view).role).toBe("out");
   });
 });

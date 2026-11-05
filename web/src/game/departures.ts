@@ -19,8 +19,21 @@ export function departureNotices(previous: GameView | null, next: GameView): str
     }
     return notices;
   }
-  // Pendant la partie, les places ne bougent plus : on compare joueur par joueur.
+  // Pendant la partie, les places ne bougent plus : on compare joueur par joueur. Un joueur qui n'a pas voté pour la
+  // manche suivante la quitte au lancement (le serveur le marque `abandoned`) : on le dit autrement.
+  const message = newRound(previous, next) ? "ne joue pas la manche suivante." : "a abandonné la partie.";
   return next.players
     .filter((player) => player.abandoned && player.id !== next.me && previous.players[player.id]?.abandoned === false)
-    .map((player) => `${player.name} a abandonné la partie.`);
+    .map((player) => `${player.name} ${message}`);
+}
+
+/** La manche suivante vient d'être lancée (on passe de la fin de manche à la mise en place). */
+function newRound(previous: GameView, next: GameView): boolean {
+  return previous.phase === "RoundOver" && next.phase !== "RoundOver";
+}
+
+/** La manche suivante a été lancée sans moi (je n'avais pas voté) : l'interface me ramène à l'accueil. */
+export function leftBehind(previous: GameView | null, next: GameView): boolean {
+  if (previous === null || !newRound(previous, next)) return false;
+  return previous.players[previous.me]?.eliminated === false && next.players[next.me]?.eliminated === true;
 }

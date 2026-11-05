@@ -90,7 +90,8 @@ pub enum Phase {
     InitialReveal,
     /// Manche en cours.
     Playing(Turn),
-    /// Manche terminée et comptée ; on attend « manche suivante ».
+    /// Manche terminée et comptée : les joueurs votent pour la manche suivante, l'hôte la lance
+    /// (voir `Game::next_round_votes`).
     RoundOver,
     /// Partie terminée (voir `Game::winners`).
     GameOver,
@@ -148,6 +149,9 @@ pub struct Game {
     pub next_starter: Option<PlayerId>,
     pub rounds: Vec<RoundResult>,
     pub winners: Vec<PlayerId>,
+    /// Fin de manche : joueurs qui ont voté pour jouer la manche suivante (sans celui qui décide, voir
+    /// `next_round_decider`). Vidé à chaque nouvelle manche.
+    pub next_round_votes: Vec<PlayerId>,
     pub rng: SplitMix64,
 }
 
@@ -191,6 +195,7 @@ impl Game {
             next_starter: None,
             rounds: Vec::new(),
             winners: Vec::new(),
+            next_round_votes: Vec::new(),
             rng: SplitMix64::new(seed),
         })
     }
@@ -366,6 +371,58 @@ impl Game {
         }
     }
 
+    /// Joueur qui lance la manche suivante : l'hôte, ou s'il a quitté la partie (ou a été éliminé), le premier
+    /// joueur encore en jeu dans l'ordre d'arrivée (ASSUMPTIONS.md). `None` si plus personne ne joue.
+    pub fn next_round_decider(&self) -> Option<PlayerId> {
+        self.active_players().first().copied()
+    }
+
+    /// Votes pour la manche suivante des joueurs encore en jeu, dans l'ordre d'arrivée. Un joueur qui a voté
+    /// puis quitté la partie ne compte plus.
+    pub fn active_next_round_votes(&self) -> Vec<PlayerId> {
+        let mut votes: Vec<PlayerId> = self
+            .next_round_votes
+            .iter()
+            .copied()
+            .filter(|&p| !self.players[p].eliminated)
+            .collect();
+        votes.sort_unstable();
+        votes
+    }
+
+    /// Assez de votes pour lancer la manche suivante : celui qui décide, plus les votants, font au moins
+    /// `MIN_PLAYERS` joueurs.
+    fn can_start_next_round(&self) -> bool {
+        1 + self.active_next_round_votes().len() >= MIN_PLAYERS
+    }
+
+    /// « Manche suivante » (issue #11). Un joueur qui ne décide pas vote (une seule fois) ; celui qui décide
+    /// lance la manche avec les votants. Ceux qui n'ont pas voté quittent la partie, comme s'ils l'avaient
+    /// quittée eux-mêmes (`abandoned`) : ils ne reçoivent plus de cartes.
+    fn next_round(&mut self, player: PlayerId) -> Result<(), GameError> {
+        if self.phase != Phase::RoundOver {
+            return Err(GameError::WrongPhase);
+        }
+        if self.next_round_decider() != Some(player) {
+            if !self.next_round_votes.contains(&player) {
+                self.next_round_votes.push(player);
+            }
+            return Ok(());
+        }
+        // On vérifie tout AVANT de changer l'état : un refus ne modifie rien.
+        if !self.can_start_next_round() {
+            return Err(GameError::NotEnoughVotes);
+        }
+        let votes = self.active_next_round_votes();
+        for p in self.active_players() {
+            if p != player && !votes.contains(&p) {
+                self.players[p].abandoned = true;
+                self.players[p].eliminated = true;
+            }
+        }
+        self.start_round()
+    }
+
     /// Joueurs encore en jeu (non éliminés), dans l'ordre d'arrivée.
     pub fn active_players(&self) -> Vec<PlayerId> {
         (0..self.players.len())
@@ -376,12 +433,7 @@ impl Game {
     fn apply_action(&mut self, player: PlayerId, action: Action) -> Result<(), GameError> {
         match action {
             Action::RevealInitial { column, row } => self.reveal_initial(player, column, row),
-            Action::NextRound => {
-                if self.phase != Phase::RoundOver {
-                    return Err(GameError::WrongPhase);
-                }
-                self.start_round()
-            }
+            Action::NextRound => self.next_round(player),
             Action::DrawFromPile => {
                 let mut turn = self.turn_of(player)?;
                 if turn.held.is_some() {
@@ -476,7 +528,20 @@ impl Game {
                     .map(|(column, row)| Action::RevealInitial { column, row })
                     .collect()
             }
-            Phase::RoundOver => vec![Action::NextRound],
+            // Fin de manche : voter, si ce n'est pas déjà fait ; lancer, pour celui qui décide, dès qu'un autre
+            // joueur a voté.
+            Phase::RoundOver => {
+                let can = if self.next_round_decider() == Some(player) {
+                    self.can_start_next_round()
+                } else {
+                    !self.next_round_votes.contains(&player)
+                };
+                if can {
+                    vec![Action::NextRound]
+                } else {
+                    Vec::new()
+                }
+            }
             Phase::Playing(turn) if turn.current == player => match turn.held {
                 None => {
                     let mut actions = Vec::new();
@@ -555,6 +620,7 @@ impl Game {
         self.discard = deck.pop().into_iter().collect();
         self.draw_pile = deck;
         self.round += 1;
+        self.next_round_votes.clear();
         self.phase = Phase::InitialReveal;
         Ok(())
     }

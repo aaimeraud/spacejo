@@ -219,9 +219,14 @@ haut en bas), dans la grille d'origine (une colonne retirée garde son numéro, 
 | `TakeDiscard` | — | `Playing`, rien en main | prend la carte du dessus de la défausse ; il faudra l'échanger |
 | `SwapHeld` | `column`, `row` | `Playing`, carte en main | échange la carte en main avec la carte visée ; l'ancienne va, face visible, sur la défausse |
 | `DiscardHeldAndReveal` | `column`, `row` | `Playing`, carte de la pioche en main | défausse la carte en main et retourne la carte visée (qui doit être cachée) |
-| `NextRound` | — | `RoundOver` | distribue la manche suivante (n'importe quel joueur) |
+| `NextRound` | — | `RoundOver` | vote pour la manche suivante ; envoyé par `next_round_decider` (l'hôte), lance la manche avec les votants |
 
 Exemples : `{ "type": "DrawFromPile" }`, `{ "type": "SwapHeld", "column": 2, "row": 0 }`.
+
+`NextRound` en détail : un joueur qui n'est pas `next_round_decider` vote (son identifiant entre dans
+`next_round_votes` ; voter deux fois compte une fois). Quand `next_round_decider` l'envoie, la manche suivante est
+distribuée aux votants et à lui-même ; les joueurs encore en jeu qui n'ont pas voté deviennent `eliminated` et
+`abandoned` (l'interface les renvoie à l'accueil). Sans aucun vote, il est refusé (`not_enough_votes`).
 
 ### `GameView`
 
@@ -255,7 +260,9 @@ Exemples : `{ "type": "DrawFromPile" }`, `{ "type": "SwapHeld", "column": 2, "ro
   "rounds": [
     { "round": 1, "finisher": 0, "scores": [ { "player": 0, "raw": 12, "score": 24, "penalized": true } ] }
   ],
-  "winners": []
+  "winners": [],
+  "next_round_votes": [],
+  "next_round_decider": 0
 }
 ```
 
@@ -274,6 +281,10 @@ Exemples : `{ "type": "DrawFromPile" }`, `{ "type": "SwapHeld", "column": 2, "ro
 - `rounds` : scores de chaque manche terminée. `raw` = somme des cartes, `score` = score retenu après
   pénalité, `penalized` = la pénalité a été appliquée. C'est le serveur qui calcule : l'interface n'additionne rien.
 - `winners` : identifiants des gagnants (rempli seulement en phase `GameOver`).
+- `next_round_votes` : en phase `RoundOver`, joueurs encore en jeu qui ont voté pour la manche suivante, dans
+  l'ordre d'arrivée (sans `next_round_decider`). Vide sinon.
+- `next_round_decider` : joueur qui lance la manche suivante : l'hôte, ou s'il ne joue plus, le premier joueur
+  encore en jeu (`null` si plus personne ne joue).
 
 ### Visibilité et présence (`public`, `presence`, `waiting`)
 
@@ -330,6 +341,7 @@ Toute erreur a la forme :
 | 422 | `cannot_kick_host` | l'hôte demande à se retirer lui-même du salon |
 | 422 | `unknown_player` | joueur visé inexistant dans cette partie (`kick`) |
 | 422 | `not_enough_players` | lancement à moins de 2 joueurs |
+| 422 | `not_enough_votes` | `NextRound` envoyé par celui qui décide alors qu'aucun autre joueur n'a voté |
 | 422 | `invalid_position` | colonne ou ligne hors de la grille, ou colonne retirée |
 | 422 | `already_revealed` | carte déjà visible (retournement) |
 | 422 | `initial_reveals_done` | le joueur a déjà retourné ses 2 cartes |

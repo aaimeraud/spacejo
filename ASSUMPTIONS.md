@@ -30,8 +30,14 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
 8. **Carte piochée** : tant qu'elle est en main, seule la personne qui l'a piochée en voit la valeur (les
    autres voient qu'une carte est en main). Elle devient publique dès qu'elle est posée ou défaussée.
    Une carte prise sur la défausse était déjà visible : sa valeur reste publique.
-9. **Manche suivante** : n'importe quel joueur peut lancer la distribution de la manche suivante
-   (bouton « Manche suivante »), pour qu'un hôte absent ne bloque pas la partie.
+9. **Manche suivante** (issue #11, demandée par le propriétaire du dépôt) : en fin de manche, chaque joueur vote
+   (bouton « Manche suivante ») et tous voient le nombre de votes ; seul l'hôte lance la manche, avec les votants.
+   Ceux qui n'ont pas voté quittent la partie (marqués `abandoned`, comme un départ volontaire) et leur interface
+   revient à l'accueil. Hypothèses : l'hôte ne peut pas lancer seul (il faut au moins un vote, `not_enough_votes`) ;
+   si l'hôte a quitté la partie ou a été éliminé, c'est le premier joueur encore en jeu (ordre d'arrivée) qui
+   décide ; un vote ne se retire pas, et voter deux fois compte une fois. Limite : un hôte simplement absent
+   (déconnecté mais pas éliminé) bloque la fin de manche, puisque le passage des tours d'absents ne s'applique pas
+   à cette phase.
 10. **Nouvelle manche** : on repart d'un paquet complet de 150 cartes mélangé (équivalent à ramasser
     toutes les cartes).
 11. **Défausse quand une colonne est retirée** : la carte remplacée est posée d'abord, puis les 3 cartes

@@ -87,8 +87,7 @@ fn next_round_deals_a_fresh_full_deck() {
     common::play_simple_turn(&mut game);
     common::play_simple_turn(&mut game);
     assert_eq!(game.phase, Phase::RoundOver);
-    // N'importe quel joueur peut lancer la manche suivante.
-    game.apply(2, Action::NextRound).unwrap();
+    common::everyone_starts_next_round(&mut game);
     assert_eq!(game.phase, Phase::InitialReveal);
     assert_eq!(game.round, 2);
     assert_eq!(game.card_count(), 150);

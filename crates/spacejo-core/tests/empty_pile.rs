@@ -109,7 +109,7 @@ fn without_a_finisher_the_finisher_rule_falls_back_to_the_highest_sum() {
     // Hypothèse (ASSUMPTIONS.md) : `Finisher` sans finisseur → règle de la première manche.
     let mut game = last_card_in_pile(rules(EmptyPile::EndRound));
     draw_last_card_and_discard_it(&mut game);
-    game.apply(0, Action::NextRound).unwrap();
+    common::everyone_starts_next_round(&mut game);
     for p in 0..2 {
         let top = if p == 1 { 12 } else { 1 };
         game.players[p].grid = hidden_grid(&[[top, top, 0], [0, 1, 2], [2, 1, 0], [0, 1, 2]]);

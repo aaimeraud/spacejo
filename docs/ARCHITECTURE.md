@@ -52,7 +52,7 @@ et mêmes actions donnent la même partie.
 ```
 Lobby ──start (hôte, ≥ 2 joueurs)──▶ InitialReveal ──tous ont retourné 2 cartes──▶ Playing
                                           ▲                                           │
-                                          │ NextRound (n'importe quel joueur)         │ fin de manche
+                                          │ NextRound (votes, puis l'hôte lance)      │ fin de manche
                                           │                                           ▼
                                       RoundOver ◀───── pas de fin de partie ───── comptage
                                                                                       │
@@ -67,7 +67,9 @@ Lobby ──start (hôte, ≥ 2 joueurs)──▶ InitialReveal ──tous ont r
   dont les cartes visibles ont la plus grande somme (égalité : `first_player_tie`).
 - `Playing(Turn)` : `Turn` contient le joueur courant, la carte en main éventuelle (`Held`, avec sa
   provenance : pioche ou défausse) et le finisseur éventuel.
-- `RoundOver` : la manche est comptée (`Game::rounds`), on attend l'action `NextRound`.
+- `RoundOver` : la manche est comptée (`Game::rounds`). Chaque joueur vote avec `NextRound`
+  (`Game::next_round_votes`) ; quand l'hôte (`Game::next_round_decider`) envoie `NextRound`, la manche suivante
+  est distribuée aux votants, et les joueurs qui n'ont pas voté quittent la partie (`abandoned`).
 - `GameOver` : `Game::winners` contient le ou les gagnants.
 
 ### Un tour de jeu
@@ -355,10 +357,10 @@ Table `chat_messages`, créée par `migrations/0004_chat_messages.sql` : `id` (n
 Le schéma n'évolue que par de nouveaux fichiers dans `migrations/` (jamais à la main) ; `cargo run --bin migrate`
 les applique, et `sqlx` note celles déjà appliquées dans `_sqlx_migrations`.
 
-Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 4 ; les v1 à v3 sont migrées à la lecture). Si le format de `Game`
+Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 5 ; les v1 à v4 sont migrées à la lecture). Si le format de `Game`
 change, il faut incrémenter `STATE_VERSION` et écrire la migration dans `StoredGame::decode` ; un état
 illisible est refusé avec l'erreur `unsupported_state_version`. Le test `tests/state_version.rs` relit un
-exemple figé de chaque version (`tests/fixtures/state_v1.json` à `state_v4.json`) pour détecter tout changement de format oublié.
+exemple figé de chaque version (`tests/fixtures/state_v1.json` à `state_v5.json`) pour détecter tout changement de format oublié.
 
 ## Journaux
 
@@ -389,5 +391,7 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
 - **Version sur l'accueil** : le navigateur du visiteur interroge `api.github.com` (60 requêtes par heure et par
   adresse sans jeton ; résultat gardé 10 minutes). GitHub voit donc l'adresse du visiteur. Si l'API refuse ou ne
   répond pas, la version et le commit ne s'affichent pas.
+- **Fin de manche** : seul l'hôte lance la manche suivante ; un hôte déconnecté (mais pas éliminé) bloque donc la
+  partie à ce moment-là, jusqu'à son retour ou son départ (`ASSUMPTIONS.md`, n° 9).
 - **Comptes utilisateurs** : aucun ; l'identité est un jeton secret par partie.
 - **Nombre de joueurs** : de 2 à 10 (`MAX_PLAYERS`) ; le core n'en dépend pas ailleurs.

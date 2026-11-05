@@ -116,7 +116,7 @@ fn eliminated_players_get_no_cards_in_the_next_round() {
     assert!(game.players[2].eliminated);
     common::play_round_where_zero_finishes(&mut game, &[common::FINISHER_5, common::HIDDEN_30]);
     assert_eq!(game.phase, Phase::RoundOver);
-    game.apply(0, Action::NextRound).unwrap();
+    common::everyone_starts_next_round(&mut game);
     assert_eq!(game.players[2].grid.card_count(), 0);
     assert_eq!(game.players[0].grid.card_count(), 12);
     assert_eq!(game.card_count(), 150);

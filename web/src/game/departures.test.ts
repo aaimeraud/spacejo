@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GameView, PlayerView } from "../api/types";
-import { departureNotices } from "./departures";
+import { departureNotices, leftBehind } from "./departures";
 
 function player(id: number, name: string, abandoned = false): PlayerView {
   return { id, name, total_score: 0, initial_reveals: 0, missed_turns: 0, eliminated: abandoned, abandoned, grid: [] };
@@ -31,6 +31,8 @@ function view(phase: GameView["phase"], players: PlayerView[], me = 0): GameView
     discard_count: 0,
     rounds: [],
     winners: [],
+    next_round_votes: [],
+    next_round_decider: 0,
   };
 }
 
@@ -68,5 +70,27 @@ describe("messages de départ", () => {
     const before = view("Playing", [player(0, "Alice"), player(1, "Bob")], 1);
     const after = view("Playing", [player(0, "Alice"), player(1, "Bob", true)], 1);
     expect(departureNotices(before, after)).toEqual([]);
+  });
+});
+
+describe("manche suivante sans moi", () => {
+  it("me renvoie à l'accueil si la manche a été lancée sans mon vote", () => {
+    const before = view("RoundOver", [player(0, "Alice"), player(1, "Bob")], 1);
+    const after = view("InitialReveal", [player(0, "Alice"), player(1, "Bob", true)], 1);
+    expect(leftBehind(before, after)).toBe(true);
+    expect(departureNotices(before, after)).toEqual([]);
+  });
+
+  it("annonce aux autres les joueurs qui ne rejoignent pas la manche suivante", () => {
+    const before = view("RoundOver", [player(0, "Alice"), player(1, "Bob"), player(2, "Carla")]);
+    const after = view("InitialReveal", [player(0, "Alice"), player(1, "Bob"), player(2, "Carla", true)]);
+    expect(leftBehind(before, after)).toBe(false);
+    expect(departureNotices(before, after)).toEqual(["Carla ne joue pas la manche suivante."]);
+  });
+
+  it("ne renvoie personne pendant une manche ni à la première vue", () => {
+    const players = [player(0, "Alice"), player(1, "Bob", true)];
+    expect(leftBehind(null, view("InitialReveal", players, 1))).toBe(false);
+    expect(leftBehind(view("Playing", [player(0, "Alice"), player(1, "Bob")], 1), view("Playing", players, 1))).toBe(false);
   });
 });

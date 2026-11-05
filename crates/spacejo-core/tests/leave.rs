@@ -138,7 +138,7 @@ fn abandoning_between_rounds_keeps_the_player_out_of_the_next_round() {
     game.phase = Phase::RoundOver;
     game.abandon(1).unwrap();
     assert_eq!(game.phase, Phase::RoundOver);
-    game.apply(0, Action::NextRound).unwrap();
+    common::everyone_starts_next_round(&mut game);
     assert!(game.players[1].eliminated);
     assert_eq!(
         game.players[1].grid,

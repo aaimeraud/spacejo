@@ -102,6 +102,10 @@ export interface GameView {
   discard_count: number;
   rounds: RoundResult[];
   winners: number[];
+  /** Fin de manche : joueurs qui ont voté pour la manche suivante (sans celui qui décide), dans l'ordre d'arrivée. */
+  next_round_votes: number[];
+  /** Joueur qui lance la manche suivante : l'hôte, ou le premier joueur encore en jeu s'il est parti. */
+  next_round_decider: number | null;
 }
 
 /** Réponse de `create` et `join`. */
