@@ -2,6 +2,7 @@ name: New feature
 description: Suggest a new feature or an improvement.
 title: "feat: "
 labels: ["Idea"]
+assignees: "aaimeraud"
 body:
   - type: markdown
     attributes:
