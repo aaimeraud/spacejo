@@ -8,6 +8,8 @@ Référence commune du front (`web/src/api/types.ts`) et du back (`src/`, `crate
 - Toutes les requêtes et réponses sont en JSON (`Content-Type: application/json`), encodé en UTF-8.
 - Corps de requête limité à 16 Kio (`MAX_BODY_BYTES` dans `src/handlers.rs`) : au-delà, réponse `413`.
 - Un champ inconnu, une valeur d'énumération inconnue ou un type incorrect est refusé (`400`).
+- **Durée de vie** : une partie est supprimée 24 heures après sa dernière écriture (`GAME_KEPT_WHEN_IDLE`) ; ensuite,
+  toute route qui la vise répond `404 game_not_found`.
 - **Jeton** : `create` et `join` renvoient un `token` (64 caractères hexadécimaux, 256 bits aléatoires).
   Il n'est remis qu'une fois. Les autres routes l'attendent dans l'en-tête `X-Player-Token`. Le serveur
   ne stocke que son hachage SHA-256.
@@ -161,7 +163,7 @@ En-tête `X-Player-Token` (un joueur de cette partie). `after` est facultatif (0
 Réponse `200` : `{ "messages": [ { "id": 12, "player": 1, "name": "Bob", "text": "Bien joué !", "reactions": [ { "player": 0, "reaction": "heart" } ] } ] }` : les
 messages dont `id` est plus grand que `after`, du plus ancien au plus récent, au plus les 50 derniers
 (`MAX_CHAT_HISTORY`). `name` est le nom du joueur au moment de l'envoi. Il n'y a pas d'historique : les messages
-d'une partie (et leurs réactions) sont effacés 15 minutes après sa fin, ou après 24 heures sans aucun coup. `reactions` : une entrée par joueur qui a
+d'une partie (et leurs réactions) sont effacés 15 minutes après sa fin, et au plus tard avec la partie. `reactions` : une entrée par joueur qui a
 réagi, triées par `player`. Paramètre inconnu ou `after` non entier :
 `400 invalid_request`.
 

@@ -531,8 +531,8 @@ async fn chat_reactions_are_stored_one_per_player_and_deleted_with_their_message
 }
 
 #[tokio::test]
-async fn old_chats_are_erased_with_their_reactions_but_not_the_games() {
-    use spacejo_api::handlers::{CHAT_KEPT_AFTER_GAME_OVER, CHAT_KEPT_WHEN_IDLE};
+async fn finished_chats_and_idle_games_are_erased() {
+    use spacejo_api::handlers::{CHAT_KEPT_AFTER_GAME_OVER, GAME_KEPT_WHEN_IDLE};
     let Some(db) = TestDb::create().await else {
         return;
     };
@@ -552,15 +552,18 @@ async fn old_chats_are_erased_with_their_reactions_but_not_the_games() {
             .set_reaction(game, message.id, 0, Some("heart"))
             .await
             .unwrap();
+        store.touch(game, 0).await.unwrap();
     }
     // Rien n'est assez ancien : rien n'est effacé.
     assert_eq!(store.purge_chats().await.unwrap(), 0);
+    assert_eq!(store.purge_games().await.unwrap(), 0);
 
-    // On vieillit les parties : la partie finie depuis plus que le délai, la partie abandonnée depuis plus d'un jour.
+    // On vieillit les parties : la partie finie au-delà du délai du chat, la partie abandonnée au-delà d'un jour,
+    // la partie en cours de 15 minutes seulement.
     let age = |secs: u64| format!("{} seconds", secs + 60);
     for (id, secs) in [
         (finished.id, CHAT_KEPT_AFTER_GAME_OVER.as_secs()),
-        (abandoned.id, CHAT_KEPT_WHEN_IDLE.as_secs()),
+        (abandoned.id, GAME_KEPT_WHEN_IDLE.as_secs()),
         (active.id, CHAT_KEPT_AFTER_GAME_OVER.as_secs()),
     ] {
         sqlx::query("UPDATE games SET updated_at = now() - $2::interval WHERE id = $1")
@@ -570,27 +573,37 @@ async fn old_chats_are_erased_with_their_reactions_but_not_the_games() {
             .await
             .unwrap();
     }
-    assert_eq!(store.purge_chats().await.unwrap(), 2);
+    assert_eq!(
+        store.purge_games().await.unwrap(),
+        1,
+        "la partie abandonnée"
+    );
+    assert!(store.load("ABCDEF").await.unwrap().is_none());
+    assert_eq!(
+        store.purge_chats().await.unwrap(),
+        1,
+        "le chat de la partie finie"
+    );
     assert!(store.messages(finished.id, 0, 10).await.unwrap().is_empty());
     assert!(
-        store
-            .messages(abandoned.id, 0, 10)
-            .await
-            .unwrap()
-            .is_empty()
+        store.load("K7MPQX").await.unwrap().is_some(),
+        "la partie finie reste (moins d'un jour)"
     );
     // Une partie en cours, sans coup depuis 15 minutes seulement, garde son chat.
     assert_eq!(store.messages(active.id, 0, 10).await.unwrap().len(), 1);
-    // Les réactions des messages effacés sont parties avec eux ; les parties, elles, restent.
-    let (reactions,): (i64,) = sqlx::query_as("SELECT count(*) FROM chat_reactions")
-        .fetch_one(db.store.pool())
-        .await
-        .unwrap();
-    assert_eq!(reactions, 1);
-    let (games,): (i64,) = sqlx::query_as("SELECT count(*) FROM games")
-        .fetch_one(db.store.pool())
-        .await
-        .unwrap();
-    assert_eq!(games, 3);
+    // Tout ce qui dépend de la partie supprimée est parti avec elle (`ON DELETE CASCADE`).
+    for (table, expected) in [
+        ("chat_reactions", 1_i64),
+        ("chat_messages", 1),
+        ("presence", 2),
+        ("games", 2),
+    ] {
+        let (n,): (i64,) =
+            sqlx::query_as(sqlx::AssertSqlSafe(format!("SELECT count(*) FROM {table}")))
+                .fetch_one(db.store.pool())
+                .await
+                .unwrap();
+        assert_eq!(n, expected, "{table}");
+    }
     db.drop().await;
 }

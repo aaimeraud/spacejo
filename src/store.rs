@@ -18,7 +18,7 @@ use std::time::{Duration, Instant};
 use serde_json::Value;
 use spacejo_core::HOST;
 
-use crate::handlers::{CHAT_KEPT_AFTER_GAME_OVER, CHAT_KEPT_WHEN_IDLE};
+use crate::handlers::{CHAT_KEPT_AFTER_GAME_OVER, GAME_KEPT_WHEN_IDLE};
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
@@ -208,13 +208,21 @@ impl Store {
         }
     }
 
-    /// Efface les messages du chat (et leurs réactions) des parties finies depuis `CHAT_KEPT_AFTER_GAME_OVER`, ou
-    /// sans aucune écriture depuis `CHAT_KEPT_WHEN_IDLE`. Les parties elles-mêmes restent. Renvoie le nombre de
-    /// messages effacés.
+    /// Efface les messages du chat (et leurs réactions) des parties finies depuis `CHAT_KEPT_AFTER_GAME_OVER`. Les
+    /// parties elles-mêmes restent (jusqu'à `purge_games`). Renvoie le nombre de messages effacés.
     pub async fn purge_chats(&self) -> Result<u64, StoreError> {
         match self {
             Store::Memory(store) => store.purge_chats(),
             Store::Postgres(store) => store.purge_chats().await,
+        }
+    }
+
+    /// Supprime les parties sans aucune écriture depuis `GAME_KEPT_WHEN_IDLE`, avec tout ce qui en dépend (présence,
+    /// messages, réactions). Renvoie le nombre de parties supprimées.
+    pub async fn purge_games(&self) -> Result<u64, StoreError> {
+        match self {
+            Store::Memory(store) => store.purge_games(),
+            Store::Postgres(store) => store.purge_games().await,
         }
     }
 
@@ -297,6 +305,20 @@ pub struct MemoryStore {
 }
 
 impl MemoryTables {
+    /// Efface les messages (et leurs réactions) des parties `games` ; renvoie le nombre de messages effacés.
+    fn remove_chats_of(&mut self, games: &[i64]) -> u64 {
+        let removed: Vec<i64> = self
+            .chat
+            .iter()
+            .filter(|(game, _)| games.contains(game))
+            .map(|(_, message)| message.id)
+            .collect();
+        self.chat.retain(|(game, _)| !games.contains(game));
+        self.reactions
+            .retain(|(message, _), _| !removed.contains(message));
+        removed.len() as u64
+    }
+
     /// Copie d'un message avec ses réactions (par joueur, grâce à l'ordre de la `BTreeMap`).
     fn with_reactions(&self, message: &ChatMessage) -> ChatMessage {
         let reactions = self
@@ -477,29 +499,36 @@ impl MemoryStore {
     fn purge_chats(&self) -> Result<u64, StoreError> {
         let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
         let now = tables.now();
-        // Parties dont le chat doit disparaître : finies depuis assez longtemps, ou sans écriture depuis longtemps.
+        // Parties dont le chat doit disparaître : finies depuis assez longtemps.
         let expired: Vec<i64> = tables
             .games
             .values()
             .filter(|row| {
-                let idle = now.saturating_duration_since(row.updated_at);
-                let over = row.state["game"]["phase"] == GAME_OVER_PHASE;
-                (over && idle >= CHAT_KEPT_AFTER_GAME_OVER) || idle >= CHAT_KEPT_WHEN_IDLE
+                row.state["game"]["phase"] == GAME_OVER_PHASE
+                    && now.saturating_duration_since(row.updated_at) >= CHAT_KEPT_AFTER_GAME_OVER
             })
             .map(|row| row.id)
             .collect();
-        let before = tables.chat.len();
-        let removed: Vec<i64> = tables
-            .chat
-            .iter()
-            .filter(|(game, _)| expired.contains(game))
-            .map(|(_, message)| message.id)
+        Ok(tables.remove_chats_of(&expired))
+    }
+
+    fn purge_games(&self) -> Result<u64, StoreError> {
+        let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let now = tables.now();
+        let expired: Vec<i64> = tables
+            .games
+            .values()
+            .filter(|row| now.saturating_duration_since(row.updated_at) >= GAME_KEPT_WHEN_IDLE)
+            .map(|row| row.id)
             .collect();
-        tables.chat.retain(|(game, _)| !expired.contains(game));
+        // Comme `ON DELETE CASCADE` en base : la présence, les messages et les réactions partent avec la partie.
+        tables.remove_chats_of(&expired);
         tables
-            .reactions
-            .retain(|(message, _), _| !removed.contains(message));
-        Ok((before - tables.chat.len()) as u64)
+            .presence
+            .retain(|(game, _), _| !expired.contains(game));
+        let before = tables.games.len();
+        tables.games.retain(|_, row| !expired.contains(&row.id));
+        Ok((before - tables.games.len()) as u64)
     }
 
     fn set_reaction(
@@ -855,19 +884,28 @@ impl PgStore {
         let (deleted,) = sqlx::query_as::<_, (i64,)>(
             "WITH deleted AS ( \
                  DELETE FROM chat_messages m USING games g \
-                 WHERE m.game_id = g.id AND ( \
-                     (g.state -> 'game' ->> 'phase' = $1 AND g.updated_at < now() - make_interval(secs => $2)) \
-                     OR g.updated_at < now() - make_interval(secs => $3)) \
+                 WHERE m.game_id = g.id AND g.state -> 'game' ->> 'phase' = $1 \
+                   AND g.updated_at < now() - make_interval(secs => $2) \
                  RETURNING 1) \
              SELECT count(*) FROM deleted",
         )
         .bind(GAME_OVER_PHASE)
         .bind(CHAT_KEPT_AFTER_GAME_OVER.as_secs_f64())
-        .bind(CHAT_KEPT_WHEN_IDLE.as_secs_f64())
         .fetch_one(&self.pool)
         .await
         .map_err(StoreError::Database)?;
         Ok(u64::try_from(deleted).unwrap_or(0))
+    }
+
+    async fn purge_games(&self) -> Result<u64, StoreError> {
+        // La présence, les messages et les réactions partent avec la partie (`ON DELETE CASCADE`, voir migrations/).
+        let result =
+            sqlx::query("DELETE FROM games WHERE updated_at < now() - make_interval(secs => $1)")
+                .bind(GAME_KEPT_WHEN_IDLE.as_secs_f64())
+                .execute(&self.pool)
+                .await
+                .map_err(StoreError::Database)?;
+        Ok(result.rows_affected())
     }
 
     async fn set_reaction(

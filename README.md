@@ -203,8 +203,8 @@ Voir aussi « Limites connues » dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.m
   à se réveiller (l'accueil le réveille dès son ouverture).
 - Pendant la mise en place, deux retournements simultanés peuvent encore entrer en conflit de version (409) :
   l'interface rejoue le geste jusqu'à 3 fois ; au-delà, le joueur doit le refaire.
-- Pas d'expiration des anciennes parties. La limitation de débit (création, jonction, parties publiques, chat)
-  compte en mémoire : elle repart de zéro à chaque redémarrage du serveur.
+- La limitation de débit (création, jonction, parties publiques, chat, réactions) compte en mémoire : elle repart de
+  zéro à chaque redémarrage du serveur.
 - En fin de manche, seul l'hôte lance la manche suivante : un hôte déconnecté (mais pas éliminé) bloque la partie
   jusqu'à son retour ou son départ.
 

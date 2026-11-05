@@ -32,8 +32,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Store::Memory(MemoryStore::new())
         }
     };
-    // Ménage au démarrage : les chats des parties finies ou abandonnées sont effacés (ASSUMPTIONS.md, n° 40).
-    spacejo_api::handlers::purge_old_chats(&store).await;
+    // Ménage au démarrage : anciennes parties et chats des parties finies (ASSUMPTIONS.md, n° 40 et 41).
+    spacejo_api::handlers::purge_expired(&store).await;
 
     let static_dir = PathBuf::from(
         std::env::var(STATIC_DIR_VAR).unwrap_or_else(|_| DEFAULT_STATIC_DIR.to_string()),
