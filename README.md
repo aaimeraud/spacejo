@@ -1,10 +1,16 @@
+<div style="width: 100%;display:flex;justify-content:center;padding-block:2rem; overflow:hidden; ">
+<img src="spacejo-ogimage_large.svg" height="100%" width="100%" alt="logo de spacejo" style="border-radius:1rem;"  />
+</div>
+
 # SpaceJo
+
+[![CI](https://github.com/aaimeraud/spacejo/actions/workflows/ci.yml/badge.svg)](https://github.com/aaimeraud/spacejo/actions/workflows/ci.yml)
 
 Jeu de cartes en ligne, au tour par tour, de 2 à 10 joueurs. Il reprend les règles du jeu de cartes
 **Skyjo** (voir [docs/RULES.md](docs/RULES.md)), avec des réglages de partie choisis par l'hôte.
 
 > SpaceJo est un projet de cours indépendant. Il n'est **pas affilié à Magilano**, éditeur de Skyjo, ni
-> approuvé par lui. « Skyjo » est une marque de Magilano ; le nom ne sert ici qu'à désigner les règles
+> approuvé par lui. « Skyjo » est une marque de Magilano, le nom ne sert ici qu'à désigner les règles
 > d'origine. Les visuels sont originaux : aucune carte officielle n'est reproduite.
 
 - Logique du jeu en Rust (`crates/spacejo-core`), sans réseau ni base de données.
