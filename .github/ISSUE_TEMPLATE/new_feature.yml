@@ -25,7 +25,7 @@ body:
       description: Explain the problem this feature solves for players or developers.
       placeholder: It is easier to share a game with friends on a phone.
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: behaviour
