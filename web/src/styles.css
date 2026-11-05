@@ -417,8 +417,12 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .is-portrait .waiting-banner { top: 50px; width: 464px; min-height: 42px; padding: 4px 6px 4px 10px; font-size: 0.85rem; }
 .is-portrait .has-waiting .hint { visibility: hidden; }
 .is-portrait .waiting-consequence, .is-portrait .waiting-skip-more { display: none; }
+/* Portrait : la scène est une colonne (barre, table, ma place). La table prend la hauteur qui reste : quand ma place
+   grandit (carte en main, choix « Échanger » / « Défausser »), la table rétrécit au lieu d'être recouverte. */
+.is-portrait .game-stage { display: flex; flex-direction: column; gap: 8px; padding-bottom: 4px; }
+.is-portrait .stage-bar { position: relative; flex: none; }
 .flat-table {
-  position: absolute; top: 104px; left: 0; right: 0; height: 534px; padding: 10px; border-radius: 24px;
+  position: relative; flex: 1; min-height: 0; padding: 10px; border-radius: 24px;
   display: flex; flex-direction: column; gap: 6px;
   background: var(--table); border: 8px solid var(--table-rim);
 }
@@ -453,10 +457,20 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .focus-seat .grid { padding: 6px; border-radius: 14px; }
 .focus-seat.is-active .grid { background: var(--seat-active); box-shadow: 0 0 0 2px var(--accent-line); }
 .focus-seat.is-eliminated .grid { opacity: 0.35; filter: grayscale(1); }
-.is-portrait .focus-seat .card3d-md, .is-portrait .focus-seat .grid-md { --card-w: 50px; --card-h: 70px; --card-font: 1.4rem; --grid-gap: 6px; }
+/* Les cartes de l'adversaire regardé suivent la hauteur laissée par la table (`cqh` : 1 % de la hauteur du conteneur
+   `.focus-seat`) : 70 px au plus, moins quand la bande d'adversaires et ma carte en main prennent de la place.
+   72 px = l'étiquette du joueur, l'écart et les marges de la grille. */
+.is-portrait .focus-seat { container-type: size; }
+.is-portrait .focus-seat .card3d-md, .is-portrait .focus-seat .grid-md {
+  --card-h: clamp(32px, (100cqh - 72px) / 3, 70px); --card-w: calc(var(--card-h) * 5 / 7);
+  --card-font: calc(var(--card-h) * 0.32); --grid-gap: 6px;
+}
 
-.is-portrait .table-center { position: static; transform: none; justify-content: center; gap: 16px; }
-.is-portrait .my-seat { left: 0; right: 0; bottom: 4px; transform: none; flex-direction: column; gap: 10px; padding: 10px 12px; }
+/* Portrait : le centre de la table reprend sa place dans la colonne de la table. `position: relative` sert de repère
+   au message de remélange ; `inset: auto` annule le `top: 50%` / `left: 50%` du paysage, qui sinon le décaleraient
+   sous ma grille (pioche et défausse cachées). */
+.is-portrait .table-center { position: relative; inset: auto; transform: none; justify-content: center; gap: 16px; }
+.is-portrait .my-seat { position: relative; flex: none; left: auto; bottom: auto; transform: none; flex-direction: column; gap: 10px; padding: 10px 12px; }
 .is-portrait .my-side { width: 100%; }
 .is-portrait .held-choice-tiles { flex-direction: row; }
 .is-portrait .choice-tile { flex: 1; padding: 6px 8px; }
@@ -601,7 +615,6 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
   margin: 0; padding: 6px 12px; border-radius: 999px; background: var(--bg-raised); color: var(--text);
   border: 1px solid var(--border); font-size: 0.85rem; text-align: center; animation: fade-in 0.3s ease-out;
 }
-.is-portrait .table-center { position: relative; }
 @keyframes reshuffle-fly {
   0% { opacity: 0; transform: translateX(calc(100% + 30px)) rotate(8deg); }
   15% { opacity: 1; }
