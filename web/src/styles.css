@@ -555,6 +555,15 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .card3d-back { transform: rotateY(180deg); background: var(--card-back); border: 1px solid var(--card-edge); }
 .card-orbit { position: absolute; inset: 12%; border: 1px solid var(--card-edge); border-radius: 4px; }
 .card-star { position: relative; font-size: calc(var(--card-font) * 0.7); font-weight: 600; color: var(--card-mark); }
+/* Thèmes de cartes personnalisés (game/cardTheme.ts) : les couleurs viennent du thème, posées en variables CSS
+   (`--theme-…`) sur l'élément `.has-card-theme` ; aucune couleur de thème n'est écrite ici. Les contours (cartes
+   jouables, colonne retirée) prennent la couleur du thème au lieu de l'accent vert-jaune : plus claire sur le fond
+   sombre du site, plus foncée sur le fond clair, comme `--accent-line`. */
+.has-card-theme { --accent-line: var(--theme-line-dark); }
+:root[data-theme="light"] .has-card-theme { --accent-line: var(--theme-line-light); }
+.card3d-back.has-card-theme { background: var(--theme-back); border-color: var(--theme-edge); }
+.card3d-back.has-card-theme .card-orbit { border-color: var(--theme-edge); }
+.card-heart { position: relative; width: calc(var(--card-font) * 0.85); height: calc(var(--card-font) * 0.85); color: var(--theme-mark); fill: currentColor; }
 /* Face : aplat de la couleur de la valeur, chiffre en noir. */
 .card3d-front { color: #000000; font-weight: 600; animation: pop 0.35s ease-out; }
 .card3d-blank { background: var(--card-back); border: 1px solid var(--card-edge); animation: none; }
@@ -686,6 +695,10 @@ button.primary.danger { background: var(--danger); color: #ffffff; }
   cursor: default; user-select: none; -webkit-user-select: none; touch-action: manipulation;
 }
 .chat-message.is-mine .chat-bubble { background: var(--bg-raised); }
+/* Bulle d'un joueur qui a un thème de cartes. `.chat-message` en tête : aussi prioritaire que la règle de mes
+   messages (juste au-dessus), donc elle l'emporte aussi sur ma propre bulle. */
+.chat-message .chat-bubble.has-card-theme { background: var(--theme-back); color: var(--theme-ink); }
+.chat-message .chat-bubble.has-card-theme .chat-author { color: var(--theme-mark); }
 .chat-reactions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .chat-message.is-mine .chat-reactions { justify-content: flex-end; }
 /* Toutes les pastilles ont une bordure de 2 px (transparente si ce n'est pas la mienne) : la mienne n'est donc ni plus
