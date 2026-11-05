@@ -2,6 +2,27 @@
 
 Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.
 
+## 1.6.0 - 2026-11-05
+
+### Nouveautés
+
+- Let players vote for the next round and the host start it (96eb95f)
+- **api** : Add emoji reactions to chat messages (66fa118)
+- **web** : Show initials and emoji reactions in the chat (39f32fa)
+- **api** : Erase each game's chat once the game is over (e42d603)
+- **web** : Draw the home screen cards at random on each visit (9f4fce1)
+- **api** : Delete games a day after their last write (366c753)
+- **web** : Add a privacy policy page (46135c8)
+
+### Corrections
+
+- **web** : Keep the draw pile and discard visible on phones (7f9349e)
+- **web** : Give the chat input the same rounded look as the other fields (f4419cd)
+
+### Documentation
+
+- Refresh the known limitations in the README (1d661fc)
+
 ## 1.5.0 - 2026-11-04
 
 ### Nouveautés
