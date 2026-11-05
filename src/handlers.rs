@@ -43,8 +43,9 @@ pub const CHAT_REACTIONS: [&str; 6] = ["heart", "thumbs_up", "laugh", "wow", "sa
 /// Le chat d'une partie finie est effacé (messages et réactions) après ce délai : le temps de se dire « bien joué »
 /// sur l'écran de fin. Il n'y a pas d'historique des chats (ASSUMPTIONS.md, n° 40).
 pub const CHAT_KEPT_AFTER_GAME_OVER: Duration = Duration::from_secs(15 * 60);
-/// Le chat d'une partie sans aucun coup depuis ce délai (partie abandonnée en cours de route) est effacé aussi.
-pub const CHAT_KEPT_WHEN_IDLE: Duration = Duration::from_secs(24 * 60 * 60);
+/// Une partie sans aucune écriture depuis ce délai (finie, abandonnée, ou salon jamais lancé) est supprimée, avec son
+/// chat et sa présence : sans compte ni historique, rien n'a besoin d'être gardé plus longtemps (ASSUMPTIONS.md, n° 41).
+pub const GAME_KEPT_WHEN_IDLE: Duration = Duration::from_secs(24 * 60 * 60);
 /// Nombre maximal de parties données par `GET /api/public-games` (les plus récentes).
 pub const PUBLIC_GAMES_LIMIT: usize = 20;
 
@@ -256,7 +257,7 @@ async fn create(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiE
     // Sans précision, la partie est privée : on ne la rend visible de tous que si l'hôte le demande.
     let public = body.public.unwrap_or(false);
     let game = Game::new(&body.name, rules, auth::generate_seed()?)?;
-    purge_old_chats(store).await;
+    purge_expired(store).await;
     let token = auth::generate_token()?;
     let stored = StoredGame::new(game, vec![auth::hash_token(&token)]);
     let state = encode(&stored)?;
@@ -286,7 +287,7 @@ async fn create(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiE
 async fn join(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
     let body: JoinRequest = parse_body(&request.body)?;
     let code = auth::normalize_code(&body.code)?;
-    purge_old_chats(store).await;
+    purge_expired(store).await;
     let token = auth::generate_token()?;
     // Le joueur qui rejoint ne connaît pas encore la version : en cas d'écriture concurrente
     // (deux joueurs rejoignent en même temps), on relit et on réessaie.
@@ -607,11 +608,16 @@ async fn messages(store: &Store, request: &ApiRequest) -> Result<ApiResponse, Ap
     Ok(ApiResponse::ok(json!({ "messages": messages })))
 }
 
-/// Efface les chats des parties finies ou abandonnées (`Store::purge_chats`). Le serveur ne lance aucune tâche de
-/// fond : ce ménage se fait au passage, à chaque création et jonction de partie (et au démarrage du serveur). Un
-/// échec ne bloque pas la création ni la jonction : le ménage sera refait la fois suivante. Le contenu des messages
-/// n'est jamais journalisé.
-pub async fn purge_old_chats(store: &Store) {
+/// Ménage des données expirées : parties sans écriture depuis `GAME_KEPT_WHEN_IDLE` (`Store::purge_games`), puis
+/// chats des parties finies depuis `CHAT_KEPT_AFTER_GAME_OVER` (`Store::purge_chats`). Le serveur ne lance aucune
+/// tâche de fond : ce ménage se fait au passage, à chaque création et jonction de partie (et au démarrage du
+/// serveur). Un échec ne bloque ni la création ni la jonction : le ménage sera refait la fois suivante. Rien du
+/// contenu effacé n'est journalisé.
+pub async fn purge_expired(store: &Store) {
+    if let Err(error) = store.purge_games().await {
+        let _ = storage_error(error);
+        eprintln!("suppression des anciennes parties impossible : elle sera retentée");
+    }
     if let Err(error) = store.purge_chats().await {
         let _ = storage_error(error);
         eprintln!("effacement des anciens chats impossible : il sera retenté");
