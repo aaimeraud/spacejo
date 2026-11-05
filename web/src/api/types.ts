@@ -147,6 +147,15 @@ export interface PublicGamesResponse {
 }
 
 /** Un message du chat d'une partie. */
+/** Nom d'une réaction (liste fermée `CHAT_REACTIONS` de l'API ; l'emoji est choisi par l'interface). */
+export type ReactionName = "heart" | "thumbs_up" | "laugh" | "wow" | "sad" | "pray";
+
+/** La réaction d'un joueur à un message (au plus une par joueur). */
+export interface ChatReaction {
+  player: number;
+  reaction: ReactionName;
+}
+
 export interface ChatMessage {
   /** Numéro croissant, donné par le serveur. */
   id: number;
@@ -154,6 +163,8 @@ export interface ChatMessage {
   /** Nom du joueur au moment de l'envoi. */
   name: string;
   text: string;
+  /** Réactions des joueurs, triées par joueur. */
+  reactions: ChatReaction[];
 }
 
 /** Réponse de `chat` (envoi). */

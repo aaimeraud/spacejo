@@ -7,7 +7,7 @@
 // s'ouvre dans une fenêtre (il s'ouvre tout seul en fin de manche).
 import { CircleCheck, Crown, Hourglass, ListOrdered, LogOut, Play, Repeat, RotateCcw, SkipForward, Trophy, UserX, Users, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import type { Action, ChatMessage, GameView, PlayerView, PresenceEntry, Waiting } from "../api/types";
+import type { Action, ChatMessage, GameView, PlayerView, PresenceEntry, ReactionName, Waiting } from "../api/types";
 import { lastMessageId, unreadCount } from "../game/chat";
 import { pileReshuffled } from "../game/reshuffle";
 import { RESHUFFLE_ANIMATION_MS } from "../config";
@@ -37,6 +37,8 @@ interface Props {
   chat: ChatMessage[];
   /** Envoie un message ; `true` s'il est parti. */
   onSend: (text: string) => Promise<boolean>;
+  /** Pose, change ou retire (`null`) ma réaction à un message du chat. */
+  onReact: (message: number, reaction: ReactionName | null) => void;
 }
 
 /** Taille des sièges adverses selon le nombre de joueurs (plus il y en a, plus ils sont petits). */
@@ -151,7 +153,7 @@ function WaitingBanner({
   );
 }
 
-export function GameBoard({ view, code, busy, presence, waiting, onAction, onSkip, onLeave, chat, onSend }: Props) {
+export function GameBoard({ view, code, busy, presence, waiting, onAction, onSkip, onLeave, chat, onSend, onReact }: Props) {
   const connected = (id: number) => presence.find((p) => p.player === id)?.connected ?? true;
   const [mode, setMode] = useState<HeldMode>("swap");
   // Remélange de la défausse en pioche : repéré en comparant la vue précédente et la nouvelle (game/reshuffle.ts),
@@ -180,7 +182,10 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
   }, [chatOpen, chat]);
   const unread = chatOpen ? 0 : unreadCount(chat, seenId, view.me);
   const closeChat = useCallback(() => setChatOpen(false), []);
-  const chatPanel = chatOpen && <ChatPanel messages={chat} me={view.me} onSend={onSend} onClose={closeChat} />;
+  const nameOf = useCallback((id: number) => playerName(view, id), [view]);
+  const chatPanel = chatOpen && (
+    <ChatPanel messages={chat} me={view.me} nameOf={nameOf} onSend={onSend} onReact={onReact} onClose={closeChat} />
+  );
 
   // Quitter une partie en cours, c'est l'abandonner pour de bon : on demande confirmation (pas après la fin).
   const [confirmingQuit, setConfirmingQuit] = useState(false);

@@ -7,6 +7,7 @@ import type {
   ErrorBody,
   JoinedResponse,
   PublicGamesResponse,
+  ReactionName,
   Rules,
   StateResponse,
   WriteResponse,
@@ -111,6 +112,11 @@ export class SpaceJoApi {
   /** Envoie un message dans le chat de la partie. */
   say(code: string, token: string, text: string): Promise<ChatSent> {
     return this.request("/api/chat", { method: "POST", body: JSON.stringify({ code, text }) }, token);
+  }
+
+  /** Pose, change ou retire (`null`) ma réaction au message `message` ; renvoie le message à jour. */
+  react(code: string, token: string, message: number, reaction: ReactionName | null): Promise<ChatSent> {
+    return this.request("/api/react", { method: "POST", body: JSON.stringify({ code, message, reaction }) }, token);
   }
 
   /** Messages du chat plus récents que `after` (les derniers si `after` vaut 0). */

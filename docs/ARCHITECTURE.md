@@ -102,7 +102,7 @@ Les routes et leurs formats JSON sont décrits dans [CONTRACT.md](CONTRACT.md).
 | `src/auth.rs` | jetons (256 bits, hachage SHA-256, comparaison en temps constant), codes de partie, graines |
 | `src/stored.rs` | `StoredGame` (ce qui est dans `games.state`) et `STATE_VERSION` |
 | `src/store.rs` | `Store` : PostgreSQL (`sqlx`) ou mémoire, avec le verrou optimiste ; liste des parties publiques au salon (`list_public`) et visibilité (`set_public`) |
-| `src/events.rs` | avis de changement (nouvelle version, nouveau message du chat : `Notice`), un canal `broadcast` par partie, poussés aux navigateurs par `GET /api/events` |
+| `src/events.rs` | avis de changement (nouvelle version, nouveau message du chat, réactions changées : `Notice`), un canal `broadcast` par partie, poussés aux navigateurs par `GET /api/events` |
 | `src/server.rs` | serveur `axum` : `/api/health`, `/api/*` vers `handlers` (réponses compressées), fichiers de l'interface par `tower-http` (version gzip, règles de cache, retour à `index.html` pour une page de l'application) |
 | `src/error.rs` | `ApiError` (statut, code, message) et conversion depuis `GameError` |
 | `src/rate_limit.rs` | limitation de débit par adresse IP (fenêtre fixe d'une minute, compteurs en mémoire) sur `create`, `join` et `public-games` |
@@ -287,11 +287,19 @@ Choix et alternatives : [decisions/2026-11-04-parties-publiques.md](decisions/20
   abonné relit les messages plus récents que le dernier qu'il connaît (`GET /api/messages?after=…`). Sans flux
   d'avis, il les relit à chaque polling. À l'ouverture d'une partie (reprise, rechargement), il lit l'historique
   (les 50 derniers messages).
+- **Réactions** (`POST /api/react`) : une par joueur et par message (table `chat_reactions`), choisie dans une liste
+  fermée de 6 noms (`CHAT_REACTIONS`) ; `null` la retire. Le serveur publie alors `Notice::Reaction` (numéro du
+  message) : chaque navigateur relit les 50 derniers messages, réactions comprises, et remplace ceux qu'il connaît.
+  Sans flux d'avis, le polling relit lui aussi les 50 derniers messages.
 - **Interface** : un bouton « Chat » sur l'écran de partie et de fin de partie, avec le nombre de messages non lus
   écrit en chiffres ; le panneau (`ChatPanel.tsx`) est posé sur le côté (en bas sur un téléphone) sans bloquer le
-  jeu. La liste est une région `role="log"` : les lecteurs d'écran annoncent les nouveaux messages.
+  jeu. La liste est une région `role="log"` : les lecteurs d'écran annoncent les nouveaux messages. Les messages
+  des autres sont précédés de l'initiale de leur auteur dans un rond (l'« avatar »). Sous chaque bulle : les
+  réactions avec leur nombre (cliquer sur l'une pose ou retire la sienne), un bouton « Réagir » qui ouvre les
+  6 réactions, et un double tap / double clic sur la bulle pour le cœur (`game/chat.ts` : regroupement des
+  réactions, détection du double tap).
 - **Hygiène** : le texte des messages n'est jamais journalisé ; le flux d'avis, sans jeton, ne transporte que des
-  numéros. L'envoi est limité à 30 messages par minute et par adresse (`src/rate_limit.rs`).
+  numéros. L'envoi est limité à 30 messages par minute et par adresse, les réactions à 60 (`src/rate_limit.rs`).
 
 Choix et alternatives : [decisions/2026-11-04-chat.md](decisions/2026-11-04-chat.md).
 
@@ -353,6 +361,10 @@ avec la partie), `player_id`, `last_seen` ; clé primaire (`game_id`, `player_id
 Table `chat_messages`, créée par `migrations/0004_chat_messages.sql` : `id` (numéro croissant), `game_id`
 (référence `games.id`, supprimée avec la partie), `player_id`, `name` (nom au moment de l'envoi), `body`,
 `created_at` ; index (`game_id`, `id`) pour lire les derniers messages d'une partie.
+
+Table `chat_reactions`, créée par `migrations/0005_chat_reactions.sql` : `message_id` (référence
+`chat_messages.id`, supprimée avec le message, donc avec la partie), `player_id`, `reaction` (nom tiré de
+`CHAT_REACTIONS`), `created_at` ; clé primaire (`message_id`, `player_id`) : une réaction par joueur et par message.
 
 Le schéma n'évolue que par de nouveaux fichiers dans `migrations/` (jamais à la main) ; `cargo run --bin migrate`
 les applique, et `sqlx` note celles déjà appliquées dans `_sqlx_migrations`.

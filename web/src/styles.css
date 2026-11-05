@@ -671,8 +671,50 @@ button.primary.danger { background: var(--danger); color: #ffffff; }
 .chat-head h2 { font-size: 1rem; margin: 0; }
 .chat-messages { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
 .chat-empty { margin: auto; text-align: center; }
-.chat-message { max-width: 85%; align-self: flex-start; background: var(--bg-nested); padding: 6px 10px; border-radius: 12px; display: flex; flex-direction: column; gap: 2px; }
-.chat-message.is-mine { align-self: flex-end; background: var(--bg-raised); }
+/* Un message : l'avatar (initiale) des autres, puis la bulle et ses réactions. Mes messages sont à droite. */
+.chat-message { max-width: 88%; align-self: flex-start; display: flex; align-items: flex-start; gap: 8px; }
+.chat-message.is-mine { align-self: flex-end; }
+.chat-avatar {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 0.85rem; font-weight: 600; background: var(--text); color: var(--on-text);
+}
+.chat-body { min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.chat-message.is-mine .chat-body { align-items: flex-end; }
+/* `user-select: none` et `touch-action: manipulation` : un double tap pose un cœur, sans zoomer ni sélectionner. */
+.chat-bubble {
+  background: var(--bg-nested); padding: 6px 10px; border-radius: 12px; display: flex; flex-direction: column; gap: 2px;
+  cursor: default; user-select: none; -webkit-user-select: none; touch-action: manipulation;
+}
+.chat-message.is-mine .chat-bubble { background: var(--bg-raised); }
+.chat-reactions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.chat-message.is-mine .chat-reactions { justify-content: flex-end; }
+/* Toutes les pastilles ont une bordure de 2 px (transparente si ce n'est pas la mienne) : la mienne n'est donc ni plus
+   haute ni décalée. */
+button.reaction-chip {
+  min-height: 26px; padding: 0 7px; gap: 3px; font-size: 0.85rem; line-height: 1; border-radius: 999px;
+  background: var(--bg-nested); border: 2px solid var(--border); animation: reaction-pop 0.25s ease-out;
+}
+/* Ma réaction : contour clair (pas seulement une couleur), et `aria-pressed` pour les lecteurs d'écran. */
+button.reaction-chip.is-mine, button.reaction-option.is-mine { border-color: var(--text); }
+/* L'emoji dans une case carrée, centrée dans la pastille, avec une hauteur de ligne de 1 : sans cela, la hauteur de
+   ligne du texte (1,4) et les métriques de la police décalaient l'emoji vers le haut ou le bas. Mesuré : écart haut /
+   bas de 0,2 px au plus. (Forcer la police des emojis d'Apple le remontait d'environ 0,4 px : on garde Inter.) */
+.reaction-emoji { display: inline-grid; place-items: center; width: 1.25em; height: 1.25em; line-height: 1; }
+.reaction-count { font-size: 0.75rem; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+/* « Réagir » : discret, il s'affirme au survol et au focus. */
+button.reaction-add {
+  min-height: 26px; width: 30px; padding: 0; border-radius: 999px; background: transparent; color: var(--muted);
+  border: 1px solid transparent;
+}
+button.reaction-add:hover:not(:disabled), button.reaction-add[aria-expanded="true"] { color: var(--text); background: var(--bg-nested); }
+button.reaction-add svg { width: 16px; height: 16px; }
+.reaction-picker {
+  display: flex; gap: 2px; padding: 4px; border-radius: 999px; background: var(--bg-raised);
+  border: 1px solid var(--border); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3); animation: fade-in 0.15s ease-out;
+}
+button.reaction-option { min-height: 34px; width: 34px; padding: 0; border-radius: 50%; background: transparent; font-size: 1.15rem; line-height: 1; border: 2px solid transparent; }
+button.reaction-option:hover:not(:disabled) { background: var(--hover); transform: scale(1.12); }
+@keyframes reaction-pop { 0% { transform: scale(0.6); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
 .chat-author { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
 .chat-text { overflow-wrap: anywhere; }
 .chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }

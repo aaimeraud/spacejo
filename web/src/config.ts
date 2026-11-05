@@ -45,6 +45,23 @@ export const RESHUFFLE_ANIMATION_MS = 2200;
  * reste seul juge). */
 export const MAX_CHAT_CHARS = 200;
 
+/** Réactions aux messages du chat, dans l'ordre du sélecteur : nom envoyé à l'API (`CHAT_REACTIONS` de
+ * `src/handlers.rs`), emoji affiché, et libellé lu par les lecteurs d'écran. La première est celle du double tap. */
+export const CHAT_REACTIONS = [
+  { name: "heart", emoji: "❤️", label: "cœur" },
+  { name: "thumbs_up", emoji: "👍", label: "pouce levé" },
+  { name: "laugh", emoji: "😂", label: "rire" },
+  { name: "wow", emoji: "😮", label: "surprise" },
+  { name: "sad", emoji: "😢", label: "tristesse" },
+  { name: "pray", emoji: "🙏", label: "merci" },
+] as const;
+
+/** Réaction posée par un double tap / double clic sur un message. */
+export const QUICK_REACTION = "heart";
+
+/** Deux appuis sur un message à moins de ce délai (millisecondes) forment un double tap. */
+export const DOUBLE_TAP_MS = 350;
+
 /** Nombre de messages du chat gardés à l'écran (les plus récents). */
 export const MAX_CHAT_KEPT = 100;
 
