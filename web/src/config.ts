@@ -70,6 +70,52 @@ export const MAX_CHAT_KEPT = 100;
 export const CHAT_KEPT_AFTER_GAME_OVER_MINUTES = 15;
 export const GAME_KEPT_WHEN_IDLE_HOURS = 24;
 
+/** Un thème de cartes personnalisé : les couleurs du dos des cartes d'un joueur (avec un cœur à la place du « S »), de
+ * ses contours de cartes et de ses bulles du chat (docs/ARCHITECTURE.md, « Thèmes de cartes personnalisés »). */
+export interface CardTheme {
+  /** Fond du dos des cartes et des bulles du chat (une couleur foncée). */
+  back: string;
+  /** Bord du dos et cadre intérieur, un peu plus clair que le fond. */
+  edge: string;
+  /** Cœur du dos et nom de l'auteur dans le chat (une couleur claire). */
+  mark: string;
+  /** Texte des bulles du chat. */
+  ink: string;
+  /** Contours (cartes jouables, colonne retirée) sur le fond sombre du site : plutôt clair. */
+  lineOnDark: string;
+  /** Les mêmes contours sur le fond clair du site : plutôt foncé. */
+  lineOnLight: string;
+}
+
+/** Les thèmes de cartes. Pour en ajouter un : une entrée ici, puis un ou plusieurs pseudos dans `NAMED_CARD_THEMES`.
+ * `satisfies` vérifie chaque entrée sans perdre la liste exacte des noms de thème (`CardThemeId`). */
+export const CARD_THEMES = {
+  pink: {
+    back: "#6e1f42",
+    edge: "#9c3a66",
+    mark: "#ffb8d4",
+    ink: "#ffe8f1",
+    lineOnDark: "#ff8fbd",
+    lineOnLight: "#c2306e",
+  },
+  blue: {
+    back: "#1b3566",
+    edge: "#3b5f9e",
+    mark: "#b9d3ff",
+    ink: "#e6f0ff",
+    lineOnDark: "#7fb0ff",
+    lineOnLight: "#2b5fc7",
+  },
+} satisfies Record<string, CardTheme>;
+
+export type CardThemeId = keyof typeof CARD_THEMES;
+
+/** Pseudos (en minuscules) qui reçoivent un thème de cartes. Rien sur le site ne l'annonce. */
+export const NAMED_CARD_THEMES: Readonly<Record<string, CardThemeId>> = {
+  misslegendr: "pink",
+  misterlegendr: "blue",
+};
+
 /** Plus petite et plus grande valeur d'une carte (docs/RULES.md). */
 export const CARD_MIN_VALUE = -2;
 export const CARD_MAX_VALUE = 12;

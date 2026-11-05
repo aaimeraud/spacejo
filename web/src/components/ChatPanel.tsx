@@ -7,6 +7,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type PointerEvent }
 import type { ChatMessage, ReactionName } from "../api/types";
 import { CHAT_REACTIONS, MAX_CHAT_CHARS, QUICK_REACTION } from "../config";
 import { initial, isDoubleTap, lastMessageId, myReaction, nextReaction, reactionGroups } from "../game/chat";
+import { cardThemeFor, cardThemeProps } from "../game/cardTheme";
 
 /** Bouton d'ouverture du chat. Le nombre de non-lus est écrit en chiffres (pas seulement une pastille de couleur). */
 export function ChatButton({ unread, onClick }: { unread: number; onClick: () => void }) {
@@ -124,6 +125,7 @@ export function ChatPanel({ messages, me, nameOf, onSend, onReact, onClose }: Pa
           const author = mine ? "Vous" : message.name;
           const groups = reactionGroups(message, me);
           const current = myReaction(message, me);
+          const themed = cardThemeProps(cardThemeFor(message.name));
           return (
             <li key={message.id} className={`chat-message${mine ? " is-mine" : ""}`}>
               {!mine && (
@@ -134,7 +136,11 @@ export function ChatPanel({ messages, me, nameOf, onSend, onReact, onClose }: Pa
               <div className="chat-body">
                 {/* La bulle n'est pas un bouton : le double tap est un raccourci, le bouton « Réagir » fait la même chose
                     au clavier et pour les lecteurs d'écran. */}
-                <div className="chat-bubble" onPointerUp={(event) => tap(message, event)}>
+                <div
+                  className={`chat-bubble${themed.className}`}
+                  style={themed.style}
+                  onPointerUp={(event) => tap(message, event)}
+                >
                   <span className="chat-author">{author}</span>
                   <span className="chat-text">{message.text}</span>
                 </div>

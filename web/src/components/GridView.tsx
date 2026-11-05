@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Action, ColumnView, PlayerView } from "../api/types";
 import { clearedColumns } from "../game/columns";
 import { slotLabel } from "../game/logic";
+import { cardThemeFor, cardThemeProps } from "../game/cardTheme";
 import { Card3D, type CardSize } from "./Card";
 
 /** Durée de l'animation d'une colonne retirée (doit correspondre à `column-clear` dans styles.css). */
@@ -64,8 +65,15 @@ interface Props {
 
 export function GridView({ player, size = "md", actionFor, onAction, disabled = false }: Props) {
   const cleared = useClearedColumns(player.grid);
+  const theme = cardThemeFor(player.name);
+  const themed = cardThemeProps(theme);
   return (
-    <div className={`grid grid-${size}`} role="group" aria-label={`Grille de ${player.name}`}>
+    <div
+      className={`grid grid-${size}${themed.className}`}
+      style={themed.style}
+      role="group"
+      aria-label={`Grille de ${player.name}`}
+    >
       {player.grid.map((column, c) => (
         <div className="grid-column" key={c}>
           {column.kind === "Removed" ? (
@@ -76,7 +84,7 @@ export function GridView({ player, size = "md", actionFor, onAction, disabled = 
               if (actionFor === undefined || onAction === undefined) {
                 return (
                   <span className="slot" key={r} role="img" aria-label={label}>
-                    <Card3D slot={slot} size={size} />
+                    <Card3D slot={slot} size={size} theme={theme} />
                   </span>
                 );
               }
@@ -92,7 +100,7 @@ export function GridView({ player, size = "md", actionFor, onAction, disabled = 
                     if (action !== null) onAction(action);
                   }}
                 >
-                  <Card3D slot={slot} size={size} />
+                  <Card3D slot={slot} size={size} theme={theme} />
                 </button>
               );
             })
