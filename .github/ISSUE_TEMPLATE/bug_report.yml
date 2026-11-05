@@ -1,0 +1,83 @@
+name: Bug report
+description: Something is broken or does not work as expected.
+title: "fix: "
+labels: ["Bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please search the existing issues first:
+        maybe someone already reported the same problem.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem?
+      description: Describe the bug in one or two sentences.
+      placeholder: When I click "Start game", nothing happens.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Tell us exactly what you did, step by step.
+      placeholder: |
+        1. Open the game
+        2. Create a room
+        3. Click "Start game"
+        4. Nothing happens
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: What should happen instead?
+      placeholder: The game should start for every player in the room.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part is affected?
+      options:
+        - Game rules or cards
+        - Lobby or rooms
+        - Server or API
+        - Web interface
+        - Database
+        - Documentation
+        - I don't know
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or error messages (optional)
+      description: Drag and drop images here, or paste the error text.
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device (optional)
+      description: This helps us find bugs that only happen on some devices.
+      placeholder: Firefox on Windows 11, Safari on iPhone, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I searched the existing issues and did not find the same bug.
+          required: true
+        - label: I can reproduce this bug.
+          required: false

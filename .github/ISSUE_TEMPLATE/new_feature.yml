@@ -1,0 +1,76 @@
+name: New feature
+description: Suggest a new feature or an improvement.
+title: "feat: "
+labels: ["Idea"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your idea. Please search the existing issues first:
+        maybe someone already suggested the same thing.
+
+  - type: textarea
+    id: feature
+    attributes:
+      label: What do you want to add?
+      description: Describe the feature in one or two sentences.
+      placeholder: Add a button to copy the invite link.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reason
+    attributes:
+      label: Why is it useful?
+      description: Explain the problem this feature solves for players or developers.
+      placeholder: It is easier to share a game with friends on a phone.
+    validations:
+      required: true
+
+  - type: textarea
+    id: behaviour
+    attributes:
+      label: How should it work?
+      description: Describe what the user should see or do.
+      placeholder: The button appears next to the invite link and copies it when clicked.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part is affected?
+      options:
+        - Game rules or cards
+        - Lobby or rooms
+        - Server or API
+        - Web interface
+        - Database
+        - Documentation
+        - I don't know
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Other ideas (optional)
+      description: Did you think about another way to do this?
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Screenshots or extra context (optional)
+      description: Drag and drop images here, or add links and examples.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I searched the existing issues and did not find the same idea.
+          required: true

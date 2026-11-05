@@ -1,0 +1,64 @@
+name: UI improvement
+description: Suggest a change to the look, feel or usability of the interface.
+title: "feat(ui): "
+labels: ["Task"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping us improve the interface. Please search the existing
+        issues first: maybe someone already suggested the same change.
+
+  - type: input
+    id: screen
+    attributes:
+      label: Which screen or page?
+      description: Give the name of the screen, or the steps to reach it.
+      placeholder: Home screen, game table, settings dialog, etc.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is the problem?
+      description: What looks bad, is hard to read, or is hard to use?
+      placeholder: The text is too small on my phone, so I cannot read the scores.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What change do you suggest?
+      description: Describe the result you would like to see.
+      placeholder: Make the scores bigger on small screens.
+    validations:
+      required: true
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recordings (optional)
+      description: Drag and drop images here. A before/after picture is very helpful.
+    validations:
+      required: false
+
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and device (optional)
+      description: Some visual problems only happen on some screen sizes.
+      placeholder: Chrome on Android, Safari on iPhone, etc.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before sending
+      options:
+        - label: I searched the existing issues and did not find the same suggestion.
+          required: true
+        - label: This change is about the interface, not about the game rules.
+          required: true
