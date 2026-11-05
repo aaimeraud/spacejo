@@ -145,3 +145,11 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
 39. **Mise à jour des réactions** : un avis `reaction` (avec le numéro du message) fait relire les 50 derniers messages ;
     sans flux d'avis, le polling du chat relit lui aussi les 50 derniers messages (et non plus seulement les nouveaux),
     pour voir les réactions. Limitation de débit : 60 réactions par minute et par adresse.
+
+## Effacement du chat (demandé par le propriétaire du dépôt)
+
+40. **Pas d'historique des chats** : « après chaque partie » est compris comme 15 minutes après la fin de la partie
+    (`CHAT_KEPT_AFTER_GAME_OVER`), pour laisser le chat de l'écran de fin utilisable un moment. Une partie abandonnée
+    en cours de route n'a pas de fin : son chat est effacé après 24 heures sans aucun coup (`CHAT_KEPT_WHEN_IDLE`).
+    Seuls les messages et leurs réactions sont effacés ; la demande ne portait pas sur les parties elles-mêmes. Le
+    ménage est fait au passage (démarrage du serveur, création, jonction), le serveur ne lançant aucune tâche de fond.

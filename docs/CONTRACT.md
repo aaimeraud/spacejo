@@ -160,7 +160,8 @@ réactions ne changent pas la `version`. Réponse `200` : le message à jour,
 En-tête `X-Player-Token` (un joueur de cette partie). `after` est facultatif (0 par défaut).
 Réponse `200` : `{ "messages": [ { "id": 12, "player": 1, "name": "Bob", "text": "Bien joué !", "reactions": [ { "player": 0, "reaction": "heart" } ] } ] }` : les
 messages dont `id` est plus grand que `after`, du plus ancien au plus récent, au plus les 50 derniers
-(`MAX_CHAT_HISTORY`). `name` est le nom du joueur au moment de l'envoi. `reactions` : une entrée par joueur qui a
+(`MAX_CHAT_HISTORY`). `name` est le nom du joueur au moment de l'envoi. Il n'y a pas d'historique : les messages
+d'une partie (et leurs réactions) sont effacés 15 minutes après sa fin, ou après 24 heures sans aucun coup. `reactions` : une entrée par joueur qui a
 réagi, triées par `player`. Paramètre inconnu ou `after` non entier :
 `400 invalid_request`.
 
