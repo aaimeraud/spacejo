@@ -2,6 +2,7 @@ name: Bug report
 description: Something is broken or does not work as expected.
 title: "fix: "
 labels: ["Bug"]
+assignees: "aaimeraud" 
 body:
   - type: markdown
     attributes:
