@@ -8,6 +8,7 @@ import type { PublicGame, Rules } from "../api/types";
 import { GAME_CODE_LENGTH, MAX_NAME_CHARS } from "../config";
 import { OFFICIAL_RULES } from "../rulesInfo";
 import type { KnownSession } from "../session";
+import { randomHomeCards } from "../game/homeCards";
 import { ValueCard } from "./Card";
 import { FitStage } from "./FitStage";
 import { LegalNotice } from "./LegalNotice";
@@ -33,9 +34,6 @@ type Mode = "menu" | "create" | "join" | "public" | "tutorial" | "legal";
 /** Étapes de la création avant les réglages : le nom, puis la visibilité. */
 type CreateStep = "name" | "visibility" | "rules";
 
-/** Cartes montrées sur l'accueil : une de chaque famille de couleur. */
-const HOME_CARDS = [-2, 0, 3, 7, 12];
-
 export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, onJoin, onResume }: Props) {
   const [mode, setMode] = useState<Mode>(initialCode === null ? "menu" : "join");
   const [name, setName] = useState("");
@@ -46,6 +44,8 @@ export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, 
   // Jonction : 0 = code, 1 = nom.
   const [joinStep, setJoinStep] = useState(initialCode === null ? 0 : 1);
   const flow = useRulesFlow(OFFICIAL_RULES);
+  // Tirées une fois à l'ouverture de l'accueil (pas à chaque rendu : les cartes ne clignotent pas pendant la saisie).
+  const [homeCards] = useState(() => randomHomeCards());
 
   const nameValid = name.trim().length > 0;
   const codeValid = code.trim().length === GAME_CODE_LENGTH;
@@ -84,9 +84,9 @@ export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, 
               <h2>Bienvenue sur SpaceJo</h2>
               <p>Un jeu de cartes au tour par tour, de 2 à 10 joueurs.</p>
             </div>
-            {/* Un éventail de cartes du jeu, de la meilleure (-2) à la pire (12) : décoratif. */}
+            {/* Un éventail de cartes du jeu, tirées au hasard à chaque visite, de la meilleure à la pire : décoratif. */}
             <div className="home-cards" aria-hidden="true">
-              {HOME_CARDS.map((value) => (
+              {homeCards.map((value) => (
                 <ValueCard key={value} value={value} size="md" />
               ))}
             </div>

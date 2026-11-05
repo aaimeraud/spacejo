@@ -65,6 +65,13 @@ export const DOUBLE_TAP_MS = 350;
 /** Nombre de messages du chat gardés à l'écran (les plus récents). */
 export const MAX_CHAT_KEPT = 100;
 
+/** Plus petite et plus grande valeur d'une carte (docs/RULES.md). */
+export const CARD_MIN_VALUE = -2;
+export const CARD_MAX_VALUE = 12;
+
+/** Nombre de cartes de l'éventail décoratif de l'accueil. */
+export const HOME_CARD_COUNT = 5;
+
 /** Rafraîchissement de la liste des parties publiques sur l'accueil (en millisecondes). */
 export const PUBLIC_GAMES_REFRESH_MS = 5000;
 
