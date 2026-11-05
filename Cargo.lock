@@ -1211,7 +1211,7 @@ dependencies = [
 
 [[package]]
 name = "spacejo-api"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "axum",
  "futures-util",
@@ -1228,7 +1228,7 @@ dependencies = [
 
 [[package]]
 name = "spacejo-core"
-version = "1.6.0"
+version = "1.6.1"
 dependencies = [
  "serde",
  "serde_json",

@@ -2,6 +2,12 @@
 
 Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.
 
+## 1.6.1 - 2026-11-05
+
+### Nouveautés
+
+- **web** : Add custom card themes (1b9a238)
+
 ## 1.6.0 - 2026-11-05
 
 ### Nouveautés
