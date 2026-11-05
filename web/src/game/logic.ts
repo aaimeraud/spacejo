@@ -79,9 +79,50 @@ export function hint(view: GameView, mode: HeldMode): string {
         : "Choisissez une carte cachée à retourner (la carte piochée va sur la défausse).";
     }
     case "RoundOver":
-      return "Manche terminée. Consultez les scores puis lancez la manche suivante.";
+      return roundOverHint(view);
     case "GameOver":
       return "Partie terminée.";
+  }
+}
+
+/** Ma place dans le vote de fin de manche :
+ * - `decider` : je lance la manche suivante (l'hôte, ou le premier joueur encore en jeu s'il est parti) ;
+ * - `voted` : j'ai voté, j'attends que la manche soit lancée ;
+ * - `can-vote` : je n'ai pas encore voté (sans vote, je ne serai pas de la manche suivante) ;
+ * - `out` : je ne joue plus (éliminé·e ou parti·e). */
+export type NextRoundRole = "decider" | "voted" | "can-vote" | "out";
+
+export interface NextRoundStatus {
+  role: NextRoundRole;
+  /** Nombre de joueurs qui ont voté (sans celui qui décide). */
+  votes: number;
+  /** Nombre de joueurs qui peuvent voter : joueurs encore en jeu, sans celui qui décide. */
+  voters: number;
+}
+
+/** Où en est le vote pour la manche suivante (lecture de la vue : c'est le serveur qui compte les votes). */
+export function nextRoundStatus(view: GameView): NextRoundStatus {
+  const active = view.players.filter((player) => !player.eliminated);
+  const voters = active.filter((player) => player.id !== view.next_round_decider).length;
+  const votes = view.next_round_votes.length;
+  const me = view.players[view.me];
+  let role: NextRoundRole;
+  if (me === undefined || me.eliminated) role = "out";
+  else if (view.next_round_decider === view.me) role = "decider";
+  else role = view.next_round_votes.includes(view.me) ? "voted" : "can-vote";
+  return { role, votes, voters };
+}
+
+function roundOverHint(view: GameView): string {
+  switch (nextRoundStatus(view).role) {
+    case "decider":
+      return "Manche terminée. Lancez la manche suivante quand les joueurs ont voté.";
+    case "voted":
+      return `Vote enregistré : en attente de ${playerName(view, view.next_round_decider)}.`;
+    case "can-vote":
+      return "Manche terminée. Votez pour jouer la manche suivante.";
+    case "out":
+      return "Manche terminée.";
   }
 }
 

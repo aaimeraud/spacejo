@@ -13,8 +13,9 @@ use spacejo_core::Game;
 /// - 1 : format initial ;
 /// - 2 : ajout de `missed_turns` et `eliminated` à chaque joueur (absences et élimination) ;
 /// - 3 : ajout de `abandoned` à chaque joueur (joueur qui a quitté la partie) ;
-/// - 4 : ajout du réglage `deck` (taille du paquet) dans `game.rules`.
-pub const STATE_VERSION: u64 = 4;
+/// - 4 : ajout du réglage `deck` (taille du paquet) dans `game.rules` ;
+/// - 5 : ajout de `next_round_votes` dans `game` (vote pour la manche suivante).
+pub const STATE_VERSION: u64 = 5;
 
 /// Ce qui est stocké pour une partie : le jeu complet et les hachages des jetons
 /// (indice = identifiant du joueur). Jamais envoyé tel quel au navigateur.
@@ -82,9 +83,12 @@ impl StoredGame {
         // Chaque migration fait passer le JSON d'une version à la suivante ; un exemple figé de chaque
         // ancienne version est relu par `tests/state_version.rs`.
         let value = match version {
-            1 => migrate_v3_to_v4(migrate_v2_to_v3(migrate_v1_to_v2(value)?)?)?,
-            2 => migrate_v3_to_v4(migrate_v2_to_v3(value)?)?,
-            3 => migrate_v3_to_v4(value)?,
+            1 => migrate_v4_to_v5(migrate_v3_to_v4(migrate_v2_to_v3(migrate_v1_to_v2(
+                value,
+            )?)?)?)?,
+            2 => migrate_v4_to_v5(migrate_v3_to_v4(migrate_v2_to_v3(value)?)?)?,
+            3 => migrate_v4_to_v5(migrate_v3_to_v4(value)?)?,
+            4 => migrate_v4_to_v5(value)?,
             STATE_VERSION => value,
             found if found > STATE_VERSION => return Err(StateError::TooNew { found }),
             found => return Err(StateError::Unsupported { found }),
@@ -133,5 +137,17 @@ fn migrate_v3_to_v4(mut value: Value) -> Result<Value, StateError> {
         .ok_or(StateError::Corrupt)?;
     rules.insert("deck".to_string(), Value::from("Full"));
     value["state_version"] = Value::from(4);
+    Ok(value)
+}
+
+/// v4 → v5 : aucun vote en cours (`next_round_votes: []`). Une partie stockée en fin de manche attend donc les votes,
+/// comme une manche qui vient de se terminer.
+fn migrate_v4_to_v5(mut value: Value) -> Result<Value, StateError> {
+    let game = value
+        .get_mut("game")
+        .and_then(Value::as_object_mut)
+        .ok_or(StateError::Corrupt)?;
+    game.insert("next_round_votes".to_string(), Value::Array(Vec::new()));
+    value["state_version"] = Value::from(5);
     Ok(value)
 }

@@ -7,7 +7,7 @@ import { pollInterval } from "./polling";
 import type { Action, ChatMessage, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
 import { MAX_REVEAL_RETRIES, NOTICE_DURATION_MS } from "./config";
 import { lastMessageId, mergeMessages } from "./game/chat";
-import { departureNotices } from "./game/departures";
+import { departureNotices, leftBehind } from "./game/departures";
 import { slotAction } from "./game/logic";
 import { codeFromSearch } from "./invite";
 import { retryOnConflict } from "./retry";
@@ -107,6 +107,12 @@ export function App() {
 
   const applyResponse = useCallback(
     (version: number, next: GameView, info: PresenceInfo) => {
+      // La manche suivante a commencé sans moi (pas de vote) : retour à l'accueil, avec un mot d'explication.
+      if (leftBehind(lastViewRef.current, next)) {
+        leave(true);
+        setNotice("La manche suivante a commencé sans vous : vous n'aviez pas voté pour la jouer.");
+        return;
+      }
       versionRef.current = version;
       const departures = departureNotices(lastViewRef.current, next);
       if (departures.length > 0) setNotice(departures.join(" "));
@@ -114,7 +120,7 @@ export function App() {
       setView(next);
       applyPresence(info);
     },
-    [applyPresence],
+    [applyPresence, leave],
   );
 
   /** Ajoute des messages du chat à ceux déjà connus. */

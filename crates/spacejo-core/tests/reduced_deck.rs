@@ -116,6 +116,6 @@ fn play_swap_turn(game: &mut Game) {
 fn each_round_is_dealt_again_from_a_reduced_deck() {
     let mut game = common::playing(3, reduced());
     game.phase = Phase::RoundOver;
-    game.apply(0, spacejo_core::Action::NextRound).unwrap();
+    common::everyone_starts_next_round(&mut game);
     assert_eq!(game.card_count(), 3 * REDUCED_DECK_CARDS_PER_PLAYER);
 }

@@ -39,6 +39,8 @@ Les règles sans étiquette n'étaient pas en doute.
     d'autres sources parlent des seules cartes positives : voir `penalty_scope`].
   - Variantes (égalité épargnée, pénalité désactivée) : réglage `penalty` [option].
 - **Manche suivante** : le score de manche est ajouté au total de chaque joueur, puis on redistribue.
+  Dans SpaceJo, chaque joueur vote pour jouer la manche suivante et l'hôte la lance avec les votants ; les autres
+  quittent la partie [choix de l'application, voir `ASSUMPTIONS.md` n° 9].
   Le joueur qui a terminé la manche précédente commence la suivante [officiel, d'après deux transcriptions ;
   une source divergente]. Autres variantes : réglage `next_round_starter` [option].
 - **Fin de partie** : la partie s'arrête à la fin de la manche où un joueur atteint ou dépasse

@@ -11,7 +11,7 @@ import type { Action, ChatMessage, GameView, PlayerView, PresenceEntry, Waiting 
 import { lastMessageId, unreadCount } from "../game/chat";
 import { pileReshuffled } from "../game/reshuffle";
 import { RESHUFFLE_ANIMATION_MS } from "../config";
-import { hint, isMyTurn, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
+import { hint, isMyTurn, nextRoundStatus, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
 import { focusedOpponent } from "../game/focus";
 import { hiddenCount, seatPlayers } from "../game/seats";
 import { ValueCard } from "./Card";
@@ -217,7 +217,8 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
     onAction(action);
     // Après un coup, on revient au mode par défaut pour le tour suivant.
     if (action.type === "SwapHeld" || action.type === "DiscardHeldAndReveal") setMode("swap");
-    if (action.type === "NextRound") setScoresOpen(false);
+    // Seul celui qui décide lance la manche ; un vote laisse le tableau des scores ouvert (on y suit le vote).
+    if (action.type === "NextRound" && vote.role === "decider") setScoresOpen(false);
   };
 
   const quitModal = confirmingQuit && (
@@ -242,17 +243,60 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
     </Modal>
   );
 
+  // Fin de manche : chacun vote pour la manche suivante, celui qui décide (l'hôte) la lance avec les votants.
+  const vote = nextRoundStatus(view);
+  const voteCount = (
+    <p className="note vote-count" role="status" aria-live="polite">
+      {vote.votes} joueur{vote.votes > 1 ? "s" : ""} sur {vote.voters} {vote.votes > 1 ? "veulent" : "veut"} jouer la
+      manche suivante
+    </p>
+  );
+  const voteButton = (() => {
+    switch (vote.role) {
+      case "decider":
+        return (
+          <button
+            type="button"
+            className="primary"
+            onClick={() => send({ type: "NextRound" })}
+            disabled={busy || vote.votes === 0}
+          >
+            <Play aria-hidden="true" /> Manche suivante
+          </button>
+        );
+      case "can-vote":
+        return (
+          <button type="button" className="primary" onClick={() => send({ type: "NextRound" })} disabled={busy}>
+            <Play aria-hidden="true" /> Manche suivante
+          </button>
+        );
+      case "voted":
+        return (
+          <button type="button" className="primary" disabled>
+            <CircleCheck aria-hidden="true" /> Vote enregistré
+          </button>
+        );
+      case "out":
+        return null;
+    }
+  })();
+  const voteFooter = (
+    <div className="vote-footer">
+      {voteCount}
+      {vote.role === "decider" && vote.votes < vote.voters && (
+        <p className="note">Les joueurs qui n'ont pas voté quitteront la partie au lancement.</p>
+      )}
+      {voteButton}
+    </div>
+  );
+
   const scoresModal = scoresOpen && (
     <Modal
       title={view.phase === "RoundOver" ? `Fin de la manche ${view.round}` : "Tableau des scores"}
       onClose={() => setScoresOpen(false)}
       wide
       footer={
-        view.phase === "RoundOver" ? (
-          <button type="button" className="primary" onClick={() => send({ type: "NextRound" })} disabled={busy}>
-            <Play aria-hidden="true" /> Manche suivante
-          </button>
-        ) : undefined
+        view.phase === "RoundOver" ? voteFooter : undefined
       }
     >
       <Scoreboard view={view} />
@@ -312,6 +356,7 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
       {view.phase === "RoundOver" ? (
         <div className="round-over">
           <p>Manche {view.round} terminée</p>
+          {voteCount}
           <button type="button" className="primary" onClick={() => setScoresOpen(true)}>
             <ListOrdered aria-hidden="true" /> Voir les scores
           </button>

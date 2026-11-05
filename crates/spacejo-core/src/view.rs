@@ -78,6 +78,10 @@ pub struct GameView {
     pub discard_count: usize,
     pub rounds: Vec<RoundResult>,
     pub winners: Vec<PlayerId>,
+    /// Fin de manche : joueurs qui ont voté pour la manche suivante (sans celui qui décide), dans l'ordre d'arrivée.
+    pub next_round_votes: Vec<PlayerId>,
+    /// Joueur qui lance la manche suivante (l'hôte, ou le premier joueur encore en jeu s'il est parti).
+    pub next_round_decider: Option<PlayerId>,
 }
 
 /// Construit la vue de `me`. N'emprunte la partie qu'en lecture (`&Game`) : la vue est une
@@ -153,5 +157,7 @@ pub fn view_for(game: &Game, me: PlayerId) -> GameView {
         discard_count: game.discard.len(),
         rounds: game.rounds.clone(),
         winners: game.winners.clone(),
+        next_round_votes: game.active_next_round_votes(),
+        next_round_decider: game.next_round_decider(),
     }
 }

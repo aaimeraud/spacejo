@@ -122,3 +122,15 @@ pub fn play_round_where_zero_finishes(game: &mut Game, grids: &[[[i32; GRID_ROWS
         play_simple_turn(game);
     }
 }
+
+/// Fin de manche : tous les joueurs encore en jeu votent pour la manche suivante, puis celui qui décide (l'hôte, ou à
+/// défaut le premier joueur encore en jeu) la lance. Personne n'est donc laissé de côté.
+pub fn everyone_starts_next_round(game: &mut Game) {
+    let decider = game.next_round_decider().unwrap();
+    for p in game.active_players() {
+        if p != decider {
+            game.apply(p, Action::NextRound).unwrap();
+        }
+    }
+    game.apply(decider, Action::NextRound).unwrap();
+}

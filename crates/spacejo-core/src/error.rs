@@ -29,6 +29,8 @@ pub enum GameError {
     CannotKickHost,
     /// Le dernier joueur d'un salon ne peut pas en être retiré : un salon n'est jamais vide.
     LastPlayer,
+    /// Fin de manche : l'hôte ne peut pas lancer la manche suivante tant qu'aucun autre joueur n'a voté.
+    NotEnoughVotes,
     /// Plus de joueurs que le paquet ne peut en servir (impossible avec 4 joueurs maximum).
     NotEnoughCards,
 }
@@ -57,6 +59,7 @@ impl GameError {
             GameError::NotEnoughCards => "not_enough_cards",
             GameError::CannotKickHost => "cannot_kick_host",
             GameError::LastPlayer => "last_player",
+            GameError::NotEnoughVotes => "not_enough_votes",
         }
     }
 
@@ -89,6 +92,9 @@ impl GameError {
             GameError::NotEnoughCards => "Pas assez de cartes pour autant de joueurs.",
             GameError::CannotKickHost => "L'hôte ne peut pas se retirer lui-même de la partie.",
             GameError::LastPlayer => "Le dernier joueur du salon ne peut pas en être retiré.",
+            GameError::NotEnoughVotes => {
+                "Attendez qu'au moins un autre joueur ait voté pour la manche suivante."
+            }
         }
     }
 }

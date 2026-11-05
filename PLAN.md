@@ -298,3 +298,16 @@ de l'éditeur.
 3. [x] Documentation (`ARCHITECTURE.md`, décision), vérifications, essai dans le navigateur (téléphone et ordinateur).
 
 Aucune nouvelle dépendance.
+
+## Évolution en cours : issues #10, #11 et #12 (branche `daniel/issues-10-11-12`)
+
+1. [x] #10 — Téléphone : la pioche et la défausse étaient cachées sous ma grille (le centre de la table héritait du
+   `top: 50%` du paysage). La scène portrait devient une colonne (la table prend la hauteur restante) et les cartes
+   de l'adversaire regardé suivent la place disponible.
+2. [x] #11 — Fin de manche : chaque joueur vote pour la manche suivante, tous voient le nombre de votes, l'hôte
+   lance avec les votants ; les autres quittent la partie et reviennent à l'accueil. Core (`next_round_votes`,
+   `next_round_decider`, erreur `not_enough_votes`), format enregistré v5 avec migration, interface, documentation.
+3. [x] #12 — README : section « Ce qui ne marche pas encore » remise à jour (déploiement sur Render).
+4. [ ] Vérifications, essai dans le navigateur, release.
+
+Aucune nouvelle dépendance.

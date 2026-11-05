@@ -25,6 +25,8 @@ const view = (count: number, me: number): GameView => ({
   discard_count: 0,
   rounds: [],
   winners: [],
+  next_round_votes: [],
+  next_round_decider: 0,
 });
 
 describe("seatPlayers", () => {
