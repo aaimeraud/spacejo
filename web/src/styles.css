@@ -676,7 +676,13 @@ button.primary.danger { background: var(--danger); color: #ffffff; }
 .chat-author { font-size: 0.75rem; font-weight: 600; color: var(--muted); }
 .chat-text { overflow-wrap: anywhere; }
 .chat-form { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
-.chat-input { flex: 1; min-width: 0; }
+/* Même apparence que les autres champs (`.big-input`), en pilule comme le bouton d'envoi à côté. */
+.chat-input {
+  flex: 1; min-width: 0; min-height: 36px; padding: 8px 14px; border-radius: 999px;
+  border: 1px solid var(--control); background: var(--bg-raised); color: var(--text);
+}
+.chat-input::placeholder { color: var(--muted); }
+.chat-input:focus { border-color: var(--text); outline: none; }
 @media (max-width: 600px) {
   .chat-panel {
     right: calc(env(safe-area-inset-right) + 8px); left: calc(env(safe-area-inset-left) + 8px);
