@@ -325,3 +325,12 @@ et des réactions par emoji comme dans les messageries, avec un double tap / dou
 4. [x] Documentation (`CONTRACT.md`, `ARCHITECTURE.md`, `ASSUMPTIONS.md`), vérifications, essai dans le navigateur.
 
 Aucune nouvelle dépendance.
+
+## Évolution en cours : effacement du chat et cartes de l'accueil (branche `daniel/issues-10-11-12`)
+
+1. [x] Effacer les messages du chat et leurs réactions après chaque partie (`Store::purge_chats`, mémoire et
+   PostgreSQL), au démarrage, à la création et à la jonction ; tests d'abord ; documentation et mentions légales.
+2. [x] Accueil : valeurs des cartes de l'éventail tirées au hasard à chaque visite (`game/homeCards.ts`).
+3. [x] Bilan des données enregistrées (RGPD), remis au propriétaire du dépôt.
+
+Aucune nouvelle dépendance.

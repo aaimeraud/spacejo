@@ -300,6 +300,11 @@ Choix et alternatives : [decisions/2026-11-04-parties-publiques.md](decisions/20
   réactions, détection du double tap).
 - **Hygiène** : le texte des messages n'est jamais journalisé ; le flux d'avis, sans jeton, ne transporte que des
   numéros. L'envoi est limité à 30 messages par minute et par adresse, les réactions à 60 (`src/rate_limit.rs`).
+- **Effacement** : pas d'historique des chats. Les messages et leurs réactions sont effacés 15 minutes après la fin de
+  la partie (`CHAT_KEPT_AFTER_GAME_OVER`, le temps de se dire « bien joué » sur l'écran de fin), ou après 24 heures
+  sans aucun coup pour une partie abandonnée en cours de route (`CHAT_KEPT_WHEN_IDLE`). Comme le serveur ne lance
+  aucune tâche de fond, ce ménage (`Store::purge_chats`, une seule requête `DELETE`) est fait au passage : au
+  démarrage du serveur, à chaque création et à chaque jonction de partie. Les parties elles-mêmes restent.
 
 Choix et alternatives : [decisions/2026-11-04-chat.md](decisions/2026-11-04-chat.md).
 
@@ -398,8 +403,8 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
   avec jeton ne sont pas limitées.
 - **Modération** : les noms des hôtes de parties publiques et les messages du chat sont visibles sans filtre ; on
   ne peut ni signaler ni rendre muet un joueur.
-- **Historique du chat** : les messages restent en base tant que leur partie existe (les anciennes parties ne sont
-  pas encore effacées).
+- **Effacement du chat** : fait au passage (démarrage, création, jonction) ; si personne ne crée ni ne rejoint de
+  partie, un chat expiré reste en base jusqu'à la prochaine création ou jonction.
 - **Version sur l'accueil** : le navigateur du visiteur interroge `api.github.com` (60 requêtes par heure et par
   adresse sans jeton ; résultat gardé 10 minutes). GitHub voit donc l'adresse du visiteur. Si l'API refuse ou ne
   répond pas, la version et le commit ne s'affichent pas.

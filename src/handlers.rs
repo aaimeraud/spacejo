@@ -16,6 +16,7 @@ use spacejo_core::{
 use crate::auth;
 use crate::error::ApiError;
 use std::collections::HashMap;
+use std::time::Duration;
 
 use crate::store::{ChatMessage, Record, Store, StoreError};
 use crate::stored::StoredGame;
@@ -39,6 +40,11 @@ pub const MAX_CHAT_HISTORY: usize = 50;
 /// Réactions possibles aux messages du chat, par leur nom (l'interface affiche l'emoji correspondant) : cœur,
 /// pouce levé, rire, surprise, tristesse, merci. Toute autre valeur est refusée (ASSUMPTIONS.md, n° 37).
 pub const CHAT_REACTIONS: [&str; 6] = ["heart", "thumbs_up", "laugh", "wow", "sad", "pray"];
+/// Le chat d'une partie finie est effacé (messages et réactions) après ce délai : le temps de se dire « bien joué »
+/// sur l'écran de fin. Il n'y a pas d'historique des chats (ASSUMPTIONS.md, n° 40).
+pub const CHAT_KEPT_AFTER_GAME_OVER: Duration = Duration::from_secs(15 * 60);
+/// Le chat d'une partie sans aucun coup depuis ce délai (partie abandonnée en cours de route) est effacé aussi.
+pub const CHAT_KEPT_WHEN_IDLE: Duration = Duration::from_secs(24 * 60 * 60);
 /// Nombre maximal de parties données par `GET /api/public-games` (les plus récentes).
 pub const PUBLIC_GAMES_LIMIT: usize = 20;
 
@@ -250,6 +256,7 @@ async fn create(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiE
     // Sans précision, la partie est privée : on ne la rend visible de tous que si l'hôte le demande.
     let public = body.public.unwrap_or(false);
     let game = Game::new(&body.name, rules, auth::generate_seed()?)?;
+    purge_old_chats(store).await;
     let token = auth::generate_token()?;
     let stored = StoredGame::new(game, vec![auth::hash_token(&token)]);
     let state = encode(&stored)?;
@@ -279,6 +286,7 @@ async fn create(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiE
 async fn join(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
     let body: JoinRequest = parse_body(&request.body)?;
     let code = auth::normalize_code(&body.code)?;
+    purge_old_chats(store).await;
     let token = auth::generate_token()?;
     // Le joueur qui rejoint ne connaît pas encore la version : en cas d'écriture concurrente
     // (deux joueurs rejoignent en même temps), on relit et on réessaie.
@@ -597,6 +605,17 @@ async fn messages(store: &Store, request: &ApiRequest) -> Result<ApiResponse, Ap
         .map_err(storage_error)?;
     let messages: Vec<Value> = messages.iter().map(message_json).collect();
     Ok(ApiResponse::ok(json!({ "messages": messages })))
+}
+
+/// Efface les chats des parties finies ou abandonnées (`Store::purge_chats`). Le serveur ne lance aucune tâche de
+/// fond : ce ménage se fait au passage, à chaque création et jonction de partie (et au démarrage du serveur). Un
+/// échec ne bloque pas la création ni la jonction : le ménage sera refait la fois suivante. Le contenu des messages
+/// n'est jamais journalisé.
+pub async fn purge_old_chats(store: &Store) {
+    if let Err(error) = store.purge_chats().await {
+        let _ = storage_error(error);
+        eprintln!("effacement des anciens chats impossible : il sera retenté");
+    }
 }
 
 /// Texte d'un message, sans les espaces autour : de 1 à `MAX_CHAT_CHARS` caractères, sur une seule ligne et sans

@@ -17,6 +17,8 @@ use std::time::{Duration, Instant};
 
 use serde_json::Value;
 use spacejo_core::HOST;
+
+use crate::handlers::{CHAT_KEPT_AFTER_GAME_OVER, CHAT_KEPT_WHEN_IDLE};
 use sqlx::PgPool;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 
@@ -27,6 +29,8 @@ pub const MAX_DB_CONNECTIONS: u32 = 5;
 pub const DB_ACQUIRE_TIMEOUT: Duration = Duration::from_secs(5);
 /// Phase « salon » telle qu'elle est écrite dans l'état JSON (`Phase::Lobby` sérialisée par serde).
 const LOBBY_PHASE: &str = "Lobby";
+/// Phase « partie finie » telle qu'elle est écrite dans l'état JSON (`Phase::GameOver`).
+const GAME_OVER_PHASE: &str = "GameOver";
 
 /// Une partie lue en base.
 #[derive(Clone, Debug, PartialEq)]
@@ -204,6 +208,16 @@ impl Store {
         }
     }
 
+    /// Efface les messages du chat (et leurs réactions) des parties finies depuis `CHAT_KEPT_AFTER_GAME_OVER`, ou
+    /// sans aucune écriture depuis `CHAT_KEPT_WHEN_IDLE`. Les parties elles-mêmes restent. Renvoie le nombre de
+    /// messages effacés.
+    pub async fn purge_chats(&self) -> Result<u64, StoreError> {
+        match self {
+            Store::Memory(store) => store.purge_chats(),
+            Store::Postgres(store) => store.purge_chats().await,
+        }
+    }
+
     /// Note qu'un joueur vient de faire une requête. Ne touche ni l'état ni la version de la partie.
     pub async fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {
         match self {
@@ -264,8 +278,10 @@ struct MemoryRow {
 struct MemoryTables {
     games: HashMap<String, MemoryRow>,
     presence: HashMap<(i64, usize), Instant>,
-    /// Messages du chat, toutes parties confondues, dans l'ordre d'envoi (numéro = position + 1).
+    /// Messages du chat, toutes parties confondues, dans l'ordre d'envoi.
     chat: Vec<(i64, ChatMessage)>,
+    /// Dernier numéro de message donné : un numéro n'est jamais redonné, même après un effacement.
+    last_chat_id: i64,
     /// Réactions : (numéro du message, joueur) → nom de la réaction. `BTreeMap` : parcourue dans l'ordre des clés,
     /// donc par message puis par joueur.
     reactions: BTreeMap<(i64, usize), String>,
@@ -424,8 +440,9 @@ impl MemoryStore {
         text: &str,
     ) -> Result<ChatMessage, StoreError> {
         let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        tables.last_chat_id += 1;
         let message = ChatMessage {
-            id: tables.chat.len() as i64 + 1,
+            id: tables.last_chat_id,
             player,
             name: name.to_string(),
             text: text.to_string(),
@@ -455,6 +472,34 @@ impl MemoryStore {
             .skip(skip)
             .map(|message| tables.with_reactions(message))
             .collect())
+    }
+
+    fn purge_chats(&self) -> Result<u64, StoreError> {
+        let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let now = tables.now();
+        // Parties dont le chat doit disparaître : finies depuis assez longtemps, ou sans écriture depuis longtemps.
+        let expired: Vec<i64> = tables
+            .games
+            .values()
+            .filter(|row| {
+                let idle = now.saturating_duration_since(row.updated_at);
+                let over = row.state["game"]["phase"] == GAME_OVER_PHASE;
+                (over && idle >= CHAT_KEPT_AFTER_GAME_OVER) || idle >= CHAT_KEPT_WHEN_IDLE
+            })
+            .map(|row| row.id)
+            .collect();
+        let before = tables.chat.len();
+        let removed: Vec<i64> = tables
+            .chat
+            .iter()
+            .filter(|(game, _)| expired.contains(game))
+            .map(|(_, message)| message.id)
+            .collect();
+        tables.chat.retain(|(game, _)| !expired.contains(game));
+        tables
+            .reactions
+            .retain(|(message, _), _| !removed.contains(message));
+        Ok((before - tables.chat.len()) as u64)
     }
 
     fn set_reaction(
@@ -802,6 +847,27 @@ impl PgStore {
                     .map(|player| (id, ChatReaction { player, reaction }))
             })
             .collect())
+    }
+
+    async fn purge_chats(&self) -> Result<u64, StoreError> {
+        // Une seule requête : `DELETE … USING games` relie chaque message à sa partie ; les réactions partent avec
+        // leur message (`ON DELETE CASCADE`). `->>` lit la phase en texte : « GameOver » pour une partie finie.
+        let (deleted,) = sqlx::query_as::<_, (i64,)>(
+            "WITH deleted AS ( \
+                 DELETE FROM chat_messages m USING games g \
+                 WHERE m.game_id = g.id AND ( \
+                     (g.state -> 'game' ->> 'phase' = $1 AND g.updated_at < now() - make_interval(secs => $2)) \
+                     OR g.updated_at < now() - make_interval(secs => $3)) \
+                 RETURNING 1) \
+             SELECT count(*) FROM deleted",
+        )
+        .bind(GAME_OVER_PHASE)
+        .bind(CHAT_KEPT_AFTER_GAME_OVER.as_secs_f64())
+        .bind(CHAT_KEPT_WHEN_IDLE.as_secs_f64())
+        .fetch_one(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        Ok(u64::try_from(deleted).unwrap_or(0))
     }
 
     async fn set_reaction(

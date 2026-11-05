@@ -64,7 +64,9 @@ export function LegalNotice({ onClose }: { onClose: () => void }) {
             L'hébergeur peut la conserver dans ses propres journaux techniques.
           </p>
           <p>
-            Les parties ne sont pas encore supprimées automatiquement. Vous pouvez demander l'accès à vos données,
+            Les messages du chat et leurs réactions ne sont pas conservés : ils sont effacés 15 minutes après la fin
+            de la partie, ou après 24 heures sans aucun coup si la partie a été abandonnée. Les parties elles-mêmes ne
+            sont pas encore supprimées automatiquement. Vous pouvez demander l'accès à vos données,
             leur rectification ou leur suppression en écrivant à{" "}
             <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> (indiquez le code de la partie et le nom utilisé).
             Vous pouvez aussi saisir la CNIL (cnil.fr).
