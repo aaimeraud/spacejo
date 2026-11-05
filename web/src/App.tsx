@@ -4,7 +4,16 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, SpaceJoApi } from "./api/client";
 import { listenGameEvents } from "./api/events";
 import { pollInterval } from "./polling";
-import type { Action, ChatMessage, GameView, PresenceEntry, PresenceInfo, Rules, Waiting } from "./api/types";
+import type {
+  Action,
+  ChatMessage,
+  GameView,
+  PresenceEntry,
+  PresenceInfo,
+  ReactionName,
+  Rules,
+  Waiting,
+} from "./api/types";
 import { MAX_REVEAL_RETRIES, NOTICE_DURATION_MS } from "./config";
 import { lastMessageId, mergeMessages } from "./game/chat";
 import { departureNotices, leftBehind } from "./game/departures";
@@ -130,11 +139,13 @@ export function App() {
     setChat(chatRef.current);
   }, []);
 
-  /** Relit les messages du chat plus récents que le dernier connu. Un échec est sans gravité (on réessaiera). */
+  /** Relit les messages du chat plus récents que le dernier connu, ou les 50 derniers avec `all` (pour voir les
+   * réactions des messages déjà connus). Un échec est sans gravité (on réessaiera). */
   const readChat = useCallback(
-    async (current: Session) => {
+    async (current: Session, all = false) => {
       try {
-        const response = await api.messages(current.code, current.token, lastMessageId(chatRef.current));
+        const after = all ? 0 : lastMessageId(chatRef.current);
+        const response = await api.messages(current.code, current.token, after);
         addMessages(response.messages);
       } catch {
         // Réseau ou partie disparue : le polling de l'état s'en occupe.
@@ -180,8 +191,8 @@ export function App() {
       reading = true;
       try {
         await refresh(session);
-        // Sans flux d'avis, les messages du chat arrivent au rythme du polling.
-        if (!live) await readChat(session);
+        // Sans flux d'avis, les messages du chat (et leurs réactions) arrivent au rythme du polling.
+        if (!live) await readChat(session, true);
         if (!stopped) setError((previous) => (previous?.startsWith("Connexion") ? null : previous));
       } catch (caught) {
         if (stopped) return;
@@ -217,6 +228,7 @@ export function App() {
       onChat: (id) => {
         if (id > lastMessageId(chatRef.current)) void readChat(session);
       },
+      onReaction: () => void readChat(session, true),
       onLive: (open) => {
         live = open;
         // Flux rouvert après une coupure : on rattrape ce qui a pu se passer entre-temps.
@@ -254,6 +266,17 @@ export function App() {
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Message non envoyé.");
       return false;
+    }
+  };
+
+  /** Pose, change ou retire (`null`) ma réaction à un message. Le message à jour remplace l'ancien aussitôt. */
+  const onReact = async (message: number, reaction: ReactionName | null) => {
+    if (session === null) return;
+    try {
+      const response = await api.react(session.code, session.token, message, reaction);
+      addMessages([response.message]);
+    } catch (caught) {
+      setError(caught instanceof ApiError ? caught.message : "Réaction non envoyée.");
     }
   };
 
@@ -437,6 +460,7 @@ export function App() {
             onLeave={onQuit}
             chat={chat}
             onSend={onSend}
+            onReact={(message, reaction) => void onReact(message, reaction)}
           />
         )}
       </main>

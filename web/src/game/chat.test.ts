@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { ChatMessage } from "../api/types";
+import type { ChatMessage, ChatReaction } from "../api/types";
 import { MAX_CHAT_KEPT } from "../config";
-import { lastMessageId, mergeMessages, unreadCount } from "./chat";
+import { initial, isDoubleTap, lastMessageId, mergeMessages, nextReaction, reactionGroups, unreadCount } from "./chat";
 
-const message = (id: number, player = 0, text = `m${id}`): ChatMessage => ({ id, player, name: `P${player}`, text });
+const message = (id: number, player = 0, text = `m${id}`, reactions: ChatReaction[] = []): ChatMessage => ({
+  id,
+  player,
+  name: `P${player}`,
+  text,
+  reactions,
+});
 
 describe("chat", () => {
   it("fusionne sans doublon, dans l'ordre des numéros", () => {
@@ -30,5 +36,41 @@ describe("chat", () => {
     expect(unreadCount(messages, 4, 0)).toBe(0);
     // Ses propres messages ne sont jamais « non lus ».
     expect(unreadCount([message(5, 0)], 0, 0)).toBe(0);
+  });
+});
+
+describe("avatars et réactions", () => {
+  it("l'avatar est l'initiale du nom, en majuscule", () => {
+    expect(initial("alice")).toBe("A");
+    expect(initial("  élodie")).toBe("É");
+    expect(initial("🚀Rocket")).toBe("🚀");
+    expect(initial("")).toBe("?");
+  });
+
+  it("regroupe les réactions dans l'ordre du sélecteur, avec les miennes repérées", () => {
+    const m = message(1, 0, "salut", [
+      { player: 0, reaction: "laugh" },
+      { player: 1, reaction: "heart" },
+      { player: 2, reaction: "laugh" },
+    ]);
+    const groups = reactionGroups(m, 2);
+    expect(groups.map((g) => [g.name, g.players, g.mine])).toEqual([
+      ["heart", [1], false],
+      ["laugh", [0, 2], true],
+    ]);
+    expect(groups[0]?.emoji).toBe("❤️");
+  });
+
+  it("rechoisir sa réaction la retire, en choisir une autre la remplace", () => {
+    const m = message(1, 0, "salut", [{ player: 1, reaction: "heart" }]);
+    expect(nextReaction(m, 1, "heart")).toBeNull();
+    expect(nextReaction(m, 1, "wow")).toBe("wow");
+    expect(nextReaction(m, 2, "heart")).toBe("heart");
+  });
+
+  it("deux appuis rapprochés forment un double tap", () => {
+    expect(isDoubleTap(null, 1000)).toBe(false);
+    expect(isDoubleTap(1000, 1200)).toBe(true);
+    expect(isDoubleTap(1000, 1400)).toBe(false);
   });
 });
