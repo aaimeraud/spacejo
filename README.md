@@ -199,11 +199,14 @@ release GitHub avec les notes de cette version.
 
 Voir aussi « Limites connues » dans [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-- Pas encore déployé sur Render : l'image Docker a été construite et testée en local (partie jouée, base
-  PostgreSQL), mais pas sur la plateforme.
-- Pendant la mise en place, les retournements simultanés provoquent souvent un conflit de version (409) :
-  le joueur doit refaire son geste.
-- Pas d'expiration des anciennes parties, ni de limitation de débit sur la création et la jonction.
+- Hébergement gratuit : sur Render, le serveur s'endort après 15 minutes sans requête et met environ une minute
+  à se réveiller (l'accueil le réveille dès son ouverture).
+- Pendant la mise en place, deux retournements simultanés peuvent encore entrer en conflit de version (409) :
+  l'interface rejoue le geste jusqu'à 3 fois ; au-delà, le joueur doit le refaire.
+- Pas d'expiration des anciennes parties. La limitation de débit (création, jonction, parties publiques, chat)
+  compte en mémoire : elle repart de zéro à chaque redémarrage du serveur.
+- En fin de manche, seul l'hôte lance la manche suivante : un hôte déconnecté (mais pas éliminé) bloque la partie
+  jusqu'à son retour ou son départ.
 
 ## Licence
 
