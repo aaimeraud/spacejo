@@ -26,6 +26,8 @@ pub const JOIN_PER_MINUTE: u32 = 30;
 pub const PUBLIC_GAMES_PER_MINUTE: u32 = 60;
 /// Messages du chat par adresse et par minute : assez pour discuter, pas pour inonder les autres joueurs.
 pub const CHAT_PER_MINUTE: u32 = 30;
+/// Réactions aux messages du chat, par adresse et par minute (un double tap est vite fait : un peu plus large).
+pub const REACT_PER_MINUTE: u32 = 60;
 /// Au-delà de ce nombre de compteurs, les compteurs des fenêtres terminées sont effacés (mémoire bornée).
 const MAX_TRACKED: usize = 10_000;
 
@@ -36,6 +38,7 @@ pub fn limit_for(endpoint: Endpoint) -> Option<u32> {
         Endpoint::Join => Some(JOIN_PER_MINUTE),
         Endpoint::PublicGames => Some(PUBLIC_GAMES_PER_MINUTE),
         Endpoint::Chat => Some(CHAT_PER_MINUTE),
+        Endpoint::React => Some(REACT_PER_MINUTE),
         _ => None,
     }
 }
@@ -137,6 +140,7 @@ mod tests {
             Some(PUBLIC_GAMES_PER_MINUTE)
         );
         assert_eq!(limit_for(Endpoint::Chat), Some(CHAT_PER_MINUTE));
+        assert_eq!(limit_for(Endpoint::React), Some(REACT_PER_MINUTE));
         assert_eq!(limit_for(Endpoint::Action), None);
         assert_eq!(limit_for(Endpoint::State), None);
     }

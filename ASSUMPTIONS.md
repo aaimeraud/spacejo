@@ -129,3 +129,19 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
 35. **Animation du remélange** : l'interface la déduit de deux vues successives (la pioche grossit pendant une même
     manche), sans information de plus du serveur. Un remélange survenu pendant qu'un navigateur était fermé n'est
     pas rejoué.
+
+## Avatars et réactions du chat (demandés par le propriétaire du dépôt)
+
+36. **Avatar** : pas de photo, l'initiale du nom (premier caractère, en majuscule) dans un rond, comme sur les badges
+    des joueurs. Il n'est affiché qu'à côté des messages des autres (mes messages sont à droite, sans avatar). Pas de
+    couleur propre à chaque joueur : l'initiale et le nom suffisent (l'information n'est jamais portée par la couleur).
+37. **Réactions** : comme dans les messageries, une seule réaction par joueur et par message ; en choisir une autre la
+    remplace, rechoisir la même la retire. Liste fermée de 6 réactions (`CHAT_REACTIONS` : cœur, pouce levé, rire,
+    surprise, tristesse, merci), envoyées par leur nom (`heart`…) et non par l'emoji, pour qu'une variante d'écriture
+    Unicode ne crée pas de doublon. Tout joueur qui a son jeton peut réagir, à toute phase, y compris à ses propres
+    messages. Une réaction ne compte pas comme un message non lu.
+38. **Double tap / double clic** : sur une bulle, il pose le cœur, ou le retire s'il est déjà mis (même logique que le
+    bouton). Deux appuis à moins de 350 ms (`DOUBLE_TAP_MS`) comptent comme un double tap.
+39. **Mise à jour des réactions** : un avis `reaction` (avec le numéro du message) fait relire les 50 derniers messages ;
+    sans flux d'avis, le polling du chat relit lui aussi les 50 derniers messages (et non plus seulement les nouveaux),
+    pour voir les réactions. Limitation de débit : 60 réactions par minute et par adresse.

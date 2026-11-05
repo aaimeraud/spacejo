@@ -326,3 +326,38 @@ async fn chat_messages_are_pushed_to_subscribers_without_their_text() {
     assert!(event.contains(&format!("data: {id}")), "{event}");
     assert!(!event.contains("secret"), "{event}");
 }
+
+#[tokio::test]
+async fn reactions_are_pushed_as_reaction_events_not_as_new_messages() {
+    let events = Events::default();
+    let router = app(store(), events.clone(), None);
+    let request = Request::post("/api/create")
+        .body(Body::from(json!({ "name": "Alice" }).to_string()))
+        .unwrap();
+    let created = body_json(send(router.clone(), request).await).await;
+    let code = created["code"].as_str().unwrap().to_string();
+    let token = created["token"].as_str().unwrap().to_string();
+    let request = Request::post("/api/chat")
+        .header("X-Player-Token", &token)
+        .body(Body::from(
+            json!({ "code": code, "text": "Salut" }).to_string(),
+        ))
+        .unwrap();
+    let sent = body_json(send(router.clone(), request).await).await;
+    let id = sent["message"]["id"].as_i64().unwrap();
+
+    // Abonné APRÈS l'envoi du message : le premier avis reçu est celui de la réaction.
+    let response = send(router.clone(), get(&format!("/api/events?code={code}"))).await;
+    let mut stream = response.into_body().into_data_stream();
+    let request = Request::post("/api/react")
+        .header("X-Player-Token", &token)
+        .body(Body::from(
+            json!({ "code": code, "message": id, "reaction": "heart" }).to_string(),
+        ))
+        .unwrap();
+    assert_eq!(send(router, request).await.status(), StatusCode::OK);
+
+    let event = next_event(&mut stream).await;
+    assert!(event.contains("event: reaction"), "{event}");
+    assert!(event.contains(&format!("data: {id}")), "{event}");
+}

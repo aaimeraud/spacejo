@@ -36,6 +36,9 @@ pub const ABSENT_TURN_WAIT_SECS: f64 = 45.0;
 pub const MAX_CHAT_CHARS: usize = 200;
 /// Nombre maximal de messages renvoyés par `GET /api/messages` (les plus récents).
 pub const MAX_CHAT_HISTORY: usize = 50;
+/// Réactions possibles aux messages du chat, par leur nom (l'interface affiche l'emoji correspondant) : cœur,
+/// pouce levé, rire, surprise, tristesse, merci. Toute autre valeur est refusée (ASSUMPTIONS.md, n° 37).
+pub const CHAT_REACTIONS: [&str; 6] = ["heart", "thumbs_up", "laugh", "wow", "sad", "pray"];
 /// Nombre maximal de parties données par `GET /api/public-games` (les plus récentes).
 pub const PUBLIC_GAMES_LIMIT: usize = 20;
 
@@ -55,6 +58,7 @@ pub enum Endpoint {
     Kick,
     Chat,
     Messages,
+    React,
 }
 
 impl Endpoint {
@@ -74,6 +78,7 @@ impl Endpoint {
             "/api/kick" => Some(Endpoint::Kick),
             "/api/chat" => Some(Endpoint::Chat),
             "/api/messages" => Some(Endpoint::Messages),
+            "/api/react" => Some(Endpoint::React),
             _ => None,
         }
     }
@@ -192,6 +197,17 @@ struct KickRequest {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct ReactRequest {
+    code: String,
+    /// Numéro du message.
+    message: i64,
+    /// Nom de la réaction, ou `null` pour la retirer. `Value` plutôt qu'`Option` : le champ est obligatoire (une
+    /// `Option` absente vaudrait `None` et retirerait la réaction sans que le client l'ait demandé).
+    reaction: Value,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct ChatRequest {
     code: String,
     text: String,
@@ -216,6 +232,7 @@ pub async fn handle(store: &Store, endpoint: Endpoint, request: ApiRequest) -> A
             Endpoint::Kick => kick(store, &request).await,
             Endpoint::Chat => chat(store, &request).await,
             Endpoint::Messages => messages(store, &request).await,
+            Endpoint::React => react(store, &request).await,
         }
     };
     match result {
@@ -526,6 +543,30 @@ async fn chat(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiErr
     ))
 }
 
+/// Un joueur pose, change ou retire (`reaction: null`) sa réaction à un message du chat de sa partie. Comme les
+/// messages, les réactions ne font pas partie de l'état du jeu : la version de la partie ne change pas.
+async fn react(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
+    let body: ReactRequest = parse_body(&request.body)?;
+    let code = auth::normalize_code(&body.code)?;
+    let token = require_token(request)?;
+    // `null` retire la réaction ; sinon, un nom de la liste fermée. Tout le reste est refusé.
+    let reaction = match &body.reaction {
+        Value::Null => None,
+        Value::String(name) if CHAT_REACTIONS.contains(&name.as_str()) => Some(name.as_str()),
+        _ => return Err(ApiError::invalid_reaction()),
+    };
+    let (record, stored) = load(store, &code).await?;
+    let player = identify(&stored, token)?;
+    let message = store
+        .set_reaction(record.id, body.message, player, reaction)
+        .await
+        .map_err(storage_error)?
+        .ok_or_else(ApiError::message_not_found)?;
+    Ok(ApiResponse::ok(
+        json!({ "message": message_json(&message) }),
+    ))
+}
+
 /// Messages du chat plus récents que `after` (paramètre facultatif, 0 par défaut) : au plus `MAX_CHAT_HISTORY`.
 async fn messages(store: &Store, request: &ApiRequest) -> Result<ApiResponse, ApiError> {
     let mut code = None;
@@ -576,6 +617,11 @@ fn message_json(message: &ChatMessage) -> Value {
         "player": message.player,
         "name": message.name,
         "text": message.text,
+        "reactions": message
+            .reactions
+            .iter()
+            .map(|r| json!({ "player": r.player, "reaction": r.reaction }))
+            .collect::<Vec<Value>>(),
     })
 }
 

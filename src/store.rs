@@ -11,7 +11,7 @@
 //! Présence : chaque requête d'un joueur note l'heure de son passage (`touch`). C'est le seul endroit
 //! de l'API qui dépend de l'horloge ; le core, lui, n'en sait rien.
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -49,6 +49,15 @@ pub struct ChatMessage {
     /// Nom du joueur au moment de l'envoi.
     pub name: String,
     pub text: String,
+    /// Réactions des joueurs (au plus une par joueur), triées par joueur.
+    pub reactions: Vec<ChatReaction>,
+}
+
+/// La réaction d'un joueur à un message (nom tiré de `handlers::CHAT_REACTIONS`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ChatReaction {
+    pub player: usize,
+    pub reaction: String,
 }
 
 /// Une partie publique au salon, telle que lue pour la liste de l'accueil.
@@ -176,6 +185,25 @@ impl Store {
         }
     }
 
+    /// Pose (`Some`), remplace ou retire (`None`) la réaction de `player` au message `message_id` de la partie
+    /// `game_id`. Renvoie le message avec ses réactions à jour, ou `None` si ce message n'est pas dans cette partie.
+    pub async fn set_reaction(
+        &self,
+        game_id: i64,
+        message_id: i64,
+        player: usize,
+        reaction: Option<&str>,
+    ) -> Result<Option<ChatMessage>, StoreError> {
+        match self {
+            Store::Memory(store) => store.set_reaction(game_id, message_id, player, reaction),
+            Store::Postgres(store) => {
+                store
+                    .set_reaction(game_id, message_id, player, reaction)
+                    .await
+            }
+        }
+    }
+
     /// Note qu'un joueur vient de faire une requête. Ne touche ni l'état ni la version de la partie.
     pub async fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {
         match self {
@@ -238,6 +266,9 @@ struct MemoryTables {
     presence: HashMap<(i64, usize), Instant>,
     /// Messages du chat, toutes parties confondues, dans l'ordre d'envoi (numéro = position + 1).
     chat: Vec<(i64, ChatMessage)>,
+    /// Réactions : (numéro du message, joueur) → nom de la réaction. `BTreeMap` : parcourue dans l'ordre des clés,
+    /// donc par message puis par joueur.
+    reactions: BTreeMap<(i64, usize), String>,
     /// Décalage d'horloge, pour simuler le temps qui passe dans les tests (`advance`).
     skew: Duration,
 }
@@ -250,6 +281,22 @@ pub struct MemoryStore {
 }
 
 impl MemoryTables {
+    /// Copie d'un message avec ses réactions (par joueur, grâce à l'ordre de la `BTreeMap`).
+    fn with_reactions(&self, message: &ChatMessage) -> ChatMessage {
+        let reactions = self
+            .reactions
+            .range((message.id, 0)..=(message.id, usize::MAX))
+            .map(|(&(_, player), reaction)| ChatReaction {
+                player,
+                reaction: reaction.clone(),
+            })
+            .collect();
+        ChatMessage {
+            reactions,
+            ..message.clone()
+        }
+    }
+
     fn now(&self) -> Instant {
         Instant::now() + self.skew
     }
@@ -382,6 +429,7 @@ impl MemoryStore {
             player,
             name: name.to_string(),
             text: text.to_string(),
+            reactions: Vec::new(),
         };
         tables.chat.push((game_id, message.clone()));
         Ok(message)
@@ -402,7 +450,44 @@ impl MemoryStore {
             .collect();
         // Les `limit` derniers, dans l'ordre d'envoi.
         let skip = matching.len().saturating_sub(limit);
-        Ok(matching.into_iter().skip(skip).cloned().collect())
+        Ok(matching
+            .into_iter()
+            .skip(skip)
+            .map(|message| tables.with_reactions(message))
+            .collect())
+    }
+
+    fn set_reaction(
+        &self,
+        game_id: i64,
+        message_id: i64,
+        player: usize,
+        reaction: Option<&str>,
+    ) -> Result<Option<ChatMessage>, StoreError> {
+        let mut tables = self.tables.lock().map_err(|_| StoreError::Poisoned)?;
+        let in_game = tables
+            .chat
+            .iter()
+            .any(|(game, message)| *game == game_id && message.id == message_id);
+        if !in_game {
+            return Ok(None);
+        }
+        match reaction {
+            Some(reaction) => {
+                tables
+                    .reactions
+                    .insert((message_id, player), reaction.to_string());
+            }
+            None => {
+                tables.reactions.remove(&(message_id, player));
+            }
+        }
+        let message = tables
+            .chat
+            .iter()
+            .find(|(_, message)| message.id == message_id)
+            .map(|(_, message)| tables.with_reactions(message));
+        Ok(message)
     }
 
     fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {
@@ -652,6 +737,7 @@ impl PgStore {
             player,
             name: name.to_string(),
             text: text.to_string(),
+            reactions: Vec::new(),
         })
     }
 
@@ -672,7 +758,7 @@ impl PgStore {
         .fetch_all(&self.pool)
         .await
         .map_err(StoreError::Database)?;
-        Ok(rows
+        let mut messages: Vec<ChatMessage> = rows
             .into_iter()
             .rev()
             .filter_map(|(id, player, name, text)| {
@@ -681,9 +767,91 @@ impl PgStore {
                     player,
                     name,
                     text,
+                    reactions: Vec::new(),
                 })
             })
+            .collect();
+        // Une seule requête pour les réactions de tous ces messages (`ANY` : le numéro est dans la liste).
+        let ids: Vec<i64> = messages.iter().map(|m| m.id).collect();
+        let reactions = self.reactions_of(&ids).await?;
+        for message in &mut messages {
+            message.reactions = reactions
+                .iter()
+                .filter(|(id, _)| *id == message.id)
+                .map(|(_, reaction)| reaction.clone())
+                .collect();
+        }
+        Ok(messages)
+    }
+
+    /// Réactions des messages `ids`, par message puis par joueur.
+    async fn reactions_of(&self, ids: &[i64]) -> Result<Vec<(i64, ChatReaction)>, StoreError> {
+        let rows = sqlx::query_as::<_, (i64, i32, String)>(
+            "SELECT message_id, player_id, reaction FROM chat_reactions \
+             WHERE message_id = ANY($1) ORDER BY message_id, player_id",
+        )
+        .bind(ids)
+        .fetch_all(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|(id, player, reaction)| {
+                usize::try_from(player)
+                    .ok()
+                    .map(|player| (id, ChatReaction { player, reaction }))
+            })
             .collect())
+    }
+
+    async fn set_reaction(
+        &self,
+        game_id: i64,
+        message_id: i64,
+        player: usize,
+        reaction: Option<&str>,
+    ) -> Result<Option<ChatMessage>, StoreError> {
+        // Le message doit appartenir à cette partie : un joueur ne réagit qu'aux messages de sa partie.
+        let row = sqlx::query_as::<_, (i32, String, String)>(
+            "SELECT player_id, name, body FROM chat_messages WHERE id = $1 AND game_id = $2",
+        )
+        .bind(message_id)
+        .bind(game_id)
+        .fetch_optional(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        let Some((author, name, text)) = row else {
+            return Ok(None);
+        };
+        match reaction {
+            // `ON CONFLICT` : une réaction existe déjà pour ce joueur, on la remplace.
+            Some(reaction) => sqlx::query(
+                "INSERT INTO chat_reactions (message_id, player_id, reaction) VALUES ($1, $2, $3) \
+                 ON CONFLICT (message_id, player_id) DO UPDATE SET reaction = EXCLUDED.reaction, created_at = now()",
+            )
+            .bind(message_id)
+            .bind(player as i32)
+            .bind(reaction),
+            None => sqlx::query("DELETE FROM chat_reactions WHERE message_id = $1 AND player_id = $2")
+                .bind(message_id)
+                .bind(player as i32),
+        }
+        .execute(&self.pool)
+        .await
+        .map_err(StoreError::Database)?;
+        let reactions = self
+            .reactions_of(&[message_id])
+            .await?
+            .into_iter()
+            .map(|(_, reaction)| reaction)
+            .collect();
+        Ok(usize::try_from(author).ok().map(|player| ChatMessage {
+            id: message_id,
+            player,
+            name,
+            text,
+            reactions,
+        }))
     }
 
     async fn touch(&self, id: i64, player: usize) -> Result<(), StoreError> {

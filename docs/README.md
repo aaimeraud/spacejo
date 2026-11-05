@@ -27,4 +27,5 @@ Sommaire de la documentation. Chaque page décrit l'état ACTUEL du code ; l'his
   - [chat](decisions/2026-11-04-chat.md) : table à part, sans changer la version de la partie, livré par le flux d'avis ;
   - [version sur l'accueil](decisions/2026-11-04-version-sur-accueil.md) : API publique de GitHub appelée par le navigateur, cache de 10 minutes.
   - [mentions légales](decisions/2026-11-04-mentions-legales.md) : éditeur non professionnel anonyme (LCEN, art. 1-1 II), hébergeurs et données traitées.
+  - [réactions du chat](decisions/2026-11-05-chat-reactions.md) : une réaction par joueur et par message, liste fermée envoyée par nom, avis `reaction`.
 - `CHANGELOG.md` : journal des versions, GÉNÉRÉ par git-cliff à chaque release (ne pas l'éditer).

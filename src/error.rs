@@ -103,6 +103,20 @@ impl ApiError {
         )
     }
 
+    /// Réaction absente de la liste `CHAT_REACTIONS`.
+    pub fn invalid_reaction() -> Self {
+        Self::new(400, "invalid_reaction", "Réaction inconnue.")
+    }
+
+    /// Message du chat introuvable dans cette partie (réaction).
+    pub fn message_not_found() -> Self {
+        Self::new(
+            404,
+            "message_not_found",
+            "Ce message n'existe pas dans cette partie.",
+        )
+    }
+
     /// Trop de requêtes depuis la même adresse (`src/rate_limit.rs`) ; `retry_after` : secondes avant de réessayer.
     pub fn rate_limited(retry_after: u64) -> Self {
         Self::new(

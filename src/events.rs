@@ -25,6 +25,8 @@ pub enum Notice {
     Version(i32),
     /// Nouveau message dans le chat (son numéro).
     Chat(i64),
+    /// Les réactions d'un message du chat ont changé (son numéro).
+    Reaction(i64),
 }
 
 /// Les canaux d'avis, un par partie (clé : code de partie).
@@ -84,6 +86,15 @@ impl Events {
         let _ = channel.sender.send(Notice::Chat(id));
     }
 
+    /// Annonce que les réactions du message `id` de la partie `code` ont changé. Toujours publié.
+    pub fn publish_reaction(&self, code: &str, id: i64) {
+        let mut channels = self.lock();
+        let channel = channels
+            .entry(code.to_string())
+            .or_insert_with(Channel::new);
+        let _ = channel.sender.send(Notice::Reaction(id));
+    }
+
     /// S'abonne aux avis de la partie `code`. Au passage, oublie les parties que plus personne n'écoute.
     pub fn subscribe(&self, code: &str) -> broadcast::Receiver<Notice> {
         let mut channels = self.lock();
@@ -128,9 +139,11 @@ mod tests {
         events.publish("K7MPQX", 4);
         events.publish_chat("K7MPQX", 13);
         events.publish_chat("ABCDEF", 99); // autre partie
+        events.publish_reaction("K7MPQX", 12);
         assert_eq!(receiver.recv().await.ok(), Some(Notice::Chat(12)));
         assert_eq!(receiver.recv().await.ok(), Some(Notice::Version(4)));
         assert_eq!(receiver.recv().await.ok(), Some(Notice::Chat(13)));
+        assert_eq!(receiver.recv().await.ok(), Some(Notice::Reaction(12)));
         assert!(receiver.try_recv().is_err());
     }
 

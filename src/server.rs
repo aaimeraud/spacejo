@@ -126,7 +126,7 @@ async fn api(State(state): State<AppState>, request: Request) -> Response {
         Some(endpoint) => match read_request(request).await {
             Ok(api_request) => {
                 let response = handlers::handle(&state.store, endpoint, api_request.clone()).await;
-                announce(&state.events, &api_request, &response);
+                announce(&state.events, endpoint, &api_request, &response);
                 response
             }
             Err(error) => error.into(),
@@ -155,10 +155,10 @@ fn client_ip(request: &Request) -> IpAddr {
         .unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED))
 }
 
-/// Publie ce qu'annonce une réponse réussie : la version de la partie (`version`), ou le numéro d'un nouveau
-/// message du chat (`message.id`). Le code de la partie est dans la réponse (création, jonction), dans le corps
+/// Publie ce qu'annonce une réponse réussie : la version de la partie (`version`), le numéro d'un nouveau
+/// message du chat (`message.id`), ou celui du message dont les réactions ont changé (route `react`). Le code de la partie est dans la réponse (création, jonction), dans le corps
 /// JSON de la requête, ou dans ses paramètres d'URL (`state`).
-fn announce(events: &Events, request: &ApiRequest, response: &ApiResponse) {
+fn announce(events: &Events, endpoint: Endpoint, request: &ApiRequest, response: &ApiResponse) {
     if !(200..300).contains(&response.status) {
         return;
     }
@@ -188,7 +188,12 @@ fn announce(events: &Events, request: &ApiRequest, response: &ApiResponse) {
         events.publish(&code, version);
     }
     if let Some(id) = chat_message {
-        events.publish_chat(&code, id);
+        // La réponse d'une réaction contient aussi le message : ce n'est pas un nouveau message.
+        if endpoint == Endpoint::React {
+            events.publish_reaction(&code, id);
+        } else {
+            events.publish_chat(&code, id);
+        }
     }
 }
 
@@ -218,6 +223,9 @@ async fn game_events(
                             Event::default().event("version").data(version.to_string())
                         }
                         Notice::Chat(id) => Event::default().event("chat").data(id.to_string()),
+                        Notice::Reaction(id) => {
+                            Event::default().event("reaction").data(id.to_string())
+                        }
                     };
                     return Some((Ok::<Event, Infallible>(event), receiver));
                 }
