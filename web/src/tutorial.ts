@@ -1,6 +1,7 @@
 // Contenu du tutoriel pour les nouveaux joueurs : une partie aux règles officielles (réglages par défaut), en
 // quelques étapes courtes. Le texte suit docs/RULES.md ; les variantes ne sont pas présentées ici (l'hôte les voit
 // en créant une partie). Les données sont séparées de l'affichage (components/Tutorial.tsx) pour être testées.
+import { CARD_MAX_VALUE, CARD_MIN_VALUE } from "./config";
 import { OFFICIAL_RULES } from "./rulesInfo";
 
 /** Valeur d'une carte d'exemple, ou `null` pour une carte face cachée. */
@@ -19,8 +20,8 @@ export interface TutorialStep {
 }
 
 /** Plus petite et plus grande valeur d'une carte (docs/RULES.md, « Cartes »). */
-export const TUTORIAL_MIN_CARD = -2;
-export const TUTORIAL_MAX_CARD = 12;
+export const TUTORIAL_MIN_CARD = CARD_MIN_VALUE;
+export const TUTORIAL_MAX_CARD = CARD_MAX_VALUE;
 
 const END_SCORE = OFFICIAL_RULES.end_score;
 
