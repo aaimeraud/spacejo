@@ -23,6 +23,8 @@ données personnelles.
 - **Données** : décrites telles que le code les traite (nom de joueur, état de partie, chat, empreinte du
   jeton ; adresse IP en mémoire pour la limitation de débit, jamais journalisée par le serveur ; stockage local
   du navigateur sans cookie ; Google Fonts et API GitHub appelés par le navigateur).
+  Depuis, ce détail a quitté les mentions légales pour la page « Confidentialité », qui y renvoie (voir
+  [la décision du 2026-11-05](2026-11-05-politique-de-confidentialite.md)).
 
 ## Alternatives écartées
 

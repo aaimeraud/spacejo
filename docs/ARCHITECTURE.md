@@ -167,7 +167,7 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/qr.ts` | matrice du code QR d'un texte (bibliothèque `qrcode-generator`), dessinée en SVG par `components/QrCode.tsx` |
 | `src/api/events.ts` | flux d'avis du serveur (`EventSource`) : nouvelle version → relecture immédiate |
 | `src/App.tsx` | session, polling, envoi des actions avec `expected_version`, choix de l'écran |
-| `src/components/` | `Home` (accueil et parcours pas à pas), `PublicGames` (liste des parties publiques de l'accueil), `Lobby` (salon, lien d'invitation, visibilité), `QrCode` (code QR en SVG), `GameBoard` (table de jeu et fin de partie), `ChatPanel` (bouton et panneau du chat), `RepoTrackers` (version et dernier commit en bas de l'accueil), `Tutorial` (tutoriel, ouvert par un lien discret de l'accueil), `LegalNotice` (mentions légales, lien en pied de l'accueil), `GridView`, `Card` (carte 3D à deux faces), `Scoreboard`, `Modal` (fenêtres), `FitStage` (écran figé mis à l'échelle), `ThemeToggle` (bascule clair / sombre), `icons.tsx` (icônes Lucide des réglages) |
+| `src/components/` | `Home` (accueil et parcours pas à pas), `PublicGames` (liste des parties publiques de l'accueil), `Lobby` (salon, lien d'invitation, visibilité), `QrCode` (code QR en SVG), `GameBoard` (table de jeu et fin de partie), `ChatPanel` (bouton et panneau du chat), `RepoTrackers` (version et dernier commit en bas de l'accueil), `Tutorial` (tutoriel, ouvert par un lien discret de l'accueil), `LegalNotice` (mentions légales, lien en pied de l'accueil), `PrivacyPolicy` (politique de confidentialité : données enregistrées, durées, prestataires, droits), `GridView`, `Card` (carte 3D à deux faces), `Scoreboard`, `Modal` (fenêtres), `FitStage` (écran figé mis à l'échelle), `ThemeToggle` (bascule clair / sombre), `icons.tsx` (icônes Lucide des réglages) |
 | `src/components/wizard/RuleSteps.tsx` | étapes du parcours de réglages (type de partie, un réglage par écran, score de fin, récapitulatif), partagées par l'accueil et le salon |
 | `src/game/seats.ts` | place de chaque joueur autour de la table (moi en bas, puis l'ordre du tour, dans le sens des aiguilles d'une montre) |
 | `src/rulesInfo.ts` | explications, exemples, étiquettes « officiel » / « variante », préréglages (raccourcis de l'interface) et résumé des réglages |
@@ -302,10 +302,22 @@ Choix et alternatives : [decisions/2026-11-04-parties-publiques.md](decisions/20
 - **Hygiène** : le texte des messages n'est jamais journalisé ; le flux d'avis, sans jeton, ne transporte que des
   numéros. L'envoi est limité à 30 messages par minute et par adresse, les réactions à 60 (`src/rate_limit.rs`).
 - **Effacement** : pas d'historique des chats. Les messages et leurs réactions sont effacés 15 minutes après la fin de
-  la partie (`CHAT_KEPT_AFTER_GAME_OVER`, le temps de se dire « bien joué » sur l'écran de fin), ou après 24 heures
-  sans aucun coup pour une partie abandonnée en cours de route (`CHAT_KEPT_WHEN_IDLE`). Comme le serveur ne lance
-  aucune tâche de fond, ce ménage (`Store::purge_chats`, une seule requête `DELETE`) est fait au passage : au
-  démarrage du serveur, à chaque création et à chaque jonction de partie. Les parties elles-mêmes restent.
+  la partie (`CHAT_KEPT_AFTER_GAME_OVER`, le temps de se dire « bien joué » sur l'écran de fin), et au plus tard avec
+  la partie (voir « Durées de conservation »).
+
+## Durées de conservation
+
+Sans compte ni historique, le serveur ne garde rien longtemps (`src/handlers.rs`, `purge_expired`) :
+- **Chat d'une partie finie** : effacé 15 minutes après la fin (`CHAT_KEPT_AFTER_GAME_OVER`, `Store::purge_chats`).
+- **Partie** : supprimée 24 heures après sa dernière écriture (`GAME_KEPT_WHEN_IDLE`, `Store::purge_games`), qu'elle
+  soit finie, abandonnée en cours de route ou restée au salon. Sa présence, ses messages et leurs réactions partent
+  avec elle (`ON DELETE CASCADE`). Un joueur qui revient sur une partie supprimée reçoit `404 game_not_found` et
+  retourne à l'accueil.
+
+Comme le serveur ne lance aucune tâche de fond, ce ménage (deux requêtes `DELETE`) est fait au passage : au démarrage
+du serveur, à chaque création et à chaque jonction de partie. Ces durées sont annoncées aux joueurs sur la page
+« Confidentialité » (`PrivacyPolicy.tsx`, constantes reprises dans `web/src/config.ts`) : les changer, c'est changer
+les deux endroits et la date de la page.
 
 Choix et alternatives : [decisions/2026-11-04-chat.md](decisions/2026-11-04-chat.md).
 
@@ -390,8 +402,6 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
 - **Polling** : l'interface interroge le serveur toutes les 2 secondes pendant une partie (moins souvent
   sinon) ; chaque requête est un appel de fonction facturé. Évolution prévue : SSE ou service temps réel
   (Supabase Realtime, par exemple).
-- **Expiration des parties** : les anciennes parties ne sont jamais supprimées (`updated_at` permettra un
-  nettoyage périodique).
 - **Connexions PostgreSQL** : le serveur garde au plus 5 connexions, par le pooler de Supabase en mode session
   (le cache de requêtes préparées de sqlx ne marche pas en mode transaction).
 - **Avis en mémoire** : avec plusieurs serveurs, les avis d'un serveur ne toucheraient que ses navigateurs (les
@@ -404,8 +414,9 @@ stockage. Jamais de jeton, de hachage, de valeur de carte, de graine ni d'état 
   avec jeton ne sont pas limitées.
 - **Modération** : les noms des hôtes de parties publiques et les messages du chat sont visibles sans filtre ; on
   ne peut ni signaler ni rendre muet un joueur.
-- **Effacement du chat** : fait au passage (démarrage, création, jonction) ; si personne ne crée ni ne rejoint de
-  partie, un chat expiré reste en base jusqu'à la prochaine création ou jonction.
+- **Ménage au passage** : la suppression des chats et des parties expirés se fait au démarrage, à la création et à la
+  jonction ; si personne ne crée ni ne rejoint de partie, une donnée expirée reste en base jusqu'à la prochaine
+  création ou jonction (ou le prochain démarrage du serveur, qui s'endort après 15 minutes sans requête).
 - **Version sur l'accueil** : le navigateur du visiteur interroge `api.github.com` (60 requêtes par heure et par
   adresse sans jeton ; résultat gardé 10 minutes). GitHub voit donc l'adresse du visiteur. Si l'API refuse ou ne
   répond pas, la version et le commit ne s'affichent pas.

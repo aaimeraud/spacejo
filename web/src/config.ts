@@ -65,6 +65,11 @@ export const DOUBLE_TAP_MS = 350;
 /** Nombre de messages du chat gardés à l'écran (les plus récents). */
 export const MAX_CHAT_KEPT = 100;
 
+/** Durées de conservation annoncées sur la page de confidentialité : mêmes valeurs que `CHAT_KEPT_AFTER_GAME_OVER` et
+ * `GAME_KEPT_WHEN_IDLE` de l'API (src/handlers.rs), qui seule les applique. */
+export const CHAT_KEPT_AFTER_GAME_OVER_MINUTES = 15;
+export const GAME_KEPT_WHEN_IDLE_HOURS = 24;
+
 /** Plus petite et plus grande valeur d'une carte (docs/RULES.md). */
 export const CARD_MIN_VALUE = -2;
 export const CARD_MAX_VALUE = 12;
@@ -95,6 +100,9 @@ export const THEME_KEY = "spacejo.theme";
 
 /** Dépôt public du jeu sur GitHub (version et dernier commit affichés en bas de l'accueil). */
 export const GITHUB_REPO = "aaimeraud/spacejo";
+
+/** Adresse de contact de l'éditeur (mentions légales, demandes sur les données personnelles). */
+export const CONTACT_EMAIL = "danielfortune.pro@proton.me";
 
 /** Branche dont on montre le dernier commit. */
 export const GITHUB_BRANCH = "main";

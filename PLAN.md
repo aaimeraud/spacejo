@@ -334,3 +334,13 @@ Aucune nouvelle dépendance.
 3. [x] Bilan des données enregistrées (RGPD), remis au propriétaire du dépôt.
 
 Aucune nouvelle dépendance.
+
+## Évolution en cours : suppression des parties et page « Confidentialité » (branche `daniel/issues-10-11-12`)
+
+1. [x] Supprimer les parties 24 h après leur dernière écriture, avec présence, chat et réactions (`Store::purge_games`,
+   mémoire et PostgreSQL) ; tests d'abord.
+2. [x] Page « Confidentialité » (RGPD) : données, finalités, bases légales, durées, stockage local, prestataires,
+   sécurité, droits ; liens depuis l'accueil et les mentions légales, qui renvoient vers elle.
+3. [x] Documentation (`ARCHITECTURE.md`, `CONTRACT.md`, README, décision), vérifications, essai dans le navigateur.
+
+Aucune nouvelle dépendance.
