@@ -762,5 +762,15 @@ button.link-button:hover:not(:disabled) { background: none; color: var(--text); 
 .legal-notice h3 { font-size: 1.05rem; }
 .legal-notice p { color: var(--muted); font-size: 0.92rem; }
 .legal-notice a { color: var(--text); }
+.legal-notice ul { margin: 0; padding-left: 20px; color: var(--muted); font-size: 0.92rem; display: flex; flex-direction: column; gap: 4px; }
+/* Fiches des données enregistrées (politique de confidentialité). */
+.legal-notice ul.legal-data { list-style: none; padding: 0; gap: 8px; }
+.legal-data li { padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg-nested); }
+.legal-data h4 { margin: 0 0 6px; font-size: 0.92rem; color: var(--text); }
+.legal-data dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; font-size: 0.85rem; }
+.legal-data dt { color: var(--text); font-weight: 500; }
+.legal-data dd { margin: 0; color: var(--muted); }
+.is-portrait .legal-data dl { grid-template-columns: 1fr; gap: 0; }
+.is-portrait .legal-data dd { margin-bottom: 4px; }
 .tuto-grid .card3d-md { --card-w: 56px; --card-h: 78px; --card-font: 1.5rem; }
 .is-portrait .tuto-grid .card3d-md { --card-w: 48px; --card-h: 66px; --card-font: 1.3rem; }

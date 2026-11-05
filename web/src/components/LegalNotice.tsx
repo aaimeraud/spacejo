@@ -2,15 +2,13 @@
 // professionnel : la loi (LCEN, art. 1-1 II) permet alors à l'éditeur de rester anonyme en ne publiant que
 // l'identité et l'adresse de l'hébergeur, à condition de lui avoir donné ses propres coordonnées.
 // Décision et sources : docs/decisions/2026-11-04-mentions-legales.md.
-import { GITHUB_REPO } from "../config";
+import { CONTACT_EMAIL, GITHUB_REPO } from "../config";
 import { WizardFrame } from "./wizard/RuleSteps";
 
 const REPO_URL = `https://github.com/${GITHUB_REPO}`;
 const ISSUES_URL = `${REPO_URL}/issues`;
-/** Adresse de contact choisie par l'éditeur pour être joint (ce n'est pas une coordonnée personnelle imposée). */
-const CONTACT_EMAIL = "danielfortune.pro@proton.me";
 
-export function LegalNotice({ onClose }: { onClose: () => void }) {
+export function LegalNotice({ onClose, onPrivacy }: { onClose: () => void; onPrivacy: () => void }) {
   return (
     <WizardFrame index={0} total={1} title="Mentions légales" onBack={onClose}>
       <div className="legal-notice">
@@ -51,45 +49,15 @@ export function LegalNotice({ onClose }: { onClose: () => void }) {
         </section>
 
         <section>
-          <h3>Données traitées</h3>
+          <h3>Données personnelles</h3>
           <p>
-            Aucun compte n'est demandé. Pour faire fonctionner une partie, le serveur enregistre : le nom choisi
-            pour jouer (un pseudonyme suffit), l'état de la partie, les messages du chat et une empreinte du jeton
-            secret qui identifie chaque joueur. Ces données servent uniquement au jeu, ne sont ni vendues ni
-            partagées, et ne font l'objet d'aucune mesure d'audience.
-          </p>
-          <p>
-            Votre adresse IP sert, en mémoire seulement, à limiter le nombre de requêtes pour protéger le service
-            contre les abus : le serveur de SpaceJo ne l'enregistre ni dans la base ni dans ses journaux.
-            L'hébergeur peut la conserver dans ses propres journaux techniques.
-          </p>
-          <p>
-            Les messages du chat et leurs réactions ne sont pas conservés : ils sont effacés 15 minutes après la fin
-            de la partie, ou après 24 heures sans aucun coup si la partie a été abandonnée. Les parties elles-mêmes ne
-            sont pas encore supprimées automatiquement. Vous pouvez demander l'accès à vos données,
-            leur rectification ou leur suppression en écrivant à{" "}
-            <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> (indiquez le code de la partie et le nom utilisé).
-            Vous pouvez aussi saisir la CNIL (cnil.fr).
-          </p>
-        </section>
-
-        <section>
-          <h3>Stockage dans le navigateur</h3>
-          <p>
-            Aucun cookie. Le site garde seulement dans votre navigateur (stockage local) ce qu'il lui faut pour
-            fonctionner : votre jeton de joueur pour reprendre une partie, la liste des parties rejointes sur cet
-            appareil, le thème choisi et, pendant 10 minutes, la dernière version publiée sur GitHub. Ces données
-            restent sur votre appareil ; les effacer depuis votre navigateur vous fait seulement perdre l'accès à vos
-            parties en cours.
-          </p>
-        </section>
-
-        <section>
-          <h3>Services tiers</h3>
-          <p>
-            Votre navigateur contacte directement Google Fonts (police Inter) et l'API publique de GitHub (dernière
-            version et dernier commit affichés sur l'accueil). Ces services reçoivent donc votre adresse IP, selon
-            leurs propres règles de confidentialité.
+            Aucun compte n'est demandé, aucun cookie n'est utilisé, et le serveur supprime de lui-même les parties et
+            leurs messages après un court délai. Le détail (données enregistrées, durées, prestataires, vos droits) est
+            dans la{" "}
+            <button type="button" className="link-button" onClick={onPrivacy}>
+              politique de confidentialité
+            </button>
+            .
           </p>
         </section>
 

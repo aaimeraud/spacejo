@@ -12,6 +12,7 @@ import { randomHomeCards } from "../game/homeCards";
 import { ValueCard } from "./Card";
 import { FitStage } from "./FitStage";
 import { LegalNotice } from "./LegalNotice";
+import { PrivacyPolicy } from "./PrivacyPolicy";
 import { PublicGames } from "./PublicGames";
 import { RepoTrackers } from "./RepoTrackers";
 import { ThemeToggle } from "./ThemeToggle";
@@ -30,7 +31,7 @@ interface Props {
   onResume: (session: KnownSession) => void;
 }
 
-type Mode = "menu" | "create" | "join" | "public" | "tutorial" | "legal";
+type Mode = "menu" | "create" | "join" | "public" | "tutorial" | "legal" | "privacy";
 /** Étapes de la création avant les réglages : le nom, puis la visibilité. */
 type CreateStep = "name" | "visibility" | "rules";
 
@@ -134,6 +135,10 @@ export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, 
                 SpaceJo reprend les règles du jeu de cartes Skyjo. Projet indépendant, non affilié à Magilano.{" "}
                 <button type="button" className="link-button" onClick={() => reset("legal")}>
                   Mentions légales
+                </button>{" "}
+                ·{" "}
+                <button type="button" className="link-button" onClick={() => reset("privacy")}>
+                  Confidentialité
                 </button>
               </p>
               <RepoTrackers />
@@ -149,7 +154,11 @@ export function Home({ busy, resumable, initialCode, loadPublicGames, onCreate, 
     }
 
     if (mode === "legal") {
-      return <LegalNotice onClose={() => reset("menu")} />;
+      return <LegalNotice onClose={() => reset("menu")} onPrivacy={() => reset("privacy")} />;
+    }
+
+    if (mode === "privacy") {
+      return <PrivacyPolicy onClose={() => reset("menu")} />;
     }
 
     if (mode === "public") {

@@ -150,6 +150,14 @@ hypothèse est appliquée par le code indiqué et, quand c'est possible, vérifi
 
 40. **Pas d'historique des chats** : « après chaque partie » est compris comme 15 minutes après la fin de la partie
     (`CHAT_KEPT_AFTER_GAME_OVER`), pour laisser le chat de l'écran de fin utilisable un moment. Une partie abandonnée
-    en cours de route n'a pas de fin : son chat est effacé après 24 heures sans aucun coup (`CHAT_KEPT_WHEN_IDLE`).
-    Seuls les messages et leurs réactions sont effacés ; la demande ne portait pas sur les parties elles-mêmes. Le
-    ménage est fait au passage (démarrage du serveur, création, jonction), le serveur ne lançant aucune tâche de fond.
+    en cours de route n'a pas de fin : son chat part avec elle (n° 41). Le ménage est fait au passage (démarrage du
+    serveur, création, jonction), le serveur ne lançant aucune tâche de fond.
+41. **Suppression des parties** (demandée ensuite par le propriétaire du dépôt) : « après une journée » est compris
+    comme 24 heures après la dernière écriture de la partie (`GAME_KEPT_WHEN_IDLE`), qu'elle soit finie, abandonnée ou
+    restée au salon : une partie en cours n'est jamais coupée, puisque chaque coup la réécrit. La lecture seule (le
+    polling) ne compte pas comme une activité. Le jour où un classement ou des comptes existeront, il faudra garder
+    autre chose que la partie (et mettre à jour la page « Confidentialité »).
+42. **Page « Confidentialité »** : séparée des mentions légales, pour l'information due aux joueurs sur leurs données
+    (RGPD, art. 13). Base légale retenue : l'intérêt légitime (art. 6.1.f), faute de compte ou de conditions
+    d'utilisation qui fonderaient un contrat. Le stockage dans le navigateur est strictement nécessaire : pas de
+    bandeau de consentement (loi Informatique et Libertés, art. 82). À vérifier par le propriétaire du dépôt.
