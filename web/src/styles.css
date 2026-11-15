@@ -317,6 +317,34 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .stage-code strong { color: var(--text); font-family: ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.08em; }
 .stage-actions { flex: none; display: flex; gap: 8px; }
 .hint { flex: 1; text-align: center; font-size: 0.95rem; font-weight: 500; background: var(--bg-panel); padding: 10px 16px; border-radius: 999px; }
+/* À moi de jouer (issue #16) : bandeau à la couleur d'accent, pastille « À vous » et cadre autour de la scène,
+   pour que le changement se voie du coin de l'œil. Une seule pulsation à l'allumage, pas une animation continue. */
+/* La pastille ajoute de la largeur : la consigne peut passer sur deux lignes, d'où le padding vertical réduit
+   pour rester dans la hauteur du bandeau (56px). */
+.hint.is-my-turn {
+  display: flex; align-items: center; justify-content: center; gap: 10px; padding-block: 6px; line-height: 1.3;
+  background: var(--accent); color: var(--accent-ink); font-weight: 600; animation: your-move 0.6s ease-out;
+}
+.pill-your-move { flex: none; background: var(--accent-ink); color: var(--accent); font-size: 0.8rem; font-weight: 700; }
+.pill-your-move svg { width: 14px; height: 14px; }
+/* Le cadre est tracé AUTOUR de la scène (inset négatif), dans la marge de l'écran : il laisse de l'air autour des
+   éléments sans rien rétrécir. Écart en pixels de la scène, donc mis à l'échelle avec elle (≈ 11 px sur
+   téléphone, sous la marge de 12 px). */
+.game-stage { --turn-frame-gap: 24px; }
+.is-portrait .game-stage { --turn-frame-gap: 18px; }
+/* Écran de partie : marge d'écran plus large, toujours (pas seulement pendant mon tour, sinon la scène changerait
+   de taille à chaque tour), pour que le cadre ait la place d'être tracé loin des éléments sans toucher le bord. */
+.fit-host:has(.game-stage) { --screen-margin: 32px; }
+@media (max-width: 600px) { .fit-host:has(.game-stage) { --screen-margin: 18px; } }
+.game-stage.is-my-turn::after {
+  /* Au-dessus de ma grille (qui a son propre fond) mais sans capter les clics. */
+  content: ""; position: absolute; inset: calc(-1 * var(--turn-frame-gap)); z-index: 10; pointer-events: none;
+  border-radius: 24px; box-shadow: inset 0 0 0 3px var(--accent-line), inset 0 0 32px -8px var(--accent-line);
+}
+/* `.fit-host` coupe ce qui dépasse de la scène : on le laisse déborder pendant que le cadre est affiché, sinon le
+   cadre serait coupé. Pas de barre de défilement possible : html et body ont déjà `overflow: hidden`. */
+.fit-host:has(.game-stage.is-my-turn) { overflow: visible; }
+@keyframes your-move { 0% { transform: scale(1); } 40% { transform: scale(1.04); } 100% { transform: scale(1); } }
 .waiting-banner {
   position: absolute; z-index: 6; top: 62px; left: 50%; transform: translateX(-50%); width: 920px;
   display: flex; align-items: center; gap: 10px;
@@ -411,10 +439,17 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 
 /* Portrait : table à plat, adversaires en mosaïque, ma grille en bas. */
 .is-portrait .stage-bar { height: 96px; flex-wrap: wrap; align-content: center; gap: 8px; }
-.is-portrait .stage-info { order: 1; }
+/* Infos et boutons sur la même ligne : sinon les infos passent sur une ligne à part, le bandeau compte trois lignes
+   pour 96 px et les infos débordent en haut (coupées hors de mon tour). `min-width: 0` les laisse se replier sur
+   deux lignes plutôt que pousser les boutons. */
+.is-portrait .stage-info { order: 1; flex: 1 1 0; min-width: 0; flex-wrap: wrap; font-size: 0.8rem; line-height: 1.25; }
 .is-portrait .stage-actions { order: 2; margin-left: auto; }
 .is-portrait .stage-code, .is-portrait .stage-action-label { display: none; }
 .is-portrait .hint { order: 3; flex-basis: 100%; font-size: 0.85rem; padding: 6px 12px; border-radius: 14px; }
+/* Portrait : place comptée. Sans la pastille ni le gras, la consigne garde sa taille d'origine (une ligne) ; le
+   texte (« À vous de jouer… »), le cadre et la couleur du bandeau suffisent. */
+.is-portrait .hint.is-my-turn { display: block; padding-block: 6px; font-weight: 500; }
+.is-portrait .pill-your-move { display: none; }
 /* Portrait : le bandeau d'attente prend la place de l'indication (« C'est au tour de… », redondante), sur une
    seule ligne, pour ne pas réduire la table. */
 .is-portrait .waiting-banner { top: 50px; width: 464px; min-height: 42px; padding: 4px 6px 4px 10px; font-size: 0.85rem; }

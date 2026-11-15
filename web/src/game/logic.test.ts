@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ColumnView, GameView, PlayerView } from "../api/types";
 import { OFFICIAL_RULES } from "../rulesInfo";
-import { hint, nextRoundStatus, ranking, slotAction, slotLabel } from "./logic";
+import { awaitingMe, hint, nextRoundStatus, ranking, slotAction, slotLabel } from "./logic";
 
 const column = (...values: (number | null)[]): ColumnView => ({
   kind: "Present",
@@ -74,6 +74,29 @@ describe("slotAction", () => {
     const view = baseView({ held: { source: "Pile", value: 7 } });
     expect(slotAction(view, "swap", 2, 0)).toBeNull();
     expect(slotAction(view, "swap", 9, 0)).toBeNull();
+  });
+});
+
+describe("awaitingMe", () => {
+  it("vrai quand c'est mon tour de jouer", () => {
+    expect(awaitingMe(baseView())).toBe(true);
+    expect(awaitingMe(baseView({ held: { source: "Pile", value: 7 } }))).toBe(true);
+  });
+
+  it("faux quand c'est le tour d'un autre joueur", () => {
+    expect(awaitingMe(baseView({ current_player: 1 }))).toBe(false);
+  });
+
+  it("vrai pendant la mise en place tant qu'il me reste des cartes à retourner", () => {
+    const pending = baseView({ phase: "InitialReveal", current_player: null, players: [player(0, { initial_reveals: 1 }), player(1)] });
+    expect(awaitingMe(pending)).toBe(true);
+    expect(awaitingMe(baseView({ phase: "InitialReveal", current_player: null }))).toBe(false);
+  });
+
+  it("faux si je suis éliminé·e, et hors des phases de jeu", () => {
+    expect(awaitingMe(baseView({ players: [player(0, { eliminated: true }), player(1)] }))).toBe(false);
+    expect(awaitingMe(baseView({ phase: "RoundOver" }))).toBe(false);
+    expect(awaitingMe(baseView({ phase: "GameOver" }))).toBe(false);
   });
 });
 
