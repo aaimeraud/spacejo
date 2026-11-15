@@ -5,13 +5,13 @@
 //   celui qu'on a choisi), pioche et défausse, puis ma grille en bas.
 // La disposition vient de `game/seats.ts`, le relief du CSS (styles.css, « Table »). Le tableau des scores
 // s'ouvre dans une fenêtre (il s'ouvre tout seul en fin de manche).
-import { CircleCheck, Crown, Hourglass, ListOrdered, LogOut, Play, Repeat, RotateCcw, SkipForward, Trophy, UserX, Users, WifiOff } from "lucide-react";
+import { BellRing, CircleCheck, Crown, Hourglass, ListOrdered, LogOut, Play, Repeat, RotateCcw, SkipForward, Trophy, UserX, Users, WifiOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import type { Action, ChatMessage, GameView, PlayerView, PresenceEntry, ReactionName, Waiting } from "../api/types";
 import { lastMessageId, unreadCount } from "../game/chat";
 import { pileReshuffled } from "../game/reshuffle";
 import { RESHUFFLE_ANIMATION_MS } from "../config";
-import { hint, isMyTurn, nextRoundStatus, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
+import { awaitingMe, hint, isMyTurn, nextRoundStatus, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
 import { focusedOpponent } from "../game/focus";
 import { hiddenCount, seatPlayers } from "../game/seats";
 import { ValueCard } from "./Card";
@@ -47,6 +47,9 @@ function crowdClass(players: number): string {
   if (players <= 7) return "crowd-some";
   return "crowd-many";
 }
+
+/** Préfixe du titre de l'onglet quand la partie attend un geste de moi. */
+const YOUR_MOVE_TITLE = "À vous de jouer";
 
 /** Badge d'un joueur : nom, rôle, total, cartes cachées, tour. Tout est écrit (jamais la couleur seule). */
 function PlayerBadge({
@@ -197,6 +200,17 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
   const myTurn = isMyTurn(view);
   const canTake = myTurn && view.held === null && !busy;
   const heldFromPile = myTurn && view.held?.source === "Pile";
+  // Issue #16 : on voyait mal quand c'était à soi de jouer. Bandeau, cadre de la scène et titre de l'onglet
+  // changent ensemble ; le titre sert quand l'onglet est en arrière-plan.
+  const yourMove = awaitingMe(view);
+  useEffect(() => {
+    if (!yourMove) return;
+    const previous = document.title;
+    document.title = `${YOUR_MOVE_TITLE} · ${previous}`;
+    return () => {
+      document.title = previous;
+    };
+  }, [yourMove]);
   // Portrait : un seul adversaire en grand. `pinned` = choisi à la main (jusqu'au tour suivant),
   // `lastActive` = dernier adversaire qui a joué (voir game/focus.ts).
   const [pinned, setPinned] = useState<number | null>(null);
@@ -565,7 +579,9 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
     <>
       <FitStage landscape={[1280, 900]} portrait={[480, 1000]}>
         {(orientation) => (
-          <div className={`game-stage ${crowdClass(view.players.length)}${waiting !== null ? " has-waiting" : ""}`}>
+          <div
+            className={`game-stage ${crowdClass(view.players.length)}${waiting !== null ? " has-waiting" : ""}${yourMove ? " is-my-turn" : ""}`}
+          >
             <header className="stage-bar">
               <p className="stage-info">
                 <span className="stage-code">
@@ -574,7 +590,13 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
                 <Users aria-hidden="true" /> {view.players.length} joueurs · Manche {view.round} · fin à{" "}
                 {view.rules.end_score} pts
               </p>
-              <p className="hint" role="status" aria-live="polite">
+              <p className={`hint${yourMove ? " is-my-turn" : ""}`} role="status" aria-live="polite">
+                {/* Le mot « À vous » et l'icône portent l'information : la couleur seule ne suffit pas. */}
+                {yourMove && (
+                  <span className="pill pill-your-move">
+                    <BellRing aria-hidden="true" /> À vous
+                  </span>
+                )}
                 {me?.eliminated === true
                   ? "Vous avez été éliminé·e : vous pouvez regarder la suite de la partie."
                   : hint(view, mode)}

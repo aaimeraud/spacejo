@@ -172,7 +172,7 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/game/seats.ts` | place de chaque joueur autour de la table (moi en bas, puis l'ordre du tour, dans le sens des aiguilles d'une montre) |
 | `src/rulesInfo.ts` | explications, exemples, étiquettes « officiel » / « variante », préréglages (raccourcis de l'interface) et résumé des réglages |
 | `src/game/focus.ts` | en portrait, quel adversaire montrer en grand (choisi à la main, sinon celui qui joue, sinon celui qui vient de jouer) |
-| `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, classement (simple tri des totaux) |
+| `src/game/logic.ts` | quelle action envoie un clic, consigne à afficher, la partie attend-elle un geste de moi (`awaitingMe`), classement (simple tri des totaux) |
 | `public/` | fichiers servis tels quels : icônes (`favicon.ico`, `favicon.svg`, `apple-touch-icon.png`, `icons/`), image d'aperçu `og-image.png`, manifeste `manifest.webmanifest` et service worker `sw.js` de l'application installable (voir la décision « application installable ») |
 | `src/theme.ts` | thème clair ou sombre : celui du système par défaut, ou le choix gardé dans `localStorage` ; appliqué par `data-theme` sur `<html>` |
 | `src/game/chat.ts` | messages du chat : fusion sans doublon des messages reçus, nombre de non-lus, initiale de l'avatar, regroupement des réactions, double tap |
@@ -191,6 +191,12 @@ quel nombre de joueurs), avec un badge (nom, total, cartes cachées, hôte, « j
 défausse sont au centre, la carte en main flotte au-dessus ; ma grille est devant moi, sur le bord de la table.
 Avec une carte piochée en main, deux tuiles à bascule (« Échanger », « Défausser et retourner », boutons
 `aria-pressed`) choisissent ce que fera le clic sur une carte de ma grille.
+**À moi de jouer** : quand la partie attend un geste de moi (mon tour, ou mes 2 cartes à retourner pendant la mise
+en place : `awaitingMe` dans `game/logic.ts`), trois signaux s'allument ensemble : le bandeau de consigne passe à la
+couleur d'accent avec une pastille « À vous » et une cloche (cachées en portrait, où la consigne « À vous de
+jouer… » tient sur une ligne), un cadre lumineux entoure la scène, tracé à l'extérieur, dans la marge de l'écran
+(plus large sur l'écran de partie : 32 px, 18 px sur téléphone), pour laisser de l'air autour des éléments, et le titre de l'onglet commence par
+« À vous de jouer », utile quand l'onglet est en arrière-plan.
 La table est inclinée (`rotateX(40deg)`, variable CSS `--table-tilt`) et ma grille est très légèrement couchée
 devant moi. Les grilles des adversaires sont posées à plat sur la table, tournées vers leur propriétaire comme de
 vraies cartes posées devant lui (`Seat.rotation` : 180° en face, donc à l'envers pour moi, 90° à gauche, 270° à

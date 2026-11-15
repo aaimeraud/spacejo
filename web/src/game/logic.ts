@@ -20,6 +20,15 @@ export function isMyTurn(view: GameView): boolean {
   return view.phase === "Playing" && view.current_player === view.me;
 }
 
+/** La partie attend-elle un geste de MOI ? Sert à l'indicateur « À vous de jouer » (issue #16) : il doit aussi
+ * s'allumer pendant la mise en place, où chacun retourne ses 2 cartes sans ordre de tour. */
+export function awaitingMe(view: GameView): boolean {
+  const me = view.players[view.me];
+  if (me === undefined || me.eliminated) return false;
+  if (view.phase === "InitialReveal") return me.initial_reveals < 2;
+  return isMyTurn(view);
+}
+
 export function playerName(view: GameView, id: number | null): string {
   if (id === null) return "";
   return view.players[id]?.name ?? `Joueur ${id + 1}`;
