@@ -21,6 +21,7 @@ import { slotAction } from "./game/logic";
 import { codeFromSearch } from "./invite";
 import { retryOnConflict } from "./retry";
 import { GameBoard } from "./components/GameBoard";
+import { playerThemeFor, screenThemeProps } from "./game/cardTheme";
 import { Home } from "./components/Home";
 import { Lobby } from "./components/Lobby";
 import {
@@ -395,11 +396,15 @@ export function App() {
   };
   const onSkip = (player: number) => write((s, version) => api.skip(s.code, s.token, version, player));
 
+  // Thème de l'écran entier : seulement pour le joueur qui a un thème, sur son propre écran.
+  const viewer = view?.players.find((player) => player.id === view?.me);
+  const screen = screenThemeProps(viewer === undefined ? null : playerThemeFor(viewer.name));
+
   return (
     // L'application occupe exactement l'écran : l'écran courant, mis à l'échelle pour tenir dans la place
     // disponible (aucun défilement de la page). Pas de barre de navigation : il n'y a nulle part où aller ;
     // le code de la partie et « Quitter » sont sur l'écran du salon et de la partie.
-    <div className="app">
+    <div className={`app${screen.className}`} style={screen.style}>
 
       <main className="app-main">
         {notice !== null && (

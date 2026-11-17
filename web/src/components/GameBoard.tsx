@@ -12,6 +12,7 @@ import { lastMessageId, unreadCount } from "../game/chat";
 import { pileReshuffled } from "../game/reshuffle";
 import { RESHUFFLE_ANIMATION_MS } from "../config";
 import { awaitingMe, hint, isMyTurn, nextRoundStatus, playerName, ranking, slotAction, type HeldMode } from "../game/logic";
+import { endGameMessage, playerMessagesFor, START_MESSAGE_MS } from "../gameMessages";
 import { focusedOpponent } from "../game/focus";
 import { hiddenCount, seatPlayers } from "../game/seats";
 import { ValueCard } from "./Card";
@@ -194,6 +195,22 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
   const [confirmingQuit, setConfirmingQuit] = useState(false);
   const quit = () => (view.phase === "GameOver" || me?.eliminated === true ? onLeave() : setConfirmingQuit(true));
   const [scoresOpen, setScoresOpen] = useState(false);
+  // Messages de début et de fin : réservés aux pseudos de `NAMED_PLAYER_MESSAGES`. Les autres joueurs ne les voient pas.
+  const viewerMessages = playerMessagesFor(view.players.find((player) => player.id === view.me)?.name ?? "");
+  // Bandeau de début de partie : affiché tant que la première manche n'a pas avancé à l'ouverture de l'écran
+  // (il ne revient pas à chaque mise à jour de la vue). Il se ferme seul après `START_MESSAGE_MS`, ou d'un clic.
+  const [startShown, setStartShown] = useState(
+    // Un joueur déjà éliminé (ou parti) à l'ouverture de l'écran ne voit pas le bandeau de début.
+    viewerMessages !== null &&
+      view.round === 1 &&
+      (view.phase === "InitialReveal" || view.phase === "Playing") &&
+      view.players[view.me]?.eliminated !== true,
+  );
+  useEffect(() => {
+    if (!startShown) return;
+    const timer = window.setTimeout(() => setStartShown(false), START_MESSAGE_MS);
+    return () => window.clearTimeout(timer);
+  }, [startShown]);
   const seats = seatPlayers(view);
   const me = view.players[view.me];
   const opponents = seats.filter((seat) => seat.index !== 0);
@@ -334,6 +351,9 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
               <p className="winner" role="status">
                 {winners.length > 1 ? `Victoire partagée : ${winners.join(", ")}` : `Victoire de ${winners[0] ?? ""}`}
               </p>
+              {viewerMessages !== null && (
+                <p className="game-message">{endGameMessage(viewerMessages, view.me, view.winners)}</p>
+              )}
               <ol className="ranking">
                 {ranking(view).map((player) => (
                   <li key={player.id} className={view.winners.includes(player.id) ? "is-winner" : ""}>
@@ -615,6 +635,14 @@ export function GameBoard({ view, code, busy, presence, waiting, onAction, onSki
                 </button>
               </div>
             </header>
+            {startShown && (
+              <div className="start-banner" role="status">
+                <p>{viewerMessages?.start}</p>
+                <button type="button" className="ghost-button" onClick={() => setStartShown(false)}>
+                  Fermer
+                </button>
+              </div>
+            )}
             {waiting !== null && <WaitingBanner view={view} waiting={waiting} busy={busy} onSkip={onSkip} />}
 
             {orientation === "landscape" ? (

@@ -352,6 +352,15 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 }
 .waiting-banner > .lucide { color: var(--warning); }
 .waiting-banner .ghost-button { flex: none; margin-left: auto; padding: 6px 14px; border-color: var(--warning); color: var(--warning); }
+/* Bandeau de début de partie : même place que le bandeau d'attente, couleur d'accent neutre. */
+.start-banner {
+  position: absolute; z-index: 6; top: 62px; left: 50%; transform: translateX(-50%); width: 920px; max-width: calc(100% - 32px);
+  display: flex; align-items: center; gap: 10px; background: var(--seat-active); color: var(--text);
+  border: 1px solid var(--accent-line); padding: 6px 8px 6px 16px; border-radius: 999px;
+}
+.start-banner p { margin: 0; }
+.start-banner .ghost-button { flex: none; margin-left: auto; padding: 6px 14px; }
+.is-portrait .start-banner { top: 50px; width: 464px; min-height: 42px; padding: 4px 6px 4px 10px; font-size: 0.85rem; }
 
 /* Paysage : table ovale inclinée en perspective. */
 .scene { position: absolute; top: 74px; left: 0; right: 0; height: 560px; perspective: 1000px; perspective-origin: 50% 0%; }
@@ -599,6 +608,20 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .card3d-back.has-card-theme { background: var(--theme-back); border-color: var(--theme-edge); }
 .card3d-back.has-card-theme .card-orbit { border-color: var(--theme-edge); }
 .card-heart { position: relative; width: calc(var(--card-font) * 0.85); height: calc(var(--card-font) * 0.85); color: var(--theme-mark); fill: currentColor; }
+/* Face visible d'une carte thématisée : fond du thème au lieu de la couleur de la valeur (`.tone-*`, plus faible
+   que ce sélecteur à deux classes), texte et coins dans les teintes du thème. */
+.card3d-front.has-card-theme { background: var(--theme-back); color: var(--theme-ink); border: 1px solid var(--theme-edge); }
+.card3d-front.has-card-theme .card-corner { color: var(--theme-mark); }
+/* Le carré d'un joueur thématisé (sa grille sur la table, son carré de la salle) prend la couleur du dos. Ce
+   sélecteur est plus faible que `.seat.is-active .seat-grid` : le joueur qui joue garde son surlignage. */
+.grid.has-card-theme { background: var(--theme-back); border-radius: 12px; padding: 6px; }
+.player-chip.has-card-theme { background: var(--theme-back); color: var(--theme-ink); }
+.player-chip.has-card-theme .player-chip-name { color: var(--theme-ink); }
+/* Écran entier d'un joueur thématisé : la palette du thème est posée sur `.app` (`.has-screen-theme`, voir
+   game/cardTheme.ts). Le fond de la racine suit la palette, pour que les marges de sécurité la suivent aussi. */
+/* `color` doit être redéclaré ici : sur `body`, `var(--text)` est résolu une fois (en blanc), et les enfants
+   héritent de cette valeur calculée, pas de la variable. */
+.app { background: var(--bg); color: var(--text); }
 /* Face : aplat de la couleur de la valeur, chiffre en noir. */
 .card3d-front { color: #000000; font-weight: 600; animation: pop 0.35s ease-out; }
 .card3d-blank { background: var(--card-back); border: 1px solid var(--card-edge); animation: none; }
@@ -624,6 +647,7 @@ button.primary.big { min-height: 48px; padding: 12px 24px; font-size: 1.05rem; }
 .game-over { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; }
 .trophy { width: 48px; height: 48px; color: var(--accent-line); }
 .winner { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; }
+.game-message { color: var(--muted); max-width: 40ch; }
 .ranking { list-style: none; margin: 0; padding: 0; width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 6px; counter-reset: rank; }
 .ranking li { counter-increment: rank; display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--bg-raised); }
 .ranking li::before { content: counter(rank) "."; color: var(--muted); width: 1.6em; text-align: right; }
@@ -732,8 +756,6 @@ button.primary.danger { background: var(--danger); color: #ffffff; }
 .chat-message.is-mine .chat-bubble { background: var(--bg-raised); }
 /* Bulle d'un joueur qui a un thème de cartes. `.chat-message` en tête : aussi prioritaire que la règle de mes
    messages (juste au-dessus), donc elle l'emporte aussi sur ma propre bulle. */
-.chat-message .chat-bubble.has-card-theme { background: var(--theme-back); color: var(--theme-ink); }
-.chat-message .chat-bubble.has-card-theme .chat-author { color: var(--theme-mark); }
 .chat-reactions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .chat-message.is-mine .chat-reactions { justify-content: flex-end; }
 /* Toutes les pastilles ont une bordure de 2 px (transparente si ce n'est pas la mienne) : la mienne n'est donc ni plus

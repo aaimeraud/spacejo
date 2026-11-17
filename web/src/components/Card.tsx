@@ -3,7 +3,7 @@
 // La valeur est toujours écrite en chiffres ; la couleur n'est qu'un repère supplémentaire.
 import { Heart } from "lucide-react";
 import type { PublicSlot } from "../api/types";
-import type { CardTheme } from "../config";
+import type { PlayerTheme } from "../config";
 import { cardThemeProps } from "../game/cardTheme";
 
 /** Famille de couleur selon la valeur : négatif, zéro, faible, moyen, élevé. */
@@ -20,8 +20,8 @@ export type CardSize = "sm" | "md" | "lg";
 interface Props {
   slot: PublicSlot;
   size?: CardSize;
-  /** Thème de cartes du joueur (`game/cardTheme.ts`) : dos coloré, avec un cœur à la place de la marque. */
-  theme?: CardTheme | null;
+  /** Thème du joueur (`game/cardTheme.ts`) : dos et face colorés, avec un cœur à la place de la marque. */
+  theme?: PlayerTheme | null;
 }
 
 export function Card3D({ slot, size = "md", theme = null }: Props) {
@@ -37,7 +37,13 @@ export function Card3D({ slot, size = "md", theme = null }: Props) {
         {faceUp ? (
           // `key` sur la valeur : quand une carte visible est remplacée par une autre, la face est
           // recréée et rejoue son animation d'apparition.
-          <span key={slot.value} className={`card3d-face card3d-front ${valueTone(slot.value)}`}>
+          // La face d'une carte d'un joueur thématisé prend aussi les couleurs du thème (fond, texte) :
+          // la valeur reste écrite en chiffres, donc lisible sans la couleur de la famille de valeur.
+          <span
+            key={slot.value}
+            className={`card3d-face card3d-front ${valueTone(slot.value)}${themed.className}`}
+            style={themed.style}
+          >
             <span className="card-corner card-corner-top">{slot.value}</span>
             <span className="card-value">{slot.value}</span>
             <span className="card-corner card-corner-bottom">{slot.value}</span>

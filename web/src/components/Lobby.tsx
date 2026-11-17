@@ -21,6 +21,7 @@ import { MAX_PLAYERS } from "../config";
 import { inviteLink } from "../invite";
 import { FitStage } from "./FitStage";
 import { Modal } from "./Modal";
+import { cardThemeProps, playerThemeFor } from "../game/cardTheme";
 import { QrCode } from "./QrCode";
 import { ThemeToggle } from "./ThemeToggle";
 import { RuleStepBody, RulesRecap, WizardFrame, ruleStepTitle, useRulesFlow } from "./wizard/RuleSteps";
@@ -194,8 +195,15 @@ export function Lobby({
                 <Users aria-hidden="true" /> Joueurs ({view.players.length} / {MAX_PLAYERS})
               </h2>
               <ul className="player-chips">
-                {view.players.map((player) => (
-                  <li key={player.id} className={`player-chip${connected(player.id) ? "" : " is-absent"}`}>
+                {view.players.map((player) => {
+                  // Le carré du joueur prend les couleurs de son thème (vu par tous, comme sur la table).
+                  const themed = cardThemeProps(playerThemeFor(player.name));
+                  return (
+                  <li
+                    key={player.id}
+                    className={`player-chip${connected(player.id) ? "" : " is-absent"}${themed.className}`}
+                    style={themed.style}
+                  >
                     <span className="badge-avatar" aria-hidden="true">
                       {player.name.slice(0, 1).toUpperCase()}
                     </span>
@@ -226,7 +234,8 @@ export function Lobby({
                       </button>
                     )}
                   </li>
-                ))}
+                  );
+                })}
               </ul>
               <div className="lobby-start">
                 {isHost ? (
