@@ -288,10 +288,11 @@ officielles (réglages par défaut), proposé plus discrètement que les autres 
 mentions légales pour un projet personnel, scolaire, open source et non commercial, sans données personnelles
 de l'éditeur.
 
-1. [x] Tutoriel (`web/src/tutorial.ts` pour le contenu, `components/Tutorial.tsx` pour l'affichage) : quelques
-   étapes avec des cartes d'exemple (but, mise en place, tour, colonne identique, fin de manche et pénalité, fin
-   de partie). Contenu tiré de `docs/RULES.md`, règles officielles uniquement. Lien discret sous les trois tuiles
-   de l'accueil.
+1. [x] Tutoriel (`web/src/tutorial.ts` pour le contenu, `game/tutorialGame.ts` pour le moteur,
+   `components/Tutorial.tsx` pour l'affichage) : explications (but, mise en place), puis une manche fixe jouée
+   pas à pas contre Aatish, un ami automatisé : le joueur clique la case entourée, Aatish joue ses coups (pioche, échange,
+   défausse, colonne identique), puis fin de manche et fin de partie en texte. Contenu tiré de `docs/RULES.md`,
+   règles officielles uniquement. Lien discret sous les trois tuiles de l'accueil.
 2. [x] Mentions légales (`components/LegalNotice.tsx`) : éditeur non professionnel anonyme (LCEN, art. 1-1 II :
    seul l'hébergeur est nommé), hébergeurs (Render, Supabase), données traitées, stockage local sans cookie,
    services tiers (Google Fonts, API GitHub), propriété intellectuelle et marque Skyjo. Lien en pied de l'accueil.
