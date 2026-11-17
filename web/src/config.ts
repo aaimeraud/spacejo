@@ -73,13 +73,13 @@ export const GAME_KEPT_WHEN_IDLE_HOURS = 24;
 /** Un thème de cartes personnalisé : les couleurs du dos des cartes d'un joueur (avec un cœur à la place du « S »), de
  * ses contours de cartes et de ses bulles du chat (docs/ARCHITECTURE.md, « Thèmes de cartes personnalisés »). */
 export interface CardTheme {
-  /** Fond du dos des cartes et des bulles du chat (une couleur foncée). */
+  /** Fond du dos et de la face des cartes du joueur, et du cadre de sa grille (une couleur foncée). */
   back: string;
   /** Bord du dos et cadre intérieur, un peu plus clair que le fond. */
   edge: string;
-  /** Cœur du dos et nom de l'auteur dans le chat (une couleur claire). */
+  /** Cœur du dos et coins de la face (une couleur claire). */
   mark: string;
-  /** Texte des bulles du chat. */
+  /** Texte de la face des cartes (valeur). */
   ink: string;
   /** Contours (cartes jouables, colonne retirée) sur le fond sombre du site : plutôt clair. */
   lineOnDark: string;
@@ -87,33 +87,140 @@ export interface CardTheme {
   lineOnLight: string;
 }
 
-/** Les thèmes de cartes. Pour en ajouter un : une entrée ici, puis un ou plusieurs pseudos dans `NAMED_CARD_THEMES`.
- * `satisfies` vérifie chaque entrée sans perdre la liste exacte des noms de thème (`CardThemeId`). */
-export const CARD_THEMES = {
-  pink: {
-    back: "#6e1f42",
-    edge: "#9c3a66",
-    mark: "#ffb8d4",
-    ink: "#ffe8f1",
-    lineOnDark: "#ff8fbd",
-    lineOnLight: "#c2306e",
-  },
-  blue: {
-    back: "#1b3566",
-    edge: "#3b5f9e",
-    mark: "#b9d3ff",
-    ink: "#e6f0ff",
-    lineOnDark: "#7fb0ff",
-    lineOnLight: "#2b5fc7",
-  },
-} satisfies Record<string, CardTheme>;
+/** Variables CSS de l'écran entier (`--bg`, `--text`…) : elles remplacent celles de `:root` (styles.css). */
+export type ScreenPalette = Readonly<Record<`--${string}`, string>>;
 
-export type CardThemeId = keyof typeof CARD_THEMES;
+/** Thème d'un joueur : ses cartes (vues par tous) et son écran (vu par lui seul). */
+/** Messages du joueur à thème, affichés à lui seul (et à ceux de ses pseudos). */
+export interface PlayerMessages {
+  /** Bandeau au lancement de la partie. */
+  start: string;
+  /** Fin de partie : il gagne seul. */
+  winner: string;
+  /** Fin de partie : victoire partagée avec d'autres gagnants. */
+  sharedWinner: string;
+  /** Fin de partie : il ne gagne pas (y compris éliminé ou abandon). */
+  loser: string;
+}
 
-/** Pseudos (en minuscules) qui reçoivent un thème de cartes. Rien sur le site ne l'annonce. */
-export const NAMED_CARD_THEMES: Readonly<Record<string, CardThemeId>> = {
-  misslegendr: "pink",
-  misterlegendr: "blue",
+export interface PlayerTheme {
+  cards: CardTheme;
+  screen: ScreenPalette;
+  messages: PlayerMessages;
+}
+
+/** Les thèmes des joueurs. Pour en ajouter un : une entrée ici, puis un ou plusieurs pseudos dans
+ * `NAMED_PLAYER_THEMES`. `satisfies` vérifie chaque entrée sans perdre la liste exacte des noms (`PlayerThemeId`). */
+export const PLAYER_THEMES = {
+  // Palette « Hello Kitty » inspirée du rose et du blanc, sans logo ni personnage officiel (droits réservés).
+  kitty: {
+    cards: {
+      back: "#e0245e",
+      edge: "#ff8fb8",
+      mark: "#fff0f6",
+      ink: "#ffffff",
+      lineOnDark: "#ff8fb8",
+      lineOnLight: "#b8124a",
+    },
+    messages: {
+      start: "Azull ! Bon courage la plus forte !",
+      winner: "OMG MAIS LA PUISSANCE DE DINGUE",
+      sharedWinner: "Bon lui dit pas mais t'es 100x plus forte",
+      loser: "NON JE SUIS PAS D'ACCORD T'AS GAGNÉE",
+    },
+    screen: {
+      "--bg": "#ffd6e7",
+      "--bg-panel": "#fff4f9",
+      "--bg-raised": "#ffe6f1",
+      "--bg-nested": "#ffd0e3",
+      "--border": "#f5a3c7",
+      "--control": "#e87fab",
+      "--text": "#3b1d2e",
+      "--muted": "#7a3f5c",
+      "--faint": "#8f5a75",
+      "--accent": "#e0245e",
+      "--accent-ink": "#ffffff",
+      "--accent-line": "#c81d54",
+      "--focus": "#3b1d2e",
+      "--danger": "#b00031",
+      "--danger-bg": "#ffe0e8",
+      "--warning": "#8a4b00",
+      "--warning-bg": "#fff1c9",
+      "--hover": "#ffc2dc",
+      "--on-text": "#ffffff",
+      "--primary-hover": "#c81d54",
+      "--table": "#ffb8d6",
+      "--table-rim": "#ff9cc6",
+      "--seat-active": "#ffe0ee",
+      "--backdrop": "rgba(120, 20, 60, 0.45)",
+    },
+  },
+  // Palette « Dear Daniel » : je n'ai pas de référence visuelle pour ce thème. Ces couleurs bleu nuit sont un
+  // placeholder à ajuster.
+  daniel: {
+    cards: {
+      back: "#1b3566",
+      edge: "#3b5f9e",
+      mark: "#b9d3ff",
+      ink: "#e6f0ff",
+      lineOnDark: "#7fb0ff",
+      lineOnLight: "#2b5fc7",
+    },
+    messages: {
+      start: "Bonjour grand Maître",
+      winner: "Évidemment, cela va de soi",
+      sharedWinner: "Tu devais bien partager avec ces gueux",
+      loser: "RIP BOZO BETTER LUCK NEXT TIME",
+    },
+    screen: {
+      "--bg": "#0d1b3d",
+      "--bg-panel": "#132a57",
+      "--bg-raised": "#1b3566",
+      "--bg-nested": "#24447c",
+      "--border": "#2f5590",
+      "--control": "#4a6fae",
+      "--text": "#e6f0ff",
+      "--muted": "#b9d3ff",
+      "--faint": "#9fbfef",
+      "--accent": "#7fb0ff",
+      "--accent-ink": "#071428",
+      "--accent-line": "#7fb0ff",
+      "--focus": "#ffffff",
+      "--danger": "#ff7a8a",
+      "--danger-bg": "#3a1620",
+      "--warning": "#ffd166",
+      "--warning-bg": "#3a2e0e",
+      "--hover": "#2a4a80",
+      "--on-text": "#071428",
+      "--primary-hover": "#d6e6ff",
+      "--table": "#0a1632",
+      "--table-rim": "#132a57",
+      "--seat-active": "#22417a",
+      "--backdrop": "rgba(5, 12, 30, 0.72)",
+    },
+  },
+} satisfies Record<string, PlayerTheme>;
+
+export type PlayerThemeId = keyof typeof PLAYER_THEMES;
+
+/** Pseudos (en minuscules) qui reçoivent un thème de joueur. Rien sur le site ne l'annonce. */
+export const NAMED_PLAYER_THEMES: Readonly<Record<string, PlayerThemeId>> = {
+  misslegendr: "kitty",
+  misterlegendr: "daniel",
+};
+
+/** Pseudos (en minuscules) qui reçoivent les messages d'un thème, sans le thème (cartes et écran restent neutres).
+ * Les pseudos de `NAMED_PLAYER_THEMES` y figurent aussi. */
+export const NAMED_PLAYER_MESSAGES: Readonly<Record<string, PlayerThemeId>> = {
+  misslegendr: "kitty",
+  mass: "kitty",
+  massilva: "kitty",
+  masspace: "kitty",
+  massky: "kitty",
+  misterlegendr: "daniel",
+  dan: "daniel",
+  daniel: "daniel",
+  aaimeraud: "daniel",
 };
 
 /** Plus petite et plus grande valeur d'une carte (docs/RULES.md). */

@@ -177,7 +177,8 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 | `src/theme.ts` | thème clair ou sombre : celui du système par défaut, ou le choix gardé dans `localStorage` ; appliqué par `data-theme` sur `<html>` |
 | `src/game/chat.ts` | messages du chat : fusion sans doublon des messages reçus, nombre de non-lus, initiale de l'avatar, regroupement des réactions, double tap |
 | `src/game/homeCards.ts` | éventail de l'accueil : valeurs de cartes tirées au hasard à chaque visite |
-| `src/game/cardTheme.ts` | thèmes de cartes personnalisés : thème d'un joueur d'après son nom, couleurs du thème en variables CSS |
+| `src/game/cardTheme.ts` | thèmes des joueurs : thème d'après le nom, couleurs des cartes et palette de l'écran en variables CSS |
+| `src/gameMessages.ts` | choix du message de fin selon le résultat du joueur, et durée du bandeau de début (les textes sont dans `PLAYER_THEMES`) |
 | `src/game/reshuffle.ts` | repère le remélange de la défausse en pioche (la pioche grossit pendant une manche), pour l'animer sur la table |
 | `src/game/departures.ts` | messages « X a abandonné la partie » / « X a quitté le salon », trouvés en comparant deux vues |
 | `src/retry.ts` | rejouer une écriture refusée pour conflit de version (sert aux retournements de la mise en place) |
@@ -285,24 +286,38 @@ le même serveur sert l'API et l'interface construite (`web/dist`) sur une seule
 
 Choix et alternatives : [decisions/2026-11-04-parties-publiques.md](decisions/2026-11-04-parties-publiques.md).
 
-## Thèmes de cartes personnalisés
+## Thèmes des joueurs
 
-Certains pseudos donnent au joueur un thème de cartes : le dos de ses cartes prend un fond coloré avec un cœur à la
-place du « S », les contours de ses cartes (cartes jouables, colonne retirée) prennent la couleur du thème au lieu de
-l'accent vert-jaune, et ses bulles du chat la même couleur. C'est purement décoratif : l'interface le déduit du nom
-(`game/cardTheme.ts`), sans rien changer au jeu, à l'API ni à ce que voit le serveur, et tous les joueurs voient le
-thème. Rien sur le site ne l'annonce.
+Certains pseudos donnent au joueur un thème (`PLAYER_THEMES`, `web/src/config.ts`). Il a deux effets, tous deux
+purement décoratifs (l'interface les déduit du nom, `game/cardTheme.ts` ; rien ne change au jeu, à l'API ni à ce que
+voit le serveur) :
+- **Ses cartes et le carré de sa grille** (dos, face visible, cadre de la grille, carré de la salle d'attente) prennent
+  les couleurs du thème. Tous les joueurs voient cela.
+- **L'écran entier** prend la palette du thème, mais seulement sur l'écran de ce joueur-là (`App.tsx` pose la palette
+  sur `.app`). Les autres joueurs ne voient que les cartes et le carré.
 
-Les thèmes sont des données, pas du code (`web/src/config.ts`) :
-- `CARD_THEMES` : un thème = un nom (`pink`, `blue`…) et ses six couleurs (`CardTheme` : fond, bord, cœur, texte du
-  chat, contour sur fond sombre, contour sur fond clair) ;
-- `NAMED_CARD_THEMES` : pseudo en minuscules → nom du thème. La comparaison ignore les majuscules et les espaces autour.
+Les thèmes sont des données :
+- `PLAYER_THEMES` : un thème = un nom (`kitty`, `daniel`…), ses six couleurs de cartes (`cards` : fond, bord, cœur,
+  texte, contours) et sa palette d'écran (`screen` : variables CSS `--bg`, `--text`… qui remplacent celles de `:root`) ;
+- `NAMED_PLAYER_THEMES` : pseudo en minuscules → nom du thème (cartes et écran). La comparaison ignore les majuscules et
+  les espaces autour.
+- `NAMED_PLAYER_MESSAGES` : pseudo en minuscules → thème dont on prend les messages, sans le thème. Certains pseudos n'ont
+  que des messages, leurs cartes et leur écran restent neutres.
 
-Ajouter un thème, c'est donc ajouter une entrée à `CARD_THEMES` et un ou plusieurs pseudos à `NAMED_CARD_THEMES` : ni
-composant ni CSS à toucher. Les composants (`GridView`, `Card`, `ChatPanel`) posent la classe `has-card-theme` et les
-couleurs du thème en variables CSS (`--theme-back`, `--theme-mark`…, `cardThemeProps`) ; `styles.css` ne contient
-aucune couleur de thème. Le test `cardTheme.test.ts` vérifie que chaque pseudo mène à son thème et que chaque couleur
-est écrite `#rrggbb`. Choisir un fond foncé et un cœur clair, et des contours lisibles sur les deux fonds du site.
+Les composants posent la classe `has-card-theme` (cartes, grille, carré de la salle) avec les couleurs en variables
+CSS `--theme-…`, et `has-screen-theme` sur `.app`. `styles.css` ne contient aucune couleur de thème. Le test
+`cardTheme.test.ts` vérifie les pseudos, la casse, et que chaque thème a une palette d'écran complète.
+
+Ajouter un thème : une entrée à `PLAYER_THEMES` (couleurs, palette, messages) et un pseudo à `NAMED_PLAYER_THEMES`.
+Plusieurs pseudos peuvent mener au même thème. Le thème « daniel » a une palette placeholder, à ajuster. Les thèmes ne suivent pas le réglage clair ou sombre : la palette reste la même.
+
+## Messages de début et de fin de partie
+
+Ces messages ne sont montrés qu'aux pseudos de `NAMED_PLAYER_MESSAGES` ; les autres joueurs ne les voient pas. Un bandeau
+apparaît au lancement de la partie (première manche, à l'ouverture de l'écran de jeu ; il se ferme seul après
+`START_MESSAGE_MS`, ou d'un clic). L'écran de fin affiche un message selon le résultat du joueur : gagnant seul,
+victoire partagée, ou défaite (`endGameMessage`). Les quatre textes sont dans le bloc `messages` de chaque thème
+(`PLAYER_THEMES`, `web/src/config.ts`) ; `web/src/gameMessages.ts` ne fait que choisir le bon. Rien de ces messages n'est envoyé au serveur ni stocké.
 
 ## Chat de la partie
 

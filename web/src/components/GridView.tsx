@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Action, ColumnView, PlayerView } from "../api/types";
 import { clearedColumns } from "../game/columns";
 import { slotLabel } from "../game/logic";
-import { cardThemeFor, cardThemeProps } from "../game/cardTheme";
+import { cardThemeProps, playerThemeFor } from "../game/cardTheme";
 import { Card3D, type CardSize } from "./Card";
 
 /** Durée de l'animation d'une colonne retirée (doit correspondre à `column-clear` dans styles.css). */
@@ -65,7 +65,7 @@ interface Props {
 
 export function GridView({ player, size = "md", actionFor, onAction, disabled = false }: Props) {
   const cleared = useClearedColumns(player.grid);
-  const theme = cardThemeFor(player.name);
+  const theme = playerThemeFor(player.name);
   const themed = cardThemeProps(theme);
   return (
     <div
