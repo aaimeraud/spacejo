@@ -2,6 +2,21 @@
 
 Ce fichier est GÉNÉRÉ par git-cliff à chaque release (scripts/release.sh) : ne pas l'éditer à la main.
 
+## 1.7.0 - 2026-11-17
+
+### Nouveautés
+
+- **gh** : Issue templates (c863dd0)
+- **web** : Allows claude to ping (369f82b)
+- **web** : Highlight the screen when it is the player's turn (c380650)
+- **db** : Enable row level security on public tables (e20df6f)
+- **web** : Play an interactive tutorial round against Aatish (1f65973)
+- **web** : Theme whole screen for two named players and add messages (acd4ab2)
+
+### Documentation
+
+- Updated the readme (9b33a1f)
+
 ## 1.6.1 - 2026-11-05
 
 ### Nouveautés
