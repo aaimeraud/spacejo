@@ -413,6 +413,11 @@ Table `chat_reactions`, créée par `migrations/0005_chat_reactions.sql` : `mess
 Le schéma n'évolue que par de nouveaux fichiers dans `migrations/` (jamais à la main) ; `cargo run --bin migrate`
 les applique, et `sqlx` note celles déjà appliquées dans `_sqlx_migrations`.
 
+**Row Level Security** : toutes les tables de `public` ont la RLS activée (`migrations/0006_enable_rls.sql`) et
+aucune politique. L'API Supabase (rôles `anon` et `authenticated`) ne voit donc rien : seul le serveur Rust, connecté
+avec le rôle propriétaire des tables, accède aux données. Détails et alternatives :
+[RLS sur Supabase](decisions/2026-11-17-rls-supabase.md). Toute nouvelle table doit activer la RLS dans sa migration.
+
 Le JSON de `state` a son propre numéro de format, `state_version` (actuellement 5 ; les v1 à v4 sont migrées à la lecture). Si le format de `Game`
 change, il faut incrémenter `STATE_VERSION` et écrire la migration dans `StoredGame::decode` ; un état
 illisible est refusé avec l'erreur `unsupported_state_version`. Le test `tests/state_version.rs` relit un
