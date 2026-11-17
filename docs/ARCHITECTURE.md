@@ -161,7 +161,8 @@ intentions et affiche la vue reçue. Elle ne calcule aucun score (le tableau aff
 |---|---|
 | `src/api/types.ts` | types de l'API, recopiés de [CONTRACT.md](CONTRACT.md) |
 | `src/api/client.ts` | appels HTTP, jeton dans l'en-tête `X-Player-Token`, erreurs → `ApiError` |
-| `src/tutorial.ts` | contenu du tutoriel des nouveaux joueurs (étapes, cartes d'exemple), sur les règles officielles |
+| `src/tutorial.ts` | contenu du tutoriel des nouveaux joueurs : des explications, puis une manche fixe jouée pas à pas contre Aatish (gestes à faire sur la case entourée, coups joués par Aatish), sur les règles officielles |
+| `src/game/tutorialGame.ts` | moteur du tutoriel : applique les gestes de la manche fixe (pioche, échange, défausse, colonne identique) et refuse ceux que les règles interdisent. Pur, sans réseau ; l'affichage ne voit jamais la valeur d'une carte cachée |
 | `src/github.ts` | version (tag de la dernière release) et dernier commit de `main`, lus sur l'API publique de GitHub, gardés 10 minutes dans `localStorage` |
 | `src/invite.ts` | lien d'invitation (`/?code=K7MPQX`) : le fabriquer, et relire le code d'une adresse |
 | `src/qr.ts` | matrice du code QR d'un texte (bibliothèque `qrcode-generator`), dessinée en SVG par `components/QrCode.tsx` |

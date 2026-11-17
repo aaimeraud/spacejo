@@ -767,8 +767,32 @@ button.link-button:hover:not(:disabled) { background: none; color: var(--text); 
 .tuto-cards { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
 .tuto-grid { display: flex; gap: 8px; }
 .tuto-column { display: flex; flex-direction: column; gap: 6px; padding: 4px; border-radius: 10px; border: 2px solid transparent; }
-/* Colonne identique : entourée (pas seulement colorée) pour rester lisible sans la couleur. */
-.tuto-column.is-highlighted { border-color: var(--accent); border-style: dashed; }
+/* Plateau du tutoriel : Aatish en haut, la table au milieu, vous en bas. */
+.tuto-prompt { font-weight: 500; }
+.tuto-hint { min-height: 1.5em; margin: 0; color: var(--danger); font-size: 0.92rem; }
+.tuto-hint:empty { min-height: 0; }
+.tuto-board { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.tuto-side { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.tuto-side-title { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.tuto-board-grid { display: flex; gap: 6px; }
+.tuto-board-grid .tuto-column { border: 0; padding: 0; }
+.tuto-removed { width: 52px; min-height: 60px; display: grid; place-items: center; padding: 4px; border: 1px dashed var(--border); border-radius: 10px; color: var(--muted); font-size: 0.7rem; text-align: center; }
+.tuto-table { display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.tuto-held { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tuto-held-label { color: var(--muted); font-size: 0.8rem; }
+.tuto-empty { color: var(--muted); font-size: 0.8rem; }
+/* Case cliquable : un bouton sans habillage, pour garder la taille de la carte. */
+button.tuto-spot {
+  min-height: 0; padding: 0; border: 0; background: none; border-radius: 10px; cursor: pointer;
+  box-shadow: none;
+}
+button.tuto-spot:hover:not(:disabled) { background: none; }
+button.tuto-spot:disabled { cursor: default; }
+.tuto-spot { display: inline-flex; border-radius: 10px; }
+/* Geste attendu : entouré en pointillés (une bordure, pas seulement une couleur). */
+.tuto-spot.is-target { outline: 3px dashed var(--accent); outline-offset: 3px; }
+.tuto-board .card3d-sm { --card-w: 46px; --card-h: 64px; --card-font: 1.2rem; }
+.is-portrait .tuto-board .card3d-sm { --card-w: 40px; --card-h: 56px; --card-font: 1.05rem; }
 .is-portrait .tuto-cards .card3d-md { --card-w: 52px; --card-h: 74px; --card-font: 1.4rem; }
 .legal-notice { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 16px; padding-right: 6px; line-height: 1.5; }
 .legal-notice section { display: flex; flex-direction: column; gap: 6px; }

@@ -162,3 +162,9 @@ export const GITHUB_CACHE_MS = 10 * 60 * 1000;
 
 /** Clé de `localStorage` de ce cache. */
 export const GITHUB_CACHE_KEY = "spacejo.github";
+
+/** Pause avant de passer seul à l'étape suivante après un coup de Aatish, le temps de lire sa narration (tutoriel). */
+export const TUTORIAL_BOT_PAUSE_MS = 2400;
+
+/** Pause avant de passer seul à l'étape suivante après un geste réussi (tutoriel). */
+export const TUTORIAL_SUCCESS_PAUSE_MS = 1600;
